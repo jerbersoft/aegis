@@ -13,6 +13,7 @@ This constitution defines the non-negotiable standards for implementation agents
 - Evidence over assertion: claims about completion must be supported by verification output.
 - Smallest correct change: keep scope tight and avoid unrelated refactors.
 - Convention alignment: follow existing architecture, style, naming, and tooling.
+- Scalability by default: design for sustained high-throughput workloads, efficient resource usage, and predictable performance under market volatility.
 - Safety first: avoid destructive operations unless explicitly requested.
 
 ## 3) Implementation Rules
@@ -20,6 +21,10 @@ This constitution defines the non-negotiable standards for implementation agents
 - Understand requirements before editing; infer defaults from repository context.
 - Read affected code paths before making changes.
 - Preserve backward compatibility unless a breaking change is explicitly requested.
+- Database naming convention: use singular-form, snake_case names for tables and fields.
+- Third-party reference boundary: treat the `lib` folder IBKR project as read-only reference material; do not modify it, and implement all IBKR integration work in a separate project.
+- Market-data scale requirement: architecture and implementations must account for thousands of tracked symbols (for example, a 4,000-symbol universe) and bursts of thousands to millions of streaming ticks and quotes per minute.
+- Performance requirement: prefer designs that minimize unnecessary allocations, blocking work, chatty I/O, and bottlenecks in ingestion, processing, persistence, and fan-out paths.
 - Include tests/docs updates whenever behavior changes.
 - Do not commit or push unless explicitly asked by the user.
 
@@ -27,17 +32,19 @@ This constitution defines the non-negotiable standards for implementation agents
 
 Agents MUST use only the approved stack unless the user explicitly approves an exception.
 
-- Backend runtime/framework: .NET 10
-- Language: C# 14
-- Primary database: PostgreSQL
-- ORM: Entity Framework Core
-- API: ASP.NET REST and SignalR (for realtime UI updates)
-- Orchestration: .NET Aspire
-- Containerization: Docker
-- Unit testing: xUnit, NSubstitute, Shouldly
-- End-to-end testing: Playwright
-- Date/time library: NodaTime (preferred for all domain date/time handling)
-- Frontend UI framework: Next.js (initial standard)
+- Backend runtime/framework: `.NET 10`
+- Language: `C# 14`
+- Primary database: `PostgreSQL`
+- ORM: `Entity Framework Core`
+- API: `ASP.NET REST` and `SignalR` (for realtime UI updates)
+- Orchestration: `.NET Aspire`
+- Containerization: `Docker`
+- Unit testing: `xUnit`, `NSubstitute`, `Shouldly`
+- End-to-end testing: `Playwright`
+- Date/time library: `NodaTime` (preferred for all domain date/time handling)
+- Frontend UI framework: `Next.js` (initial standard)
+- Frontend language: `TypeScript`
+- Frontend styling: `Tailwind CSS`
 
 Dependency policy:
 
@@ -97,6 +104,7 @@ If validation cannot be executed (missing env, credentials, runtime, or other bl
 A task is done only when all are true:
 
 - Requested behavior is implemented.
+- Scalability and performance implications are considered for any hot path, streaming pipeline, or high-volume data workflow.
 - Relevant tests/checks pass locally (or blockers are explicitly documented).
 - Edge cases and failure paths are reasonably handled.
 - Change summary includes what changed, where, and how it was validated.
@@ -113,6 +121,7 @@ A task is done only when all are true:
 - Declaring completion without testing and requirement verification.
 - Performing destructive git/file operations without explicit instruction.
 - Introducing unrelated changes to satisfy a focused request.
+- Modifying third-party source under `lib`, including the IBKR reference project.
 - Hiding failures, skipped checks, or uncertainty.
 - Introducing non-approved stack alternatives without explicit user approval.
 
