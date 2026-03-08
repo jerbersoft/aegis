@@ -9,18 +9,46 @@ This document defines the backend system structure for Aegis.
 - All backend modules run inside a single `ASP.NET` process.
 - Brokerage integration and market data integration remain isolated from business modules through adapter boundaries.
 
+Physical solution layout:
+
+- First-party production code lives under `src/`.
+- Business modules live under `src/modules/`.
+- External vendor adapters live under `src/adapters/`.
+- Tests live under `tests/`.
+- Third-party reference code in `lib/` is read-only and not part of the business architecture.
+
 ## 2) Module Isolation Rules
 
 - Modules must not reference each other directly.
 - Modules communicate through shared contracts and in-process messaging only.
 - The shared layer may contain only shared interfaces, enums, and primitives.
 - The shared layer must not contain domain models or business logic.
+- Modules may reference only `Aegis.Shared` from other first-party projects.
+- Adapters may reference only `Aegis.Shared` from other first-party projects.
+- `Aegis.Api` is the composition root and may reference `Aegis.Shared`, module projects, and adapter projects.
+
+Project and namespace conventions:
+
+- Module project names do not include `.Modules`; examples: `Aegis.MarketData`, `Aegis.Universe`, `Aegis.Orders`.
+- Module root namespaces match project names.
+- Adapter projects use adapter-qualified names such as `Aegis.Adapters.IBKR` and `Aegis.Adapters.Alpaca`.
+- The shared project name is `Aegis.Shared`.
+- `Aegis.Shared` may expose types under the `Aegis` root namespace when that better reflects ownership and keeps public contracts aligned to module boundaries.
 
 ## 3) Messaging Model
 
 - Cross-module communication uses strongly typed, in-process channels.
 - Channels are used to send and receive messages between modules inside the monolith.
 - Modules publish and consume normalized messages rather than vendor-specific payloads.
+
+Shared contract organization:
+
+- `Aegis.Shared` is organized by module first, then by concern.
+- Module-related shared contracts may use module-aligned namespaces when they clearly represent that module boundary.
+- Examples include `Aegis.Universe.Messaging.Queries`, `Aegis.Orders.Messaging.Commands`, and `Aegis.Portfolio.Integration`.
+- Message contract namespaces are split by purpose into `Commands`, `Queries`, and `Events`.
+- Message type suffixes are mandatory: `Command`, `Query`, `Result`, and `Event`.
+- Use neutral shared namespaces such as `Aegis.Primitives`, `Aegis.Enums`, and `Aegis.Results` only for truly cross-cutting types.
 
 ## 4) Backend Modules
 
@@ -31,12 +59,37 @@ This document defines the backend system structure for Aegis.
 - `Strategies`: owns strategy definitions, runtime management, and strategy-to-symbol assignments.
 - `Infrastructure`: owns connectivity monitoring, alerts, audit persistence, centralized pause/resume orchestration, kill switch behavior, and system/application-wide configuration.
 
+Current first-party project layout:
+
+- `src/Aegis.Api`: `ASP.NET` host, API endpoints, SignalR endpoints, and composition root.
+- `src/Aegis.Shared`: shared contracts, integration ports, enums, primitives, and normalized boundary DTOs.
+- `src/modules/Aegis.MarketData`
+- `src/modules/Aegis.Universe`
+- `src/modules/Aegis.Portfolio`
+- `src/modules/Aegis.Orders`
+- `src/modules/Aegis.Strategies`
+- `src/modules/Aegis.Infrastructure`
+- `src/adapters/Aegis.Adapters.IBKR`
+- `src/adapters/Aegis.Adapters.Alpaca`
+
+Module internal structure:
+
+- Each module uses the same top-level internal folders: `Application/`, `Domain/`, `Infrastructure/`, `Configuration/`, and `Messaging/`.
+- `Application` contains use cases, orchestration, handlers, and module application services.
+- `Domain` contains module-owned business rules, entities, aggregates, and invariants.
+- `Infrastructure` contains EF Core persistence, repositories, and module-internal implementations.
+- `Configuration` contains module-owned DI registration, options, and settings binding.
+- `Messaging` contains module-local handlers and module-owned messaging glue; shared message contracts remain in `Aegis.Shared`.
+
 ## 5) Adapter Boundaries
 
 - Broker-specific integrations live outside the modules folder.
 - `IBKR` connectivity is implemented in a separate adapter project under `adapters/`.
 - The `IBKR` adapter is injected into the `Portfolio` and `Orders` modules.
 - Business modules must not contain broker-vendor implementation details.
+- `Alpaca` connectivity is implemented in a separate adapter project under `adapters/`.
+- Adapter projects may contain both brokerage-facing and market-data-facing capability areas, but implementations should follow `YAGNI` and only be built when needed.
+- Adapters should implement module-facing contracts defined in `Aegis.Shared`; business modules must not depend on vendor SDK types or vendor-specific models.
 
 ## 6) Ownership Rules
 
@@ -64,8 +117,16 @@ This document defines the backend system structure for Aegis.
 
 - System-wide and application-wide settings are owned by `Infrastructure`.
 - Module-specific configuration is owned by the module it applies to.
+- Each module exposes its own DI wiring from its `Configuration/` area.
+- `Aegis.Api` invokes module registration and remains the top-level composition root.
 
-## 9) Auditability
+## 9) Persistence Boundaries
+
+- Each module owns its own `EF Core DbContext`.
+- Each module owns its own persistence models, mappings, and migrations.
+- Database ownership must respect module boundaries even though modules run in one process.
+
+## 10) Auditability
 
 The system must persist audit records in the database.
 
@@ -82,7 +143,7 @@ Retention and access:
 - Audit records are stored in the database for v1.
 - Audit history does not need a dedicated UI in v1.
 
-## 10) Core Domain Entities
+## 11) Core Domain Entities
 
 The first version centers on the following core entities.
 
@@ -125,7 +186,7 @@ The first version centers on the following core entities.
 
 - `AuditEvent`: the immutable audit record for operator actions, `IBKR` order/fill events, and strategy decisions that lead to orders.
 
-## 11) Entity Relationship Rules
+## 12) Entity Relationship Rules
 
 - A `Watchlist` contains many `WatchlistItem` records.
 - A `WatchlistItem` links one `Watchlist` to one `Symbol`.
