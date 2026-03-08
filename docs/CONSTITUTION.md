@@ -68,6 +68,19 @@ When to use each test type:
 - Integration tests: EF Core query behavior, migrations, API contracts, serialization, authentication/authorization policies, and SignalR hub interactions.
 - End-to-end tests (`Playwright`): high-value UI workflows, cross-page interactions, and user-visible regressions including realtime updates.
 
+Verification depth by task type:
+
+- Trivial or non-behavioral changes: docs-only updates, copy or text edits, comments, formatting, or equivalent changes that do not alter runtime behavior. These may be verified with relevant low-cost checks such as build, lint, or unit tests to confirm no regressions.
+- Behavior-changing work: bug fixes, new features, API changes, UI workflow changes, persistence changes, auth changes, integrations, configuration changes that affect runtime behavior, or any task with observable user/system impact. These require requirement-focused verification that demonstrates the behavior works according to the stated specification, not only that tests or builds pass.
+- When in doubt, classify the task as behavior-changing and apply the stricter verification standard.
+
+Coverage guidance:
+
+- Target roughly 80% unit test coverage as a nice-to-have signal, not a hard compliance gate.
+- Prioritize high-value tests over chasing coverage numbers; do not add low-importance or superficial tests only to reach 80%.
+- Focus unit test effort on complex logic, critical business rules, hot paths, failure handling, and components with meaningful branching or risk.
+- If lower coverage is acceptable for a change, prefer explaining the rationale over padding the suite with low-value tests.
+
 Minimum expectations:
 
 - Bug fix: add at least one regression test that would fail before the fix and pass after.
@@ -86,11 +99,14 @@ Verification reporting requirements:
 
 Before declaring a task complete, the agent MUST:
 
-1. Run relevant validation (tests, lint, build, or equivalent checks).
-2. Verify the implementation satisfies the stated requirement (not just compile success).
-3. Re-run checks after fixes until they pass.
+1. Classify the task as trivial/non-behavioral or behavior-changing and choose verification depth accordingly.
+2. Run relevant validation (tests, lint, build, or equivalent checks).
+3. Verify the implementation satisfies the stated requirement (not just compile success).
+4. For behavior-changing work, perform requirement-focused verification that shows the implemented behavior works according to specification.
+5. Re-run checks after fixes until they pass.
 
 The agent MUST NOT claim completion based only on code edits.
+The agent MUST NOT claim completion for behavior-changing work based only on build, lint, or unit/integration test success if the stated requirement still lacks direct verification.
 
 If validation cannot be executed (missing env, credentials, runtime, or other blockers), the agent must:
 
@@ -99,6 +115,12 @@ If validation cannot be executed (missing env, credentials, runtime, or other bl
 - Provide exact commands for the user to run.
 - Mark the task as not fully verified.
 
+Completion status language:
+
+- Use `complete` only when implementation and the required level of verification have both succeeded.
+- Use `implemented, not fully verified` when the code is changed but the required verification could not be completed.
+- Use `partial` when only part of the requested scope is implemented or verified.
+
 ## 7) Definition of Done
 
 A task is done only when all are true:
@@ -106,6 +128,7 @@ A task is done only when all are true:
 - Requested behavior is implemented.
 - Scalability and performance implications are considered for any hot path, streaming pipeline, or high-volume data workflow.
 - Relevant tests/checks pass locally (or blockers are explicitly documented).
+- The verification depth matches the task type: trivial/non-behavioral work gets appropriate regression checks, while behavior-changing work gets requirement-focused verification.
 - Edge cases and failure paths are reasonably handled.
 - Change summary includes what changed, where, and how it was validated.
 
@@ -113,12 +136,13 @@ A task is done only when all are true:
 
 - Be concise and factual.
 - State assumptions when requirements are implicit.
+- State the completion status accurately (`complete`, `implemented, not fully verified`, or `partial`) based on verification evidence.
 - Report validation commands and outcomes.
 - Separate verified facts from recommendations.
 
 ## 9) Prohibited Behaviors
 
-- Declaring completion without testing and requirement verification.
+- Declaring completion without the verification required for the task type.
 - Performing destructive git/file operations without explicit instruction.
 - Introducing unrelated changes to satisfy a focused request.
 - Modifying third-party source under `lib`, including the IBKR reference project.
