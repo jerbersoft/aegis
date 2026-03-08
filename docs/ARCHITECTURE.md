@@ -52,7 +52,7 @@ Shared contract organization:
 
 ## 4) Backend Modules
 
-- `MarketData`: owns market data provider integration, realtime ticks, realtime quotes, bars, historical bar persistence, and indicator calculations.
+- `MarketData`: owns market data provider integration, realtime ticks, realtime quotes, bars, historical bar persistence, startup/warmup hydration of rolling windows, shared in-memory market state, and indicator calculations.
 - `Universe`: owns symbols, watchlists, and symbol eligibility for the seeded `Execution` watchlist.
 - `Portfolio`: owns broker-connected account details, positions, portfolio snapshots, and broker-sourced `PnL` views.
 - `Orders`: owns order submission, working orders, historical orders, fills, and order lifecycle management.
@@ -97,8 +97,9 @@ Module internal structure:
 - `Strategies` owns strategy assignments.
 - A strategy may trade only symbols assigned to it.
 - A symbol may be assigned to a strategy only if it is in the `Execution` watchlist.
-- `MarketData` owns bar storage, tick and quote streams, and indicator calculation responsibilities.
-- `Strategies` consume bars and indicators but do not calculate indicators directly.
+- `MarketData` owns bar storage, tick and quote streams, startup/warmup hydration, shared in-memory market state, and indicator calculation responsibilities.
+- `Strategies` consume bars, indicators, and other shared in-memory market state from `MarketData` but do not calculate indicators directly.
+- `Strategies` should evaluate hot-path bar-driven logic from `MarketData`-owned in-memory rolling windows and runtime state, not by repeatedly querying persisted bar history.
 - `Strategies` emit order intent messages only.
 - `Orders` is the only module that maps order intents to broker order models and submits orders.
 - Manual trading actions from the UI must go through `Orders`.
@@ -125,6 +126,18 @@ Module internal structure:
 - Each module owns its own `EF Core DbContext`.
 - Each module owns its own persistence models, mappings, and migrations.
 - Database ownership must respect module boundaries even though modules run in one process.
+
+Market data bar persistence:
+
+- `MarketData` persists both daily and intraday bars in one logical singular-form `bar` table.
+- The logical `bar` table is physically partitioned to support scale, retention management, and efficient historical access.
+- On startup/warmup, `MarketData` loads persisted historical bars from the partitioned `bar` table and hydrates in-memory rolling windows used by runtime processing.
+- Only finalized bars are persisted; forming or in-progress bars must remain in memory and are not written to the database.
+- Finalized bars may be upserted to support idempotent backfill, replay, recovery, duplicate handling, and source corrections.
+- Indicator values are not persisted in the database for v1.
+- Indicator values are computed during hydration/runtime and attached to in-memory bar or market state rather than stored durably.
+- Daily-bar and intraday-bar processing may use different indicator sets or profiles.
+- Database bar storage exists for persistence, recovery, historical access, and startup/warmup hydration; hot-path strategy evaluation should prefer `MarketData`-owned shared in-memory rolling windows and runtime state rather than repeated database reads.
 
 ## 10) Auditability
 

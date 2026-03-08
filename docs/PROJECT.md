@@ -98,10 +98,18 @@ Default rolling retention policy:
 
 Retention notes:
 
+- Daily and intraday bars are stored in one logical singular-form `bar` table.
+- The logical `bar` table is physically partitioned.
+- On startup/warmup, historical bars are loaded from the persisted partitioned `bar` table into in-memory rolling windows.
 - Intraday retention is tracked separately for each interval.
 - Intraday bar retention is not pooled across all intervals for a symbol.
 - Each interval has its own retention policy and rolling window.
 - Intraday history includes extended-hours bars.
+- Only finalized bars are persisted; forming or in-progress bars are not stored in the database.
+- Finalized bars may be upserted to support idempotent backfill, replay, recovery, duplicate handling, and data corrections.
+- Indicator values are not persisted in the database for v1.
+- Indicator values are computed during hydration/runtime and attached to in-memory bar or market state only.
+- Daily bars and intraday bars may use different indicator sets or profiles.
 
 Supported intraday intervals include:
 
@@ -110,7 +118,9 @@ Supported intraday intervals include:
 - `15-min`
 - Additional intervals may be added later
 
-These retained bars will support live strategy execution, recent historical lookback, and dashboard context.
+These retained bars will support persistence, recovery, startup/warmup hydration, recent historical lookback, and dashboard context.
+
+Hot-path strategy evaluation should consume shared in-memory market state from `MarketData` rather than repeatedly reading persisted bar history.
 
 ## 7) Initial User Experience
 
