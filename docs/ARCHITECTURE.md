@@ -52,7 +52,7 @@ Shared contract organization:
 
 ## 4) Backend Modules
 
-- `MarketData`: owns market data provider integration, realtime ticks, realtime quotes, bars, historical bar persistence, startup/warmup hydration of rolling windows, shared in-memory market state, and indicator calculations.
+- `MarketData`: owns market data provider integration, realtime ticks, realtime quotes, bars, historical bar persistence, startup/warmup hydration of rolling windows, shared in-memory runtime state per symbol and interval, and indicator calculations.
 - `Universe`: owns symbols, watchlists, and symbol eligibility for the seeded `Execution` watchlist.
 - `Portfolio`: owns broker-connected account details, positions, portfolio snapshots, and broker-sourced `PnL` views.
 - `Orders`: owns order submission, working orders, historical orders, fills, and order lifecycle management.
@@ -94,12 +94,14 @@ Module internal structure:
 ## 6) Ownership Rules
 
 - `Universe` owns symbol and watchlist management independently of `MarketData`.
+- The `Universe` is the distinct set of symbols that appear in any watchlist.
 - `Strategies` owns strategy assignments.
 - A strategy may trade only symbols assigned to it.
 - A symbol may be assigned to a strategy only if it is in the `Execution` watchlist.
-- `MarketData` owns bar storage, tick and quote streams, startup/warmup hydration, shared in-memory market state, and indicator calculation responsibilities.
+- `MarketData` owns bar storage, tick and quote streams, startup/warmup hydration, shared in-memory runtime state per symbol and interval, and indicator calculation responsibilities.
 - `Strategies` consume bars, indicators, and other shared in-memory market state from `MarketData` but do not calculate indicators directly.
 - `Strategies` should evaluate hot-path bar-driven logic from `MarketData`-owned in-memory rolling windows and runtime state, not by repeatedly querying persisted bar history.
+- Strategies should not maintain duplicate full bar/indicator engines by default; they should consume `MarketData`-owned shared runtime state unless a specific exception is approved.
 - `Strategies` emit order intent messages only.
 - `Orders` is the only module that maps order intents to broker order models and submits orders.
 - Manual trading actions from the UI must go through `Orders`.
@@ -131,13 +133,51 @@ Market data bar persistence:
 
 - `MarketData` persists both daily and intraday bars in one logical singular-form `bar` table.
 - The logical `bar` table is physically partitioned to support scale, retention management, and efficient historical access.
-- On startup/warmup, `MarketData` loads persisted historical bars from the partitioned `bar` table and hydrates in-memory rolling windows used by runtime processing.
+- The `MarketData` session model uses an exchange-driven `US equities` calendar and must respect holidays and shortened trading days.
+- Session logic uses the exchange timezone, `America/New_York`; prefer `NodaTime` for market-date and session-boundary handling.
+- Persisted timestamps remain `UTC`, but market-date and session classification are exchange-local.
+- Session segments for v1 are `pre-market`, `regular`, and `post-market`.
+- Daily bars are `RTH`-only.
+- Intraday bars include extended hours and carry session awareness.
+- Startup/warmup is `DB`-first: `MarketData` loads persisted bars from the partitioned `bar` table, detects missing finalized bars, requests only those missing finalized bars from the market data provider, upserts them, then hydrates rolling windows and computes/finalizes indicator state and readiness.
 - Only finalized bars are persisted; forming or in-progress bars must remain in memory and are not written to the database.
 - Finalized bars may be upserted to support idempotent backfill, replay, recovery, duplicate handling, and source corrections.
 - Indicator values are not persisted in the database for v1.
 - Indicator values are computed during hydration/runtime and attached to in-memory bar or market state rather than stored durably.
-- Daily-bar and intraday-bar processing may use different indicator sets or profiles.
+- Final readiness requires a complete ordered bar sequence across the required warmup scope before indicators and dependent runtime state are considered ready.
+- Daily warmup covers the full `Universe` for the daily indicator profile so daily scanners remain correct.
+- Intraday warmup is required only for symbols that need intraday runtime behavior, including `Execution`/active trading symbols.
+- Full-`Universe` intraday warmup, including volume-buzz-driven full-`Universe` intraday scanning, is deferred from v1.
+- Warmup may include benchmark dependencies such as `SPY` even when they are not explicitly present in watchlists.
+- Historical indicator values should be served from hydrated in-memory windows while retained there; when no longer retained, they should be recomputed from persisted bars.
+- Daily-bar and intraday-bar processing use different indicator profiles.
+- Intraday indicator profiles are interval-specific; v1 requires at least distinct `1-min` and `5-min` profiles.
+- Indicator definitions remain parameterized/configurable even when v1 uses fixed default profiles.
 - Database bar storage exists for persistence, recovery, historical access, and startup/warmup hydration; hot-path strategy evaluation should prefer `MarketData`-owned shared in-memory rolling windows and runtime state rather than repeated database reads.
+
+v1 indicator profile defaults:
+
+- Daily profile:
+  - `sma_200`
+  - `sma_50`
+  - `sma_21`
+  - `sma_10`
+  - `sma_5_high`: `5`-period `SMA` of bar highs.
+  - `sma_5_low`: `5`-period `SMA` of bar lows.
+  - `rs_50`: `50`-day relative strength versus a benchmark, default `SPY`, computed as the rolling `50`-day sum of the symbol's `ATR-14`-normalized daily price changes minus the benchmark's `ATR-14`-normalized daily price changes.
+  - `sma_50_volume`
+  - `sma_21_volume`
+  - `rel_volume_21`: current bar volume divided by the average volume of the prior `21` daily bars, excluding the current bar; stored as a ratio, not a percent.
+  - `rel_volume_50`: current bar volume divided by the average volume of the prior `50` daily bars, excluding the current bar; stored as a ratio, not a percent.
+  - `pocket_pivot`: true when current session volume is greater than the highest volume of any red bar in the prior `10` days and close is above `50%` of `DCR`; a red bar means `close < prior day close`.
+  - `dcr_percent`: daily closing range expressed as a percent where close at high = `100` and close at low = `0`.
+  - `atr_14_value` and `atr_14_percent`: `ATR-14` uses Wilder smoothing; percent is based on close.
+  - `adr_14_value` and `adr_14_percent`: percent is based on close.
+- Intraday profiles:
+  - `1-min`: `ema_30`, `ema_100`, `volume_buzz_percent`, `vwap`
+  - `5-min`: `ema_6`, `ema_20`, `volume_buzz_percent`, `vwap`
+  - `volume_buzz_percent`: cumulative full-session volume from pre-market open through the active bar divided by the average cumulative full-session volume at the same offset within the full market-day session timeline over the prior `10` sessions, expressed as a percent; includes `pre-market`, `regular`, and `post-market` volume and resets at the full-session boundary.
+  - `vwap`: applies to intraday bars, includes `pre-market`, `regular`, and `post-market` trades in v1, and resets at the same full-session boundary as `volume_buzz_percent`.
 
 ## 10) Auditability
 

@@ -53,9 +53,11 @@ Initial expectations:
 - Strategies can generate execution decisions based on live and historical context.
 - Strategies operate within a shared execution environment connected to brokerage state.
 - Strategies are fully autonomous and may manage entries, exits, sizing, and position lifecycle.
+- By default, strategies consume shared `MarketData` runtime state instead of maintaining duplicate full bar/indicator engines.
 
 Assignment model:
 
+- The `Universe` is the distinct set of symbols that appear in any watchlist.
 - Strategies may trade any symbol they are assigned to.
 - Symbols are eligible for strategy assignment only if they exist in the `Execution` watchlist.
 - The `Execution` watchlist will be seeded in the watchlist table as the first watchlist.
@@ -78,6 +80,7 @@ Session scope for v1 includes:
 - Regular market hours
 - Pre-market
 - Post-market
+- Session handling uses an exchange-driven `US equities` calendar in `America/New_York` and must respect holidays and shortened trading days.
 
 Account mode:
 
@@ -100,16 +103,26 @@ Retention notes:
 
 - Daily and intraday bars are stored in one logical singular-form `bar` table.
 - The logical `bar` table is physically partitioned.
-- On startup/warmup, historical bars are loaded from the persisted partitioned `bar` table into in-memory rolling windows.
+- Persisted timestamps remain `UTC`, but market-date and session classification are exchange-local.
+- Daily bars are `RTH`-only.
+- Startup/warmup is `DB`-first: load persisted bars first, detect missing bars, query the market data provider only for missing finalized bars, upsert those missing bars, then compute/finalize indicator state and readiness.
 - Intraday retention is tracked separately for each interval.
 - Intraday bar retention is not pooled across all intervals for a symbol.
 - Each interval has its own retention policy and rolling window.
-- Intraday history includes extended-hours bars.
+- Intraday history includes extended-hours bars and session awareness for `pre-market`, `regular`, and `post-market`.
 - Only finalized bars are persisted; forming or in-progress bars are not stored in the database.
 - Finalized bars may be upserted to support idempotent backfill, replay, recovery, duplicate handling, and data corrections.
 - Indicator values are not persisted in the database for v1.
 - Indicator values are computed during hydration/runtime and attached to in-memory bar or market state only.
-- Daily bars and intraday bars may use different indicator sets or profiles.
+- Final readiness requires a complete ordered bar sequence for the required warmup scope before indicators and dependent runtime state are treated as ready.
+- Daily warmup covers the full `Universe` for the daily indicator profile so daily scanners remain correct.
+- Intraday warmup is required only for symbols that need intraday runtime behavior, including `Execution`/active trading symbols.
+- Full-`Universe` intraday warmup, including volume-buzz-driven full-`Universe` intraday scanning, is deferred from v1.
+- Warmup may include benchmark dependencies such as `SPY` even when they are not explicitly present in any watchlist.
+- Historical indicator values should be served from hydrated in-memory windows while retained there; otherwise they are recomputed from persisted bars.
+- Daily bars and intraday bars use different indicator profiles.
+- `Volume buzz` is full-session in v1: it includes `pre-market`, `regular`, and `post-market`, cumulative volume starts at pre-market open, and same-time-of-day means the same offset within the full market-day session timeline.
+- `VWAP` is also full-session in v1 and resets at the same full-session boundary as `volume buzz`.
 
 Supported intraday intervals include:
 
@@ -167,6 +180,7 @@ Connectivity behavior:
 - If broker connectivity drops, the system must pause strategies and pause order activity.
 - If market data connectivity drops, the system must pause strategies and pause order activity.
 - The system must not allow partial operation when a required connectivity dependency is unavailable.
+- Strategy readiness must also wait for the minimum required bar and indicator warmup before live decisions are allowed.
 - Detailed recovery and resume flow is documented in `docs/FLOWS.md`.
 
 ## 9) Initial Product Boundaries
