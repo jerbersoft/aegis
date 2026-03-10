@@ -91,6 +91,15 @@ Module internal structure:
 - Adapter projects may contain both brokerage-facing and market-data-facing capability areas, but implementations should follow `YAGNI` and only be built when needed.
 - Adapters should implement module-facing contracts defined in `Aegis.Shared`; business modules must not depend on vendor SDK types or vendor-specific models.
 
+Market data provider abstraction for v1:
+
+- `MarketData` uses three provider-facing abstractions: a historical bar provider, a realtime market data provider, and a provider capabilities contract.
+- The historical bar provider is used for warmup, gap repair, and recovery only, and returns provider-finalized historical bars only.
+- The realtime market data provider exposes normalized streams/channels for ticks, quotes, finalized bars, and provider status events.
+- The realtime market data provider hides whether finalized bars come from true streaming, polling, or hybrid provider behavior.
+- Adapters own vendor authentication/session setup, symbol translation, pagination and rate-limit handling, polling when required, and normalization into shared contracts.
+- Vendor SDK types must not cross the adapter boundary; adapter outputs should be normalized contracts such as `HistoricalBarRequest`, `HistoricalBarResult`, `TickEvent`, `QuoteEvent`, `FinalizedBarEvent`, and `ProviderStatusEvent`.
+
 ## 6) Ownership Rules
 
 - `Universe` owns symbol and watchlist management independently of `MarketData`.
@@ -105,6 +114,9 @@ Module internal structure:
 - `Strategies` emit order intent messages only.
 - `Orders` is the only module that maps order intents to broker order models and submits orders.
 - Manual trading actions from the UI must go through `Orders`.
+- `MarketData` owns subscription intent, gap detection, backfill, persistence, canonical session classification, indicators, runtime state, readiness, and the symbol-centric subscription model.
+- A symbol subscription implies ticks plus quotes, while finalized bar intervals are specified per symbol through normalized subscription contracts such as `MarketDataSubscriptionSet` and `SymbolMarketDataSubscription`.
+- Aegis owns canonical session classification and bar semantics; providers and adapters supply normalized market data but do not define session truth for the system.
 
 ## 7) Connectivity and Engine Control
 
@@ -139,16 +151,29 @@ Market data bar persistence:
 - Session segments for v1 are `pre-market`, `regular`, and `post-market`.
 - Daily bars are `RTH`-only.
 - Intraday bars include extended hours and carry session awareness.
+- Aegis does not aggregate ticks, quotes, or other streaming events into bars; it relies on provider-sourced finalized bars as the canonical bar source.
+- Market data adapters also do not aggregate ticks or quotes into bars; adapters forward provider-sourced finalized bars to `MarketData`.
 - Startup/warmup is `DB`-first: `MarketData` loads persisted bars from the partitioned `bar` table, detects missing finalized bars, requests only those missing finalized bars from the market data provider, upserts them, then hydrates rolling windows and computes/finalizes indicator state and readiness.
+- Gap detection is session-aware and uses the exchange calendar plus interval/session rules to detect trailing gaps, internal gaps, and benchmark dependency gaps.
 - Only finalized bars are persisted; forming or in-progress bars must remain in memory and are not written to the database.
 - Finalized bars may be upserted to support idempotent backfill, replay, recovery, duplicate handling, and source corrections.
+- Trade ticks may extend only the latest finalized intraday bar's cumulative session-volume state in memory, and only for live cumulative session volume plus live/provisional `volume_buzz_percent` updates.
+- Quotes do not contribute to that provisional session-volume calculation.
+- Other intraday indicators wait for the next provider-finalized bar and are not updated from ticks or quotes.
+- Provisional tick-based session-volume state is never persisted; when the next provider-finalized intraday bar arrives, that provisional state is discarded/reset and canonical cumulative session volume resumes from finalized bars.
 - Indicator values are not persisted in the database for v1.
 - Indicator values are computed during hydration/runtime and attached to in-memory bar or market state rather than stored durably.
 - Final readiness requires a complete ordered bar sequence across the required warmup scope before indicators and dependent runtime state are considered ready.
+- If a required gap is detected during warmup or runtime, `MarketData` immediately marks the affected scope not ready, starts repair immediately, upserts repaired finalized bars, recomputes indicators/dependent state, and restores readiness only after repair, recompute, and validation complete.
+- Trailing-gap repair may append missing bars and use incremental recompute; internal-gap repair requires recompute from the earliest missing bar forward.
 - Daily warmup covers the full `Universe` for the daily indicator profile so daily scanners remain correct.
+- Symbols with unresolved daily gaps inside the required daily warmup range are excluded from daily scanner results.
 - Intraday warmup is required only for symbols that need intraday runtime behavior, including `Execution`/active trading symbols.
+- Unresolved intraday gaps for active symbols make that symbol not trading-ready; in v1 the pause is symbol-scoped by default.
 - Full-`Universe` intraday warmup, including volume-buzz-driven full-`Universe` intraday scanning, is deferred from v1.
 - Warmup may include benchmark dependencies such as `SPY` even when they are not explicitly present in watchlists.
+- Benchmark dependency gaps block readiness for dependent indicator state, such as `rs_50` when the benchmark series is incomplete.
+- Gap staleness thresholds exist per interval, are configurable, and default to `2` missed bars for intraday intervals in v1.
 - Historical indicator values should be served from hydrated in-memory windows while retained there; when no longer retained, they should be recomputed from persisted bars.
 - Daily-bar and intraday-bar processing use different indicator profiles.
 - Intraday indicator profiles are interval-specific; v1 requires at least distinct `1-min` and `5-min` profiles.
@@ -189,6 +214,7 @@ Audit scope for v1:
 - Do not require persistence of strategy evaluations that result in no action.
 - Store every `IBKR` order event and fill event as an immutable audit log.
 - Store operator actions as audit events, including alert acknowledgement, alert action, strategy control actions, symbol assignment changes, manual order actions, and kill switch usage.
+- Operational gap detection and repair events should also be surfaced through alerts and audit trails; detailed alert/audit workflows may be expanded later.
 
 Retention and access:
 

@@ -106,19 +106,31 @@ Retention notes:
 - Persisted timestamps remain `UTC`, but market-date and session classification are exchange-local.
 - Daily bars are `RTH`-only.
 - Startup/warmup is `DB`-first: load persisted bars first, detect missing bars, query the market data provider only for missing finalized bars, upsert those missing bars, then compute/finalize indicator state and readiness.
+- Gap detection is session-aware and uses the exchange calendar plus interval/session rules to detect trailing gaps, internal gaps, and benchmark dependency gaps.
 - Intraday retention is tracked separately for each interval.
 - Intraday bar retention is not pooled across all intervals for a symbol.
 - Each interval has its own retention policy and rolling window.
 - Intraday history includes extended-hours bars and session awareness for `pre-market`, `regular`, and `post-market`.
 - Only finalized bars are persisted; forming or in-progress bars are not stored in the database.
+- Aegis does not aggregate ticks into bars, and its market data adapters also do not aggregate ticks or quotes into bars; canonical bars come only from the market data provider as finalized bars.
 - Finalized bars may be upserted to support idempotent backfill, replay, recovery, duplicate handling, and data corrections.
 - Indicator values are not persisted in the database for v1.
 - Indicator values are computed during hydration/runtime and attached to in-memory bar or market state only.
+- Trade ticks may be used only for a provisional in-memory extension of cumulative session volume after the latest finalized intraday bar, and that provisional extension feeds only live cumulative session volume and live `volume buzz` updates.
+- Quotes do not contribute to that provisional session-volume calculation.
+- Other intraday indicators wait for the next finalized bar and are not updated from ticks.
+- Provisional tick-based state is never persisted and is discarded/reset when the next provider-finalized intraday bar arrives, after which canonical cumulative session volume resumes from finalized bars.
 - Final readiness requires a complete ordered bar sequence for the required warmup scope before indicators and dependent runtime state are treated as ready.
+- If a required gap is detected during warmup or runtime, the affected scope is marked not ready immediately, repair starts immediately, repaired finalized bars are upserted, indicators are recomputed, and readiness is restored only after repair, recompute, and validation complete.
+- Trailing gaps may use append/incremental recompute; internal gaps require recompute from the earliest missing bar forward.
 - Daily warmup covers the full `Universe` for the daily indicator profile so daily scanners remain correct.
+- Symbols with unresolved daily gaps in the required daily warmup range are excluded from scanner results.
 - Intraday warmup is required only for symbols that need intraday runtime behavior, including `Execution`/active trading symbols.
+- Unresolved intraday gaps for active symbols make that symbol not trading-ready; in v1 the pause is symbol-scoped by default.
 - Full-`Universe` intraday warmup, including volume-buzz-driven full-`Universe` intraday scanning, is deferred from v1.
 - Warmup may include benchmark dependencies such as `SPY` even when they are not explicitly present in any watchlist.
+- Benchmark dependency gaps block readiness for dependent indicator state such as `rs_50`.
+- Gap staleness thresholds exist per interval, are configurable, and default to `2` missed bars for intraday intervals in v1.
 - Historical indicator values should be served from hydrated in-memory windows while retained there; otherwise they are recomputed from persisted bars.
 - Daily bars and intraday bars use different indicator profiles.
 - `Volume buzz` is full-session in v1: it includes `pre-market`, `regular`, and `post-market`, cumulative volume starts at pre-market open, and same-time-of-day means the same offset within the full market-day session timeline.
