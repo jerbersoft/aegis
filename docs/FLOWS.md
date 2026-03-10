@@ -2,87 +2,85 @@
 
 This document captures step-by-step runtime behavior for the system.
 
+It is intentionally flow-focused. Ownership rules and module boundaries belong in `docs/ARCHITECTURE.md`, while detailed MarketData policy belongs in `docs/modules/MARKET_DATA.md`.
+
 ## 1) Scope
 
-This file will hold the operational process flows for Aegis, including:
+This document covers:
 
-- Startup and readiness
-- Connectivity loss and recovery
-- Pause and resume behavior
-- Order lifecycle
-- Strategy runtime lifecycle
+- startup and readiness
+- connectivity loss and recovery
+- pause and resume behavior
+- readiness refresh behavior
+- gap detection and repair
+- live intraday update behavior
 
 ## 2) Connectivity Loss and Recovery
 
-- `Infrastructure` monitors broker and market data connectivity.
-- If either required dependency becomes unhealthy, the engine enters a paused state.
-- New strategy activity and new order activity are blocked while paused.
-- Existing working broker orders remain active at the broker unless a separate operator action cancels them.
-- The system attempts reconnection automatically.
-- After dependencies are healthy again, operator acknowledgement is required before resuming by default.
-- Automatic resume may be supported later as a configuration option.
+1. `Infrastructure` monitors broker and market data connectivity.
+2. If either required dependency becomes unhealthy, the engine enters a paused state.
+3. New strategy activity and new order activity are blocked while paused.
+4. Existing working broker orders remain active at the broker unless a separate operator action cancels them.
+5. The system attempts reconnection automatically.
+6. After required dependencies are healthy again, operator acknowledgement is required before resuming by default.
+7. Automatic resume may be supported later as a configuration option.
 
 ## 3) Startup and Warmup
 
-- Startup/warmup is the process that prepares `MarketData` runtime state before strategies are allowed to act on live data.
-- For v1, `MarketData` performs warmup, gap repair, and recovery through a dedicated historical bar provider abstraction that returns provider-finalized historical bars only.
-- Historical bar requests use `from_utc` inclusive and `to_utc` exclusive semantics when `to_utc` is present; `to_utc = null` means open-ended through the latest provider-finalized bar available when the request is evaluated.
-- Historical warmup and repair responses are expected in ascending chronological order and finalized only.
-- `MarketData` classifies bars against an exchange-driven `US equities` session calendar in `America/New_York`, respecting holidays and shortened trading days.
-- The `Universe` is the distinct set of symbols that appear in any watchlist.
-- Daily warmup covers the full `Universe` for the daily indicator profile so daily scanners remain correct.
-- Symbols with unresolved daily gaps inside the required daily warmup range are excluded from scanner results.
-- Intraday warmup is required only for symbols that need intraday runtime behavior, including `Execution`/active trading symbols.
-- Unresolved intraday gaps for active symbols make that symbol not trading-ready; in v1 that pause is symbol-scoped by default.
-- Full-`Universe` intraday warmup, including volume-buzz-driven full-`Universe` intraday scanning, is deferred from v1.
-- Startup/warmup is `DB`-first: `MarketData` loads persisted bars first, detects missing bars, queries the market data provider only for missing finalized bars, persists/upserts those missing bars, then hydrates in-memory rolling windows.
-- Gap detection is session-aware and uses the exchange calendar plus interval/session rules to classify trailing gaps, internal gaps, and benchmark dependency gaps.
-- Persisted timestamps remain `UTC`, but market-date and session classification are exchange-local.
-- During hydration of those rolling windows, indicator state/history is computed and finalized from a complete ordered bar sequence per required symbol, interval, and dependency.
-- Indicator values are not stored durably in v1; persisted history remains the source for bar data only.
-- Historical indicator values are served from hydrated in-memory windows while retained there; if no longer retained, they are recomputed from persisted bars.
-- Daily bars are `RTH`-only; intraday bars include `pre-market`, `regular`, and `post-market` session awareness.
-- Daily and intraday bars use different indicator profiles.
-- Intraday indicator profiles are interval-specific; v1 warmup must support at least `1-min` and `5-min` profiles.
-- Indicator definitions remain configurable even when warmup uses the fixed v1 default profile set.
-- Full-session intraday indicators reset at the pre-market-open full-session boundary; `volume buzz` and `VWAP` both include `pre-market`, `regular`, and `post-market`, and `volume buzz` compares the same offset within that full market-day session timeline.
-- Warmup may include benchmark dependencies such as `SPY` even when they are not explicitly present in watchlists.
-- Benchmark dependency gaps block readiness for dependent indicator state, such as `rs_50`.
-- Strategies consume the resulting shared in-memory market state from `MarketData` after warmup completes and should not maintain duplicate full bar/indicator engines by default.
-- Readiness is reached only after the minimum required bar and indicator warmup is satisfied with a complete ordered bar sequence for the required warmup scope.
+1. Startup warmup prepares `MarketData` runtime state before strategies are allowed to act on live data.
+2. `MarketData` begins from persisted history rather than assuming a clean realtime start.
+3. Daily warmup covers the full `Universe` for the daily indicator profile so daily scanners remain correct.
+4. Intraday warmup is required only for symbols that need intraday runtime behavior, including `Execution` and active trading symbols.
+5. Warmup may include benchmark dependencies such as `SPY` even when they are not explicitly present in watchlists.
+6. `MarketData` loads retained bars, detects required gaps, and requests only missing finalized bars from the historical provider.
+7. Missing finalized bars are upserted before dependent state is finalized.
+8. `MarketData` hydrates rolling windows and computes indicator state from complete ordered bar sequences.
+9. Symbols with unresolved required daily gaps are excluded from scanner results.
+10. Symbols with unresolved required intraday gaps remain not trading-ready.
+11. Readiness is reached only after required warmup data, dependencies, and derived state are complete for the relevant scope.
 
-## 4) Gap Detection and Repair
+Detailed warmup and readiness policy lives in `docs/modules/MARKET_DATA.md`.
 
-- `MarketData` treats gaps as missing finalized bars required for readiness or runtime correctness.
-- Gap types for v1 are trailing gaps, internal gaps, and benchmark dependency gaps.
-- Staleness thresholds exist per interval, are configurable, and default to `2` missed bars for intraday intervals in v1.
-- When a required gap is detected during runtime or warmup, `MarketData` immediately marks the affected scope not ready and starts repair immediately.
-- Repair upserts the recovered finalized bars, recomputes affected indicators/runtime state, validates the repaired sequence, and restores readiness only after that work completes.
-- Trailing-gap repair may append bars and use incremental recompute.
-- Internal-gap repair requires recompute from the earliest missing bar forward.
-- If a provider emits a correction for a previously finalized bar, `MarketData` compares the canonical values and recomputes downstream state from that bar forward only when values actually changed.
-- Later operational surfacing for gap detection and repair should be provided through alerts and audit events.
+## 4) MarketData Readiness Queries and Notifications
 
-## 5) Live Intraday Volume and Indicator Updates
+1. `MarketData` owns authoritative current readiness and state views.
+2. Consumers obtain current truth through pull-style read and query services.
+3. `MarketData` also emits readiness and state change notifications so consumers know when to refresh their view.
+4. Notifications are not the sole source of truth; consumers re-query after receiving them.
+5. Scanner readiness is partial-coverage aware, so scanner execution may proceed while some `Universe` symbols remain not ready.
+6. Trading readiness is evaluated strictly per symbol and interval.
+7. UI and SignalR fan-out may mirror readiness notifications for responsiveness, but current state still comes from the underlying query model.
 
-- `MarketData` treats provider-finalized bars as the only canonical bar updates; neither Aegis nor adapters aggregate ticks or quotes into bars.
-- Realtime ingestion comes through a normalized realtime provider abstraction that emits symbol-centric ticks, quotes, finalized bars, and provider status events.
-- A symbol subscription implies ticks and quotes by default, while finalized bar intervals are declared per symbol.
-- Realtime subscription updates use replace-all target-state semantics: each update supplies the full desired subscription set for the affected scope.
-- The realtime provider abstraction hides whether finalized bars are delivered by native streaming, polling, or a hybrid adapter strategy.
-- Batch historical requests may be used when a provider supports them, but batch retrieval is optional capability rather than a universal provider contract requirement.
-- Between finalized intraday bars, trade ticks may extend only provisional in-memory cumulative session volume after the latest finalized intraday bar.
-- That provisional tick-based extension is used only for live cumulative session volume and live/provisional `volume_buzz` updates.
-- Quotes do not contribute to that provisional session-volume calculation.
-- Other intraday indicators remain unchanged until the next provider-finalized bar arrives.
-- Provisional tick-based state is never persisted.
-- When the next provider-finalized intraday bar arrives, `MarketData` discards/resets the provisional tick-based volume state and resumes canonical cumulative session volume from finalized bars.
-- Finalized bars and provider status should use stricter reliable-delivery semantics.
-- Ticks and quotes should use a fixed-capacity high-throughput buffer or ring-buffer style path that avoids unbounded growth without locking the design to a specific library.
-- In v1, tick and quote delivery is best-effort and oriented toward live enhancement, while provider-finalized bars remain canonical.
+Naming and payload details are defined in `docs/contracts/MARKET_DATA_READINESS.md`.
 
-## 6) Next Flows To Define
+## 5) Gap Detection and Repair
 
-- Strategy activation and symbol assignment flow
-- Order intent to broker order flow
-- Fill and position synchronization flow
+1. `MarketData` treats gaps as missing finalized bars required for readiness or runtime correctness.
+2. Gap types for v1 are trailing gaps, internal gaps, and benchmark dependency gaps.
+3. When a required gap is detected during runtime or warmup, the affected scope is marked not ready immediately.
+4. Repair starts immediately.
+5. Repair upserts recovered finalized bars, recomputes affected indicators and runtime state, and validates the repaired sequence.
+6. Trailing-gap repair may append bars and use incremental recompute.
+7. Internal-gap repair requires recompute from the earliest missing bar forward.
+8. If a provider emits a correction for a previously finalized bar, `MarketData` recomputes from that bar forward only when canonical values actually changed.
+9. Readiness is restored only after repair, recompute, and validation complete.
+10. Operational surfacing of gap detection and repair should also feed alerts and audit trails.
+
+## 6) Live Intraday Volume and Indicator Updates
+
+1. Provider-finalized bars are the only canonical bar updates.
+2. Aegis and its adapters do not aggregate ticks or quotes into bars.
+3. Realtime ingestion arrives through normalized ticks, quotes, finalized bars, and provider status events.
+4. Realtime subscription updates use replace-all target-state semantics.
+5. Between finalized intraday bars, trade ticks may extend only provisional in-memory cumulative session volume after the latest finalized intraday bar.
+6. That provisional extension is used only for live cumulative session volume and live `volume_buzz_percent` updates.
+7. Quotes do not contribute to provisional session volume.
+8. Other intraday indicators remain unchanged until the next provider-finalized bar arrives.
+9. When the next provider-finalized intraday bar arrives, provisional tick-based session-volume state is discarded and canonical state resumes from finalized bars.
+10. Finalized bars and provider status use stricter reliable-delivery paths, while ticks and quotes use bounded best-effort high-throughput buffering.
+
+## 7) Next Flows To Define
+
+- strategy activation and symbol assignment flow
+- order intent to broker order flow
+- fill and position synchronization flow
