@@ -12,6 +12,7 @@ This index is the entry point for repository documentation.
 ## Module design documents
 
 - `docs/modules/MARKET_DATA.md` — detailed MarketData module design, warmup policy, gap repair, indicators, and readiness model
+- `docs/modules/UNIVERSE.md` — detailed Universe module design, watchlists, symbol registry rules, and persistence direction
 
 ## Contract documents
 
@@ -43,6 +44,12 @@ This index is the entry point for repository documentation.
 
 1. `docs/ARCHITECTURE.md`
 2. `docs/modules/MARKET_DATA.md`
+
+### Understand universe and watchlist behavior
+
+1. `docs/PROJECT.md`
+2. `docs/ARCHITECTURE.md`
+3. `docs/modules/UNIVERSE.md`
 
 ## Documentation boundaries
 

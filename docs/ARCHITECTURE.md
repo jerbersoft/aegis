@@ -205,5 +205,6 @@ Key v1 entities include:
 - `docs/PROJECT.md`: product scope and business requirements
 - `docs/FLOWS.md`: runtime and recovery behavior
 - `docs/modules/MARKET_DATA.md`: detailed MarketData module design
+- `docs/modules/UNIVERSE.md`: detailed Universe module design
 - `docs/contracts/MARKET_DATA_READINESS.md`: readiness payload and event contracts
 - `docs/contracts/MARKET_DATA_PROVIDER_CONTRACTS.md`: provider-facing contract shapes and normalized adapter contracts
