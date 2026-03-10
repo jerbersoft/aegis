@@ -1,6 +1,6 @@
 # Aegis
 
-Aegis is a planned real-time trade execution platform for running multiple strategies against live market conditions.
+Aegis is a planned realtime trade execution engine for running multiple strategies against live market conditions.
 
 ## Current repository state
 

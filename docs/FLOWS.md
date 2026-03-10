@@ -30,7 +30,7 @@ This document covers:
 1. Startup warmup prepares `MarketData` runtime state before strategies are allowed to act on live data.
 2. `MarketData` begins from persisted history rather than assuming a clean realtime start.
 3. Daily warmup covers the full `Universe` for the daily indicator profile so daily scanners remain correct.
-4. Intraday warmup is required only for symbols that need intraday runtime behavior, including `Execution` and active trading symbols.
+4. Intraday warmup is required only for symbols that need intraday runtime behavior, including symbols in the `Execution` watchlist and active trading symbols.
 5. Warmup may include benchmark dependencies such as `SPY` even when they are not explicitly present in watchlists.
 6. `MarketData` loads retained bars, detects required gaps, and requests only missing finalized bars from the historical provider.
 7. Missing finalized bars are upserted before dependent state is finalized.

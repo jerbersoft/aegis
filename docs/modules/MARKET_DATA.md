@@ -26,7 +26,7 @@ Boundaries:
 
 - The `Universe` is the distinct set of symbols present in any watchlist.
 - Daily warmup covers the full `Universe` for the daily indicator profile.
-- Intraday warmup is required only for symbols that need intraday runtime behavior, including active trading/execution symbols.
+- Intraday warmup is required only for symbols that need intraday runtime behavior, including symbols in the `Execution` watchlist and active trading symbols.
 - Full-universe intraday warmup is deferred from v1.
 - Warmup may include benchmark dependencies such as `SPY` even if not explicitly present in watchlists.
 - Startup/warmup is `DB`-first: load persisted bars, detect missing finalized bars, request only missing finalized bars, upsert them, then hydrate rolling windows and finalize indicator/readiness state.

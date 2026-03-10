@@ -10,7 +10,7 @@ Implementation details belong in:
 
 ## 1) Product Overview
 
-Aegis is a real-time trade execution engine designed to run multiple trading strategies against live market conditions.
+Aegis is a realtime trade execution engine designed to run multiple trading strategies against live market conditions.
 
 The first release targets a single operator trading `US equities`.
 
