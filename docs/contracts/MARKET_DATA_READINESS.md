@@ -60,6 +60,12 @@ All payloads use singular, snake_case field names.
 - `awaiting_recompute`
 - `configuration_missing`
 
+### `bar_runtime_state`
+
+- `revision_eligible`
+- `stable`
+- `reconciled`
+
 ### `market_data_operating_mode`
 
 - `full`
@@ -130,7 +136,122 @@ All payloads use singular, snake_case field names.
 - `affected_symbol_count`
 - `last_state_changed_utc`
 
-## 6) Operating Mode Contract
+## 6) Readiness State Machine
+
+### State meanings
+
+#### `not_requested`
+
+Use when the scope is not currently required.
+
+- Not an error state.
+- Applies when no current scanner, trading, or retained-history demand exists for the scope.
+
+#### `warming_up`
+
+Use when the scope is required and initial readiness work is still in progress.
+
+Typical causes:
+
+- loading retained history
+- fetching required historical bars
+- computing initial indicator/runtime state
+- waiting for the first required finalized bar when the scope has just become required
+
+`warming_up` is for initial acquisition or rebuild work, not for routine revision-eligible live bar behavior.
+
+#### `ready`
+
+Use when the scope is required and all required dependencies, bars, and derived runtime state are sufficiently current for that scope.
+
+#### `not_ready`
+
+Use when the scope is required but cannot currently be considered ready, and there is no active repair workflow represented by `repairing`.
+
+Typical causes:
+
+- provider disconnected
+- provider degraded beyond tolerance
+- configuration missing
+- dependency paused
+- benchmark dependency unavailable without active repair path
+
+#### `repairing`
+
+Use when a required scope has an active recoverable data-integrity problem and repair is in progress.
+
+Typical causes:
+
+- trailing-gap repair
+- internal-gap repair
+- benchmark dependency repair
+- correction-triggered repair or recompute workflow
+
+`repairing` is a distinct actionable state and is primarily meaningful for trading-symbol and operational readiness.
+
+### General transition rules
+
+- `not_requested -> warming_up` when a scope becomes required.
+- `warming_up -> ready` when required dependencies, bars, and derived state are complete.
+- `warming_up -> not_ready` when initial readiness is blocked by a non-repair condition.
+- `warming_up -> repairing` when initial readiness discovers a repairable data issue and repair begins.
+- `ready -> repairing` when a previously ready scope detects a repairable data-integrity issue.
+- `ready -> not_ready` when readiness is lost for a non-repair reason.
+- `repairing -> ready` when repair, recompute, and validation complete successfully.
+- `repairing -> not_ready` when repair cannot continue or fails while the scope remains required.
+- `not_ready -> warming_up` when a blocking issue clears and rebuild/rehydration is required before ready.
+- `not_ready -> repairing` when active repair starts from a previously blocked state.
+- any required state -> `not_requested` when the scope is no longer demanded.
+
+### Scope-specific rules
+
+#### Scanner universe readiness
+
+- Scanner-universe readiness uses `warming_up`, `ready`, and `not_ready` only in v1.
+- Scanner-universe readiness becomes `ready` as soon as scanner execution is allowed, even if some symbols remain excluded or not ready.
+- Partial symbol failures should surface through symbol counts and exclusions, not through scanner-universe `repairing`.
+
+#### Scanner symbol readiness
+
+- `ready` when required daily bars, indicator state, and benchmark dependencies are satisfied.
+- `not_ready` when the symbol is excluded for a blocking reason.
+- `repairing` may be used internally, but scanner-universe rollup should remain simplified.
+
+#### Trading symbol readiness
+
+- Trading-symbol readiness is strict per symbol and interval.
+- After outage or dependency recovery, the symbol returns through `warming_up` only if revalidation or rehydration is required.
+- Otherwise the symbol may return directly to `ready` once blocking issues clear.
+
+#### Operational readiness
+
+- Operational readiness uses `warming_up`, `ready`, `repairing`, and `not_ready`.
+- Operational readiness should reflect the worst meaningful state for current required market-data workload.
+
+### Primary reason-code precedence
+
+When multiple issues are simultaneously true, the primary `reason_code` should use this precedence order:
+
+1. `configuration_missing`
+2. `provider_disconnected`
+3. `provider_degraded`
+4. `dependency_paused`
+5. `gap_internal`
+6. `gap_trailing`
+7. `gap_benchmark_dependency`
+8. `benchmark_not_ready`
+9. `missing_required_bars`
+10. `awaiting_recompute`
+11. `awaiting_first_finalized_bar`
+12. `warmup_in_progress`
+13. `none`
+
+### Notification trigger rules
+
+- Readiness-change notifications should be emitted when `readiness_state` changes.
+- Readiness-change notifications should also be emitted when the primary `reason_code` changes, even if `readiness_state` remains the same.
+
+## 7) Operating Mode Contract
 
 Operating mode is separate from readiness.
 
@@ -152,7 +273,7 @@ Recommended v1 `operating_mode_reason_codes` values:
 - `non_production_market_coverage`
 - `provider_plan_limited`
 
-## 7) Event Payloads
+## 8) Event Payloads
 
 ### `scanner_universe_readiness_changed`
 
@@ -191,7 +312,7 @@ Recommended v1 `operating_mode_reason_codes` values:
 - `repaired_utc`
 - `reason_code`
 
-## 8) Related Documents
+## 9) Related Documents
 
 - `docs/modules/MARKET_DATA.md`: MarketData module design and policy
 - `docs/FLOWS.md`: readiness refresh and repair flow behavior

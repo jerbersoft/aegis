@@ -96,14 +96,15 @@ Notes:
 - Provider corrections for previously finalized bars trigger recompute from the corrected bar forward only if canonical values changed.
 - Realtime minute bars are usable immediately on first provider close publication and do not wait for historical reconciliation.
 - Normal revisionability of a just-closed minute bar is not itself a readiness failure.
+- `RevisionEligible` bar runtime state is separate from readiness state and must not by itself force `warming_up`, `repairing`, or `not_ready`.
 - Symbols with unresolved daily gaps in required warmup range are excluded from scanner results.
 - Unresolved intraday gaps make the affected active symbol not trading-ready; v1 pause is symbol-scoped by default.
 
 ### Intraday bar finality and correction model
 
 - `Aegis` distinguishes `realtime-canonical` bars from `historically-reconciled` bars.
-- On first provider close publication for a minute bar, `Aegis` persists the bar immediately and treats it as `PendingRevision`.
-- `PendingRevision` bars are canonical for live readiness, indicators, and runtime behavior.
+- On first provider close publication for a minute bar, `Aegis` persists the bar immediately and treats it as `RevisionEligible`.
+- `RevisionEligible` bars are canonical for live readiness, indicators, and runtime behavior.
 - Provider `updatedBars` are authoritative revisions to previously emitted minute bars.
 - When a materially changed provider revision arrives, `Aegis` upserts the affected bar and recomputes dependent state from that bar forward for the affected symbol and interval.
 - Trade corrections and cancel/error events do not cause `Aegis` to rebuild bars from trades; they drive revalidation and repair behavior instead.

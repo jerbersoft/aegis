@@ -50,10 +50,24 @@ Detailed warmup and readiness policy lives in `docs/modules/MARKET_DATA.md`.
 5. Scanner readiness is partial-coverage aware, so scanner execution may proceed while some `Universe` symbols remain not ready.
 6. Trading readiness is evaluated strictly per symbol and interval.
 7. UI and SignalR fan-out may mirror readiness notifications for responsiveness, but current state still comes from the underlying query model.
+8. Readiness-change notifications are emitted when `readiness_state` changes or when the primary `reason_code` changes.
 
 Naming and payload details are defined in `docs/contracts/MARKET_DATA_READINESS.md`.
 
-## 5) Gap Detection and Repair
+## 5) Readiness State-Transition Behavior
+
+1. A scope enters `warming_up` when it becomes required and initial readiness work begins.
+2. A scope enters `ready` when required dependencies, bars, and derived state are complete for that scope.
+3. A scope enters `not_ready` when a blocking non-repair issue prevents readiness.
+4. A scope enters `repairing` when an active recoverable data-integrity issue is being repaired.
+5. A previously ready scope that detects a repairable gap or correction-driven repair need transitions to `repairing`.
+6. A previously ready scope that loses required provider or dependency health transitions to `not_ready`.
+7. After blocking conditions clear, the scope returns through `warming_up` only if rebuild, revalidation, or rehydration is needed; otherwise it may return directly to `ready`.
+8. Scanner-universe readiness uses `warming_up`, `ready`, and `not_ready` only in v1.
+9. Scanner-universe readiness becomes `ready` as soon as scanner execution is allowed, even when some symbols remain excluded.
+10. Operational readiness uses the full set of `warming_up`, `ready`, `repairing`, and `not_ready`.
+
+## 6) Gap Detection and Repair
 
 1. `MarketData` treats gaps as missing finalized bars required for readiness or runtime correctness.
 2. Gap types for v1 are trailing gaps, internal gaps, and benchmark dependency gaps.
@@ -66,7 +80,7 @@ Naming and payload details are defined in `docs/contracts/MARKET_DATA_READINESS.
 9. Readiness is restored only after repair, recompute, and validation complete.
 10. Operational surfacing of gap detection and repair should also feed alerts and audit trails.
 
-## 6) Live Intraday Volume and Indicator Updates
+## 7) Live Intraday Volume and Indicator Updates
 
 1. Provider-finalized bars are the only canonical bar updates.
 2. Aegis and its adapters do not aggregate ticks or quotes into bars.
@@ -78,8 +92,11 @@ Naming and payload details are defined in `docs/contracts/MARKET_DATA_READINESS.
 8. Other intraday indicators remain unchanged until the next provider-finalized bar arrives.
 9. When the next provider-finalized intraday bar arrives, provisional tick-based session-volume state is discarded and canonical state resumes from finalized bars.
 10. Finalized bars and provider status use stricter reliable-delivery paths, while ticks and quotes use bounded best-effort high-throughput buffering.
+11. On first provider close publication, the new minute bar is immediately usable in `RevisionEligible` runtime state.
+12. `RevisionEligible` runtime state is not itself a readiness failure and does not force `repairing` or `not_ready`.
+13. If a materially changed `updatedBar` arrives, `MarketData` upserts the revised bar and recomputes dependent state from the affected bar forward.
 
-## 7) Next Flows To Define
+## 8) Next Flows To Define
 
 - strategy activation and symbol assignment flow
 - order intent to broker order flow
