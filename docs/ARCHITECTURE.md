@@ -124,6 +124,8 @@ MarketData readiness design for v1:
 
 Detailed readiness payloads and wire contracts live in `docs/contracts/MARKET_DATA_READINESS.md`.
 
+Detailed MarketData operability and provider-contract expectations live in `docs/modules/MARKET_DATA.md` and `docs/contracts/MARKET_DATA_PROVIDER_CONTRACTS.md`.
+
 ## 8) Connectivity and Engine Control
 
 - `Infrastructure` is the single source of truth for broker and market data connectivity health.

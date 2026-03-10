@@ -24,6 +24,7 @@ This document covers:
 5. The system attempts reconnection automatically.
 6. After required dependencies are healthy again, operator acknowledgement is required before resuming by default.
 7. Automatic resume may be supported later as a configuration option.
+8. Connectivity degradation and recovery should surface through operator alerts and operational status views.
 
 ## 3) Startup and Warmup
 
@@ -84,6 +85,7 @@ Naming and payload details are defined in `docs/contracts/MARKET_DATA_READINESS.
 13. If a provider emits a correction for a previously finalized bar, `MarketData` recomputes from that bar forward only when canonical values actually changed.
 14. Readiness is restored only after repair, recompute, and validation complete.
 15. Operational surfacing of gap detection and repair should also feed alerts and audit trails.
+16. Repair failures affecting required trading scopes should surface as `critical` operational conditions.
 
 ## 7) Live Intraday Volume and Indicator Updates
 
@@ -100,8 +102,17 @@ Naming and payload details are defined in `docs/contracts/MARKET_DATA_READINESS.
 11. On first provider close publication, the new minute bar is immediately usable in `RevisionEligible` runtime state.
 12. `RevisionEligible` runtime state is not itself a readiness failure and does not force `repairing` or `not_ready`.
 13. If a materially changed `updatedBar` arrives, `MarketData` upserts the revised bar and recomputes dependent state from the affected bar forward.
+14. Dropped trade or quote events remain operational-only signals in v1 unless required bar or market-status behavior is affected.
 
-## 8) Next Flows To Define
+## 8) Operability and Operator Visibility
+
+1. `MarketData` operational visibility should distinguish provider connectivity, realtime ingestion, subscription runtime, repair runtime, and readiness runtime concerns.
+2. The operator dashboard should expose a `MarketData` operational summary including provider, feed, operating mode, connection state, operational readiness, repair backlog, affected trading symbols, and active alert count.
+3. Entering `limited` mode should emit a `warning` alert once at transition time.
+4. Ongoing limited-mode state should remain visible primarily through operating-mode badging and operational status views.
+5. A required bar-upsert persistence failure is a `critical` operational condition and should immediately affect required trading readiness.
+
+## 9) Next Flows To Define
 
 - strategy activation and symbol assignment flow
 - order intent to broker order flow

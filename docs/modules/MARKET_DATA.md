@@ -405,7 +405,145 @@ Tier transition rules:
 - Normal bar reads should query by `symbol`, `interval`, and time range.
 - `is_daily` is a convenience field and must not replace interval-aware querying as the primary access pattern.
 
-## 10) Readiness/state query and event model
+## 10) Operability and observability
+
+### Operational domains
+
+- `MarketData` operability should distinguish at least these runtime domains:
+  - `provider_connectivity`
+  - `historical_retrieval`
+  - `realtime_ingestion`
+  - `subscription_runtime`
+  - `gap_repair_runtime`
+  - `readiness_runtime`
+
+### Minimum v1 metrics
+
+- provider and connection metrics:
+  - current connection state
+  - disconnect count
+  - reconnect count
+  - last successful connect time
+  - active provider/feed/mode
+- realtime ingestion metrics:
+  - bars received rate
+  - updated-bars received rate
+  - trades received rate
+  - quotes received rate
+  - dropped trade/quote event count
+  - event-channel backlog depth
+  - ingest lag from provider event time to local ingest time
+- subscription runtime metrics:
+  - subscribed symbol count by channel
+  - `trading_active` symbol count
+  - `watchlist_symbol` count
+  - subscription apply success/failure count
+  - last subscription apply duration
+  - teardown-grace symbol count
+- repair runtime metrics:
+  - queued repair count
+  - in-flight repair count
+  - failed repair count
+  - retry count
+  - oldest queued repair age
+  - repair duration
+- readiness metrics:
+  - scanner ready symbol count
+  - scanner excluded symbol count
+  - trading-ready symbol count
+  - trading not-ready symbol count
+  - operational readiness state
+  - reason-code counts
+- persistence metrics:
+  - bar upsert rate
+  - bar upsert failure count
+  - last successful persistence time
+  - reconciliation overwrite count
+
+### Alert model
+
+- v1 alert severities:
+  - `info`
+  - `warning`
+  - `critical`
+- `info` is appropriate for recovery and successful restoration events.
+- `warning` is appropriate for degraded but still functioning runtime conditions.
+- `critical` is appropriate for failed required market-data conditions.
+
+Recommended alert classes:
+
+- connectivity alerts:
+  - provider disconnected
+  - reconnect failed repeatedly
+  - auth failed
+- subscription alerts:
+  - symbol limit exceeded
+  - subscription rejected
+  - subscription apply failed
+  - required `trading_active` symbol missing required live channels
+- data-quality alerts:
+  - active trailing/internal gap on `trading_active` symbol
+  - benchmark dependency blocking readiness
+  - no required minute bars arriving past tolerance
+- runtime-pressure alerts:
+  - slow client
+  - event-channel backlog above threshold
+  - dropped trade/quote events above threshold
+- repair alerts:
+  - repair queue age above threshold
+  - repair retries exhausted
+  - repair failed for required trading scope
+- recovery alerts:
+  - provider reconnected
+  - repair backlog cleared
+  - operational readiness restored
+
+### Degraded versus failed
+
+- `degraded` means the runtime is still functioning, but quality, completeness, or capacity is impaired.
+- `failed` means required market-data behavior is not operating sufficiently for the current workload.
+
+Examples of `degraded`:
+
+- `limited` operating mode
+- slow-client warnings
+- elevated event backlog
+- rising dropped trade/quote counts
+- partial subscription failures outside critical trading scope
+- repair backlog above threshold with progress continuing
+- historical provider rate limiting with successful retries
+
+Examples of `failed`:
+
+- realtime provider disconnected
+- auth failure
+- subscription failure affecting required `trading_active` symbols
+- required minute bars missing past tolerance for required workload
+- repair failures leaving required trading scopes unrecoverable
+- persistence failure preventing required canonical bar upserts
+
+### Operator-facing visibility
+
+- The operator-facing dashboard should expose a `MarketData` operational card with at least:
+  - active provider
+  - active feed
+  - operating mode
+  - connection state
+  - operational readiness
+  - subscribed symbol counts by relevant channels
+  - repair backlog summary
+  - affected trading symbol count
+  - last bar received time
+  - active alert count
+- A deeper operational view should expose active provider/runtime issues, active repair jobs, non-ready trading symbols, halt/`LULD` symbols, and recent reconnect/subscription failures.
+
+### v1-specific alerting rules
+
+- Entering `limited` mode should emit a `warning` alert once at transition time and then remain represented primarily through operating-mode state and UI badging until the mode changes again.
+- Repeated dropped trade or quote events remain operational signals in v1 and do not by themselves block trading readiness unless required bar or market-status behavior is affected.
+- Failure to persist a required bar upsert is `critical` and should make affected required trading scopes not ready immediately.
+
+## 11) Readiness/state query and event model
 
 - `MarketData` owns authoritative current readiness/state.
 - `MarketData` also owns market-data operating-mode state, separate from readiness.
@@ -422,7 +560,7 @@ Tier transition rules:
 
 Exact readiness payload fields and naming conventions live in `docs/contracts/MARKET_DATA_READINESS.md`.
 
-## 11) Cross-references
+## 12) Cross-references
 
 - `docs/PROJECT.md`: product-level scope and requirements
 - `docs/ARCHITECTURE.md`: system-level ownership and module boundaries

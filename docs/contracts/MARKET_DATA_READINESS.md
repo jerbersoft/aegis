@@ -134,6 +134,8 @@ All payloads use singular, snake_case field names.
 - `subscription_runtime_status`
 - `warmup_runtime_status`
 - `repair_runtime_status`
+- `operability_domains`
+- `active_alert_count`
 - `affected_symbol_count`
 - `last_state_changed_utc`
 
@@ -236,6 +238,7 @@ Typical causes:
 - Halt and `LULD` windows suppress ordinary trailing-gap classification.
 - A symbol affected by halt or `LULD` may still surface `not_ready` with `market_status_blocked` as the primary reason when operationally required.
 - `revision_eligible` bar runtime state is not a readiness state and does not by itself force readiness degradation.
+- Failure to persist a required canonical bar upsert is a critical readiness-affecting condition for affected trading scopes.
 
 ### Readiness restoration rules
 
@@ -280,6 +283,30 @@ Rules:
 - A symbol, scanner scope, or operational scope may be `ready` while the environment remains `limited`.
 - Operating mode should be suitable for UI badging and operator awareness.
 - Transport teardown grace after `Execution` removal is an orchestration concern and does not preserve `trading_active` readiness semantics.
+- Entering `limited` mode should emit a `warning` alert once on transition, while ongoing limited-mode state remains primarily visible through operating-mode state and UI badging.
+
+## 8) Operability and alerting expectations
+
+Recommended v1 alert severities:
+
+- `info`
+- `warning`
+- `critical`
+
+Recommended operability domain names:
+
+- `provider_connectivity`
+- `historical_retrieval`
+- `realtime_ingestion`
+- `subscription_runtime`
+- `gap_repair_runtime`
+- `readiness_runtime`
+
+Rules:
+
+- Dropped trade or quote events remain operational-only signals in v1 unless required bar or market-status behavior is affected.
+- Required-bar persistence failure should be treated as `critical` for affected required trading scopes.
+- Operational readiness should reflect whether required market-data behavior is functioning, while alerts and operability domains explain why the state is degraded or failed.
 
 Recommended v1 `operating_mode_reason_codes` values:
 
@@ -289,7 +316,7 @@ Recommended v1 `operating_mode_reason_codes` values:
 - `non_production_market_coverage`
 - `provider_plan_limited`
 
-## 8) Event Payloads
+## 9) Event Payloads
 
 ### `scanner_universe_readiness_changed`
 
@@ -328,7 +355,7 @@ Recommended v1 `operating_mode_reason_codes` values:
 - `repaired_utc`
 - `reason_code`
 
-## 9) Related Documents
+## 10) Related Documents
 
 - `docs/modules/MARKET_DATA.md`: MarketData module design and policy
 - `docs/FLOWS.md`: readiness refresh and repair flow behavior
