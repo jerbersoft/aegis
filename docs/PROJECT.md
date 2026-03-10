@@ -199,3 +199,4 @@ Deferred for later definition:
 - `docs/FLOWS.md`: startup, readiness, recovery, and live runtime behavior
 - `docs/modules/MARKET_DATA.md`: MarketData module policy and detailed v1 design
 - `docs/contracts/MARKET_DATA_READINESS.md`: readiness payload and event contract details
+- `docs/contracts/MARKET_DATA_PROVIDER_CONTRACTS.md`: provider-facing market-data contract shapes and normalized adapter boundaries

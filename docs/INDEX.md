@@ -16,6 +16,7 @@ This index is the entry point for repository documentation.
 ## Contract documents
 
 - `docs/contracts/MARKET_DATA_READINESS.md` — readiness payloads, enums, notification naming, and event contract details
+- `docs/contracts/MARKET_DATA_PROVIDER_CONTRACTS.md` — provider ports, normalized event DTOs, subscription state, and capability contracts
 
 ## Current repository state
 
@@ -36,6 +37,7 @@ This index is the entry point for repository documentation.
 1. `docs/FLOWS.md`
 2. `docs/modules/MARKET_DATA.md`
 3. `docs/contracts/MARKET_DATA_READINESS.md`
+4. `docs/contracts/MARKET_DATA_PROVIDER_CONTRACTS.md`
 
 ### Understand planned system structure
 

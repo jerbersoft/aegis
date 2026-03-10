@@ -261,6 +261,8 @@ Provider-facing abstractions:
 - `realtime market data provider`: normalized ticks, quotes, finalized bars, and provider status events.
 - `provider capabilities contract`: exposes optional provider capabilities such as batch historical retrieval.
 
+Detailed provider-port and normalized event contract shapes live in `docs/contracts/MARKET_DATA_PROVIDER_CONTRACTS.md`.
+
 Canonical source rules:
 - Historical daily bars are the canonical source for persisted daily bars.
 - Historical intraday bars are the canonical source for warmup, backfill, repair, and reconciliation of persisted intraday history.
@@ -426,3 +428,4 @@ Exact readiness payload fields and naming conventions live in `docs/contracts/MA
 - `docs/ARCHITECTURE.md`: system-level ownership and module boundaries
 - `docs/FLOWS.md`: startup, recovery, and live runtime behavior
 - `docs/contracts/MARKET_DATA_READINESS.md`: readiness payloads and event contracts
+- `docs/contracts/MARKET_DATA_PROVIDER_CONTRACTS.md`: provider-port, subscription, capability, and normalized event contracts

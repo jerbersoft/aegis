@@ -100,7 +100,7 @@ For v1, `MarketData` uses three provider-facing abstractions:
 - realtime market data provider
 - provider capabilities contract
 
-Detailed provider contract semantics live in `docs/modules/MARKET_DATA.md`.
+Detailed provider contract semantics live in `docs/modules/MARKET_DATA.md` and `docs/contracts/MARKET_DATA_PROVIDER_CONTRACTS.md`.
 
 ## 7) Ownership Rules
 
@@ -204,3 +204,4 @@ Key v1 entities include:
 - `docs/FLOWS.md`: runtime and recovery behavior
 - `docs/modules/MARKET_DATA.md`: detailed MarketData module design
 - `docs/contracts/MARKET_DATA_READINESS.md`: readiness payload and event contracts
+- `docs/contracts/MARKET_DATA_PROVIDER_CONTRACTS.md`: provider-facing contract shapes and normalized adapter contracts
