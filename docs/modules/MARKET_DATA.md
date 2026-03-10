@@ -316,7 +316,94 @@ Tier transition rules:
 - Removal from non-`Execution` watchlists uses grace-based teardown before the symbol downgrades to `daily_only_retained` or is removed entirely.
 - v1 standard non-`Execution` watchlist removal grace is `10` minutes.
 
-## 9) Readiness/state query and event model
+## 9) Persistence design
+
+### Logical storage contract
+
+- `MarketData` persists daily and intraday bars in one logical singular-form `bar` table.
+- The logical `bar` table stores only provider-emitted closed bars.
+- The logical `bar` table persists both realtime-first-close bars and later authoritative revisions/reconciliation results.
+
+### Row identity and uniqueness
+
+- The canonical uniqueness key for a persisted bar is `(symbol, interval, bar_time_utc)`.
+- `bar_time_utc` is the provider bar timestamp in `UTC` and is the primary time identity for persisted bars.
+- `market_date` and session-related fields are stored as descriptive/query fields, not as the primary uniqueness anchor.
+
+### Recommended persisted fields
+
+- identity and lookup fields:
+  - `symbol`
+  - `interval`
+  - `bar_time_utc`
+  - `market_date`
+  - `session_segment`
+  - `is_daily`
+- canonical bar fields:
+  - `open`
+  - `high`
+  - `low`
+  - `close`
+  - `volume`
+- provider-supplied optional fields when available:
+  - `trade_count`
+  - `vwap`
+- persistence metadata:
+  - `bar_state`
+  - `source_kind`
+  - `provider_name`
+  - `provider_feed`
+  - `last_upserted_utc`
+- optional convenience fields:
+  - `is_extended_hours`
+
+### Persisted bar-state semantics
+
+- Persisted `bar_state` should align with runtime bar-state concepts:
+  - `revision_eligible`
+  - `stable`
+  - `reconciled`
+- Persisting `bar_state` allows restart recovery, reconciliation sweeps, and repair workflows to resume with correct context.
+
+### Physical partitioning strategy
+
+- The logical `bar` table is physically range-partitioned by `market_date`.
+- v1 default partition granularity is monthly.
+- Partitioning by time supports efficient retention pruning, predictable partition management, and historical-range queries.
+- v1 should not partition by symbol.
+
+### Index strategy
+
+- Primary unique index: `(symbol, interval, bar_time_utc)`.
+- Primary read-path index for warmup, repair, and historical hydration should optimize `(symbol, interval, bar_time_utc)` range queries.
+- Additional indexes should be introduced only when proven necessary by concrete access paths.
+- `bar_state` and metadata indexes may be added later for reconciliation sweeps if needed.
+
+### Upsert contract
+
+- Persisted bars use insert-or-overwrite upsert behavior keyed by `(symbol, interval, bar_time_utc)`.
+- When a row does not exist, the incoming bar inserts a new row.
+- When a row exists, an authoritative incoming bar overwrites canonical bar values and persistence metadata.
+- Authoritative-write precedence for v1:
+  1. historical reconciliation write
+  2. realtime updated-bar write
+  3. realtime first-close write
+- Historical reconciliation may overwrite realtime-originated bar values.
+- Realtime updated bars may overwrite prior realtime first-close bars.
+
+### Retention and pruning
+
+- v1 daily retention target is the latest `300` daily bars per symbol.
+- v1 intraday retention target is the latest `20` market days of intraday bars per symbol and interval.
+- Retention pruning runs asynchronously and must not block ingest or hot runtime paths.
+- Partition-aware pruning should be preferred over chatty row-by-row cleanup whenever possible.
+
+### Query contract
+
+- Normal bar reads should query by `symbol`, `interval`, and time range.
+- `is_daily` is a convenience field and must not replace interval-aware querying as the primary access pattern.
+
+## 10) Readiness/state query and event model
 
 - `MarketData` owns authoritative current readiness/state.
 - `MarketData` also owns market-data operating-mode state, separate from readiness.
@@ -333,7 +420,7 @@ Tier transition rules:
 
 Exact readiness payload fields and naming conventions live in `docs/contracts/MARKET_DATA_READINESS.md`.
 
-## 10) Cross-references
+## 11) Cross-references
 
 - `docs/PROJECT.md`: product-level scope and requirements
 - `docs/ARCHITECTURE.md`: system-level ownership and module boundaries

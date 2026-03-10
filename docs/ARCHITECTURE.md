@@ -151,8 +151,10 @@ MarketData persistence expectations:
 
 - `MarketData` persists daily and intraday bars in one logical singular-form `bar` table.
 - The logical `bar` table is physically partitioned for scale and retention management.
+- v1 bar-table uniqueness is based on `(symbol, interval, bar_time_utc)`.
+- v1 physical partitioning is time-based and range-partitioned by `market_date` using monthly partitions.
 - Persisted timestamps remain `UTC`, while market-date and session classification are exchange-local.
-- Only finalized bars are persisted.
+- Only closed/provider-emitted bars are persisted.
 - Indicator values are not persisted in v1.
 - Hot-path strategy evaluation should prefer `MarketData`-owned shared in-memory state rather than repeated database reads.
 

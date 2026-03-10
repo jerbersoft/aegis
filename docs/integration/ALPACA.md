@@ -29,7 +29,7 @@ This is a research and planning document, not an implementation contract.
 - supports realtime quotes
 - supports realtime intraday bars
 - supports historical daily bars
-- supports historical intraday bars for `1-min`, `5-min`, and `15-min`
+- supports historical intraday bars for `1-min` and potentially future deferred intervals such as `5-min` and `15-min`
 - supports pre-market and post-market coverage
 - supports benchmark symbols such as `SPY`
 - supports a large tracked universe, including a target scale around `4,000` symbols
@@ -113,7 +113,7 @@ Recommended comparison columns:
 | Realtime quotes | yes | meets | stock websocket docs | Available |
 | Realtime minute bars | yes | meets | `bars` channel in stock websocket docs | Available |
 | Historical daily bars | yes | meets | historical stock data docs and SDK historical bars support | Available |
-| Historical intraday bars | yes | meets | historical stock data docs and SDK historical bars support | Suitable for `1-min`, `5-min`, and `15-min` design direction, though exact runtime validation is still advisable |
+| Historical intraday bars | yes | meets | historical stock data docs and SDK historical bars support | Suitable for active v1 `1-min` use and future deferred intervals, though exact runtime validation is still advisable |
 | Pre-market and post-market intraday coverage | yes | partial | realtime minute bars explicitly include pre-market and aftermarket trades | Historical extended-hours semantics still need more direct validation for Aegis policy |
 | Full-market production feed | yes | meets on paid plan | `SIP` feed docs | Free `IEX` is not sufficient for production correctness |
 | Free-tier production viability | no | does_not_meet | basic/free plan docs: `IEX` only with symbol limits | Not suitable for Aegis production market-data design |
@@ -227,7 +227,7 @@ Rules:
 
 - `Alpaca` minute bars should be treated as authoritative realtime truth, but not assumed immutable.
 - On first provider close publication from websocket `bars`, `Aegis` should persist the minute bar immediately and treat it as usable for live readiness and indicators.
-- Newly closed realtime minute bars should begin in `PendingRevision` state.
+- Newly closed realtime minute bars should begin in `RevisionEligible` state.
 - `updatedBars` should be treated as authoritative revisions to previously emitted minute bars.
 - When a materially changed `updatedBar` arrives, `Aegis` should upsert the bar and recompute dependent state from the affected bar forward for the affected symbol/interval.
 - Trade corrections and cancel/error events should not trigger Aegis-side trade aggregation; they should drive revalidation and repair behavior.
