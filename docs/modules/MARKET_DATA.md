@@ -307,6 +307,7 @@ Execution-watchlist guard rules:
 - A symbol cannot be removed from the `Execution` watchlist while any attached strategy remains active.
 - A symbol cannot be removed from the `Execution` watchlist while an open position exists.
 - A symbol cannot be removed from the `Execution` watchlist while open orders exist.
+- If `Execution` removal is allowed because the assigned strategy is inactive, the strategy assignment is detached as part of the same business operation and `MarketData` should react only after the resulting membership change becomes authoritative.
 
 Tier transition rules:
 

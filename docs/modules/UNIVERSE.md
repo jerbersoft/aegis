@@ -150,6 +150,7 @@ Rules:
 - `Universe` owns enforcement of the `Execution` removal rule.
 - `Universe` should obtain blocker state through cross-module query-style contracts rather than direct ownership of strategy, order, or position persistence.
 - If blocked, removal should fail with structured domain reason codes.
+- If allowed while an assigned strategy is inactive, `Execution` removal also detaches that strategy assignment as part of the same business operation.
 
 ## 7) Command contract direction
 
@@ -585,7 +586,74 @@ Rules:
 - `Strategies` depend on `Execution` membership for symbol assignment eligibility.
 - `Universe` should use query-style cross-module reads to evaluate `Execution` removal blockers.
 
-## 11) Open items for continued planning
+## 11) Strategy-assignment eligibility contract
+
+### Core ownership split
+
+- `Universe` owns symbol execution eligibility.
+- `Strategies` owns strategy definitions and strategy-to-symbol assignments.
+- `Universe` does not own strategy runtime state, but it does own the rule that `Execution` membership gates assignment eligibility.
+
+### Eligibility rule
+
+- A symbol is strategy-assignable only while it is in the `Execution` watchlist.
+- `Execution` membership is the v1 eligibility gate for assignment.
+
+### Cardinality rules
+
+- A symbol may have at most one assigned strategy in v1.
+- A strategy may be assigned to multiple symbols in v1.
+
+### Assignment lifecycle implications
+
+- Assignment creation must fail if the symbol is not in `Execution`.
+- Assignment creation must fail if the symbol already has another assigned strategy.
+- Removing a symbol from `Execution` is blocked while its assigned strategy remains active.
+- Removing a symbol from `Execution` is allowed when the assigned strategy is inactive.
+- When `Execution` removal succeeds for a symbol with an inactive assigned strategy, the strategy assignment is removed as part of the same business operation.
+
+### Cross-module contract direction
+
+Recommended v1 eligibility query direction:
+
+- `CanAssignStrategyToSymbolQuery`
+
+Recommended result shape:
+
+- `symbol_id`
+- `ticker`
+- `is_in_universe`
+- `is_in_execution`
+- `can_assign_strategy`
+- `reason_codes`
+
+Recommended v1 reason codes:
+
+- `none`
+- `symbol_not_found`
+- `symbol_not_in_universe`
+- `symbol_not_in_execution`
+- `symbol_already_has_assigned_strategy`
+
+Recommended eligibility event direction:
+
+- `SymbolExecutionEligibilityChangedEvent`
+- wire name: `symbol_execution_eligibility_changed`
+
+Recommended event fields:
+
+- `event_id`
+- `occurred_utc`
+- `symbol_id`
+- `ticker`
+- `is_execution_eligible`
+
+### Business-operation expectations
+
+- `Execution` removal that is allowed only because the strategy is inactive should coordinate assignment removal and watchlist removal together.
+- The combined effect should be atomic from the operator's point of view, even if implemented through coordinated module operations.
+
+## 12) Open items for continued planning
 
 The following items still need deeper definition:
 
@@ -595,7 +663,7 @@ The following items still need deeper definition:
 - Universe operability and audit surfaces
 - Universe UI/read-model requirements
 
-## 12) Cross-references
+## 13) Cross-references
 
 - `docs/PROJECT.md`
 - `docs/ARCHITECTURE.md`

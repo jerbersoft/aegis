@@ -205,6 +205,7 @@ Rules:
 - A symbol cannot be removed from `Execution` while an attached strategy is still active.
 - A symbol cannot be removed from `Execution` while an open position exists.
 - A symbol cannot be removed from `Execution` while open orders exist.
+- If `Execution` removal is allowed because the assigned strategy is inactive, the strategy assignment is detached as part of the same business operation before the adapter reacts to the resulting downgraded market-data demand.
 
 #### `Execution` removal behavior
 
