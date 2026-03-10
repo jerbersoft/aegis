@@ -88,6 +88,15 @@ Notes:
 - Readiness semantics are feed-invariant; `IEX` vs `SIP` changes data completeness and production confidence, not readiness definitions.
 - Gap types for v1: `trailing`, `internal`, `benchmark_dependency`.
 - Gap detection is session-aware and uses exchange calendar plus interval/session rules.
+- Expected bars are computed from exchange calendar, active session segments, interval, and current scope demand.
+- Live trailing gaps are declared only after the expected bar close plus configured provider arrival tolerance.
+- v1 default provider arrival tolerance for live intraday trailing-gap detection is `30` seconds and must remain configurable.
+- Intraday expected bars include `pre-market`, `regular`, and `post-market` session segments.
+- Daily expected bars are `RTH`-only and follow valid regular trading days only.
+- No gaps are created for weekends, holidays, closed periods, overnight non-session time, or timestamps beyond early-close session boundaries.
+- Missing expected bars during symbol halt or `LULD` pause windows do not create ordinary trailing gaps.
+- Halt or `LULD` windows may still make the affected symbol not ready for market-status reasons rather than gap reasons.
+- For required intraday runtime scopes, a missing expected intraday bar is treated as a gap once the allowed arrival window has passed.
 - Intraday staleness thresholds are configurable and default to `2` missed bars in v1.
 - If a required gap is detected during warmup or runtime, the affected scope becomes not ready immediately and repair starts immediately.
 - Repair upserts recovered finalized bars, recomputes affected state, validates the repaired sequence, and restores readiness only after that work completes.
@@ -99,6 +108,30 @@ Notes:
 - `RevisionEligible` bar runtime state is separate from readiness state and must not by itself force `warming_up`, `repairing`, or `not_ready`.
 - Symbols with unresolved daily gaps in required warmup range are excluded from scanner results.
 - Unresolved intraday gaps make the affected active symbol not trading-ready; v1 pause is symbol-scoped by default.
+
+### Repair execution strategy
+
+- Repair work flows through a single repair orchestration system with priority queueing, deduplication, and bounded concurrency.
+- High-priority repairs are enqueued immediately and dispatched ahead of lower-priority work through the shared orchestration system.
+- Repair priority order for v1:
+  1. `trading_active` symbol repairs
+  2. benchmark/dependency repairs required by trading or scanner logic
+  3. `watchlist_symbol` intraday repairs
+  4. scanner-universe and retained-symbol daily repairs
+  5. background reconciliation repairs
+- Repair jobs should carry at least symbol, interval, gap type, earliest affected timestamp, enqueue time, priority tier, and repair cause.
+- Repeated repair requests for the same symbol/interval/range should deduplicate and widen the affected range rather than creating parallel micro-jobs.
+- Repair execution should limit in-flight work per symbol so one noisy symbol cannot monopolize capacity.
+- Repair batching should use provider multi-symbol historical retrieval when available and otherwise fall back to provider-compatible smaller batches.
+- Bounded concurrency and retry/backoff behavior must remain configurable and rate-limit aware.
+
+### Readiness restoration after repair
+
+- A scope returns to `ready` only after repair fetch succeeds, repaired bars are upserted, dependent recompute completes, repaired sequence validation succeeds, and no remaining blocking issue exists.
+- Trading-symbol readiness becomes `repairing` immediately when active repair begins for a previously ready required symbol.
+- Scanner-symbol readiness restores per symbol after required repair, recompute, and validation complete.
+- Scanner-universe readiness remains partial-coverage aware and does not wait for every symbol repair to finish before remaining or becoming `ready`.
+- Operational readiness may remain `repairing` while materially relevant repairs are active, even if some symbol scopes have already recovered.
 
 ### Intraday bar finality and correction model
 

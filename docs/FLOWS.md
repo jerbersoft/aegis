@@ -71,14 +71,19 @@ Naming and payload details are defined in `docs/contracts/MARKET_DATA_READINESS.
 
 1. `MarketData` treats gaps as missing finalized bars required for readiness or runtime correctness.
 2. Gap types for v1 are trailing gaps, internal gaps, and benchmark dependency gaps.
-3. When a required gap is detected during runtime or warmup, the affected scope is marked not ready immediately.
-4. Repair starts immediately.
-5. Repair upserts recovered finalized bars, recomputes affected indicators and runtime state, and validates the repaired sequence.
-6. Trailing-gap repair may append bars and use incremental recompute.
-7. Internal-gap repair requires recompute from the earliest missing bar forward.
-8. If a provider emits a correction for a previously finalized bar, `MarketData` recomputes from that bar forward only when canonical values actually changed.
-9. Readiness is restored only after repair, recompute, and validation complete.
-10. Operational surfacing of gap detection and repair should also feed alerts and audit trails.
+3. Expected bars are computed from exchange calendar, session segments, interval, and current scope demand.
+4. A live trailing gap is declared only after expected bar close plus provider arrival tolerance expires.
+5. Missing expected bars during halt or `LULD` windows do not create ordinary trailing gaps.
+6. Halt or `LULD` conditions may still make the symbol not ready for market-status reasons.
+7. When a required gap is detected during runtime or warmup, the affected scope is marked not ready or repairing according to scope rules, and repair is enqueued immediately.
+8. Repair execution uses a single priority-driven orchestration system with deduplication, bounded concurrency, and provider-aware batching.
+9. Repair priority is highest for `trading_active` symbols, then benchmark dependencies, then watchlist intraday symbols, then daily/background maintenance.
+10. Repair upserts recovered finalized bars, recomputes affected indicators and runtime state, and validates the repaired sequence.
+11. Trailing-gap repair may append bars and use incremental recompute.
+12. Internal-gap repair requires recompute from the earliest missing bar forward.
+13. If a provider emits a correction for a previously finalized bar, `MarketData` recomputes from that bar forward only when canonical values actually changed.
+14. Readiness is restored only after repair, recompute, and validation complete.
+15. Operational surfacing of gap detection and repair should also feed alerts and audit trails.
 
 ## 7) Live Intraday Volume and Indicator Updates
 

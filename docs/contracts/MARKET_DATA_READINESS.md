@@ -55,6 +55,7 @@ All payloads use singular, snake_case field names.
 - `benchmark_not_ready`
 - `provider_disconnected`
 - `provider_degraded`
+- `market_status_blocked`
 - `dependency_paused`
 - `awaiting_first_finalized_bar`
 - `awaiting_recompute`
@@ -222,11 +223,26 @@ Typical causes:
 - Trading-symbol readiness is strict per symbol and interval.
 - After outage or dependency recovery, the symbol returns through `warming_up` only if revalidation or rehydration is required.
 - Otherwise the symbol may return directly to `ready` once blocking issues clear.
+- When active repair begins for a previously ready required trading symbol, the symbol transitions to `repairing` immediately.
 
 #### Operational readiness
 
 - Operational readiness uses `warming_up`, `ready`, `repairing`, and `not_ready`.
 - Operational readiness should reflect the worst meaningful state for current required market-data workload.
+
+### Gap and repair interpretation rules
+
+- Live trailing gaps are detected only after the expected bar close plus configured arrival tolerance expires.
+- Halt and `LULD` windows suppress ordinary trailing-gap classification.
+- A symbol affected by halt or `LULD` may still surface `not_ready` with `market_status_blocked` as the primary reason when operationally required.
+- `revision_eligible` bar runtime state is not a readiness state and does not by itself force readiness degradation.
+
+### Readiness restoration rules
+
+- A scope returns to `ready` only after required repair fetch, bar upsert, dependent recompute, and repaired-sequence validation all complete successfully.
+- If validation fails, the scope must not return to `ready`.
+- Scanner-universe readiness remains partial-coverage aware during individual symbol repairs.
+- Operational readiness may remain `repairing` while materially relevant repairs are active.
 
 ### Primary reason-code precedence
 
