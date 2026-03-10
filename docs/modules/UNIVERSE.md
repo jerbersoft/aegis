@@ -202,6 +202,313 @@ Behavior rules:
 - removing a symbol from its last watchlist should emit `SymbolLeftUniverseEvent`
 - blocked `Execution` removal should return structured command failure and may additionally surface audit/operational signals later if needed
 
+### Query design policy
+
+- Primary operator-facing v1 read models should not use paging.
+- Watchlists, Universe symbol sets, and `Execution` membership should be returned as full result sets suitable for trading-style UI workflows.
+- UI rendering concerns for large result sets should be handled through filtering, sorting, and client-side virtualization rather than server-driven paging.
+- Search and sort options are allowed in v1 primary query contracts.
+- Future alternate query contracts may add paging for administrative, export, or non-operator workflows if needed.
+
+### Recommended query result shapes
+
+#### `GetWatchlistsQuery`
+
+Returns a collection of `watchlist_summary_view`.
+
+`watchlist_summary_view` fields:
+
+- `watchlist_id`
+- `name`
+- `watchlist_type`
+- `is_system`
+- `is_execution`
+- `can_rename`
+- `can_delete`
+- `symbol_count`
+- `created_utc`
+- `updated_utc`
+
+#### `GetWatchlistByIdQuery`
+
+Returns `watchlist_detail_view`.
+
+`watchlist_detail_view` fields:
+
+- `watchlist_id`
+- `name`
+- `watchlist_type`
+- `is_system`
+- `is_execution`
+- `can_rename`
+- `can_delete`
+- `symbol_count`
+- `created_utc`
+- `updated_utc`
+
+#### `GetWatchlistContentsQuery`
+
+Recommended request fields:
+
+- `watchlist_id`
+- `search` optional
+- `sort_by` optional
+- `sort_direction` optional
+
+Returns `watchlist_contents_view`.
+
+`watchlist_contents_view` fields:
+
+- `watchlist_id`
+- `name`
+- `watchlist_type`
+- `total_count`
+- `items`
+
+`watchlist_item_view` fields:
+
+- `watchlist_item_id`
+- `watchlist_id`
+- `symbol_id`
+- `ticker`
+- `asset_class`
+- `added_utc`
+- `is_in_execution`
+- `watchlist_count`
+
+#### `GetSymbolWatchlistMembershipsQuery`
+
+Request may use `symbol` or `symbol_id`.
+
+Returns `symbol_membership_view`.
+
+`symbol_membership_view` fields:
+
+- `symbol_id`
+- `ticker`
+- `asset_class`
+- `is_in_universe`
+- `is_in_execution`
+- `watchlist_count`
+- `watchlists`
+
+`symbol_membership_watchlist_view` fields:
+
+- `watchlist_id`
+- `name`
+- `watchlist_type`
+- `is_system`
+- `is_execution`
+- `added_utc`
+
+#### `GetUniverseSymbolsQuery`
+
+Recommended request fields:
+
+- `search` optional
+- `sort_by` optional
+- `sort_direction` optional
+- `watchlist_id` optional
+- `execution_only` optional
+
+Returns `universe_symbols_view`.
+
+`universe_symbols_view` fields:
+
+- `total_count`
+- `items`
+
+`universe_symbol_view` fields:
+
+- `symbol_id`
+- `ticker`
+- `asset_class`
+- `watchlist_count`
+- `is_in_execution`
+- `created_utc`
+- `updated_utc`
+
+#### `GetExecutionWatchlistSymbolsQuery`
+
+Recommended request fields:
+
+- `search` optional
+- `sort_by` optional
+- `sort_direction` optional
+
+Returns `execution_watchlist_symbols_view`.
+
+`execution_watchlist_symbol_view` fields:
+
+- `symbol_id`
+- `ticker`
+- `asset_class`
+- `added_to_execution_utc`
+- `has_active_strategy`
+- `has_open_position`
+- `has_open_orders`
+- `can_remove_from_execution`
+
+#### `CanRemoveSymbolFromExecutionQuery`
+
+Returns `execution_removal_check_view`.
+
+`execution_removal_check_view` fields:
+
+- `symbol_id`
+- `ticker`
+- `can_remove`
+- `blocking_reason_codes`
+
+#### `GetExecutionRemovalBlockersQuery`
+
+Returns `execution_removal_blockers_view`.
+
+`execution_removal_blockers_view` fields:
+
+- `symbol_id`
+- `ticker`
+- `can_remove`
+- `has_active_strategy`
+- `has_open_position`
+- `has_open_orders`
+- `blocking_reason_codes`
+
+Recommended `blocking_reason_codes` values:
+
+- `none`
+- `active_strategy_attached`
+- `open_position_exists`
+- `open_orders_exist`
+
+### Recommended event payload shapes
+
+Naming rules:
+
+- internal notification types use `PascalCase`
+- wire event names and payload field names use singular `snake_case`
+
+#### Watchlist lifecycle events
+
+`WatchlistCreatedEvent` -> `watchlist_created`
+
+- `event_id`
+- `occurred_utc`
+- `watchlist_id`
+- `name`
+- `watchlist_type`
+- `is_system`
+- `is_execution`
+
+`WatchlistRenamedEvent` -> `watchlist_renamed`
+
+- `event_id`
+- `occurred_utc`
+- `watchlist_id`
+- `old_name`
+- `new_name`
+
+`WatchlistDeletedEvent` -> `watchlist_deleted`
+
+- `event_id`
+- `occurred_utc`
+- `watchlist_id`
+- `name`
+
+#### Membership lifecycle events
+
+`SymbolAddedToWatchlistEvent` -> `symbol_added_to_watchlist`
+
+- `event_id`
+- `occurred_utc`
+- `watchlist_id`
+- `watchlist_name`
+- `symbol_id`
+- `ticker`
+
+`SymbolRemovedFromWatchlistEvent` -> `symbol_removed_from_watchlist`
+
+- `event_id`
+- `occurred_utc`
+- `watchlist_id`
+- `watchlist_name`
+- `symbol_id`
+- `ticker`
+
+#### Universe lifecycle events
+
+`SymbolEnteredUniverseEvent` -> `symbol_entered_universe`
+
+- `event_id`
+- `occurred_utc`
+- `symbol_id`
+- `ticker`
+
+`SymbolLeftUniverseEvent` -> `symbol_left_universe`
+
+- `event_id`
+- `occurred_utc`
+- `symbol_id`
+- `ticker`
+
+#### `Execution` membership events
+
+`SymbolAddedToExecutionWatchlistEvent` -> `symbol_added_to_execution_watchlist`
+
+- `event_id`
+- `occurred_utc`
+- `watchlist_id`
+- `symbol_id`
+- `ticker`
+
+`SymbolRemovedFromExecutionWatchlistEvent` -> `symbol_removed_from_execution_watchlist`
+
+- `event_id`
+- `occurred_utc`
+- `watchlist_id`
+- `symbol_id`
+- `ticker`
+
+### Event behavior rules
+
+- Events fire only after successful mutation.
+- Blocked mutations do not emit normal success lifecycle events.
+- Events are notifications only; consumers should re-query for current truth.
+- `SymbolEnteredUniverseEvent` fires when a symbol gains its first watchlist membership.
+- `SymbolLeftUniverseEvent` fires when a symbol loses its last watchlist membership.
+- Leaving the `Universe` does not imply deletion of the persisted symbol row.
+
+Recommended event ordering:
+
+- first symbol add to any watchlist:
+  1. `symbol_added_to_watchlist`
+  2. `symbol_entered_universe` when applicable
+  3. `symbol_added_to_execution_watchlist` when applicable
+- last symbol removal from a watchlist:
+  1. `symbol_removed_from_watchlist`
+  2. `symbol_removed_from_execution_watchlist` when applicable
+  3. `symbol_left_universe` when applicable
+
+### Command result direction
+
+Recommended v1 mutation result shape:
+
+- `success`
+- `reason_codes`
+- `message` optional
+
+Recommended v1 reason-code values:
+
+- `watchlist_not_found`
+- `watchlist_name_conflict`
+- `watchlist_is_system_owned`
+- `symbol_already_in_watchlist`
+- `symbol_not_in_watchlist`
+- `invalid_symbol`
+- `execution_removal_blocked_active_strategy`
+- `execution_removal_blocked_open_position`
+- `execution_removal_blocked_open_orders`
+
 ## 9) Persistence design
 
 ### Core tables
