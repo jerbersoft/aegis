@@ -106,13 +106,14 @@ Default rolling retention policy:
 - `300` daily bars per symbol
 - `20` days of intraday bars per symbol, per interval
 
-Supported intraday intervals for v1 include:
+Supported intraday interval for active v1 runtime behavior:
 
 - `1-min`
+
+Deferred for future implementation:
+
 - `5-min`
 - `15-min`
-
-Additional intervals may be added later.
 
 Product-level expectations:
 

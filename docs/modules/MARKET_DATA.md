@@ -60,15 +60,10 @@ Boundaries:
 - `volume_buzz_percent`
 - `vwap`
 
-### Intraday 5-min
-- `ema_6`
-- `ema_20`
-- `volume_buzz_percent`
-- `vwap`
-
 Notes:
 - Daily and intraday profiles are different.
-- Intraday profiles are interval-specific.
+- v1 intraday runtime profile is `1-min` only.
+- Additional intraday intervals such as `5-min` and `15-min` are deferred to future implementation.
 - `volume_buzz_percent` and `vwap` are full-session in v1 and include `pre-market`, `regular`, and `post-market`.
 - Indicator definitions stay parameterized/configurable even with fixed v1 defaults.
 
@@ -106,7 +101,7 @@ Daily indicator definitions:
 
 Intraday indicator definitions:
 
-- `ema_30`, `ema_100`, `ema_6`, and `ema_20` use completed intraday closes for the relevant interval.
+- `ema_30` and `ema_100` use completed intraday `1-min` closes.
 - `vwap` is full-session in v1 and resets at the pre-market-open full-session boundary.
 - When the provider supplies `vwap`, provider `vwap` is used.
 - When the provider does not supply `vwap`, `Aegis` computes deterministic fallback `vwap` as cumulative `sum(typical_price * volume) / sum(volume)`.
@@ -122,6 +117,76 @@ Intraday indicator definitions:
 - Hot-path strategy evaluation should use `MarketData` shared in-memory state rather than repeated database reads.
 - Tick and quote delivery is best-effort/live-enhancement oriented and should use bounded high-throughput buffering.
 - Finalized bars and provider status events use stricter reliable-delivery paths.
+
+### v1 runtime-state scope
+
+- v1 in-memory intraday runtime state supports `1-min` only.
+- `5-min` and `15-min` intraday runtime state are deferred to future implementation.
+- v1 live subscriptions, intraday readiness, intraday repair, and intraday indicator runtime state are all based on `1-min` bars only.
+
+### Runtime-state hierarchy
+
+- One global `MarketData` runtime state owns provider/feed state, operating mode, session clock state, readiness rollups, and symbol registry.
+- One symbol runtime state exists per tracked symbol.
+- Each symbol runtime state contains:
+  - symbol tier and metadata
+  - market-status state including trading status and `LULD`
+  - latest quote/trade snapshots when applicable
+  - daily runtime state
+  - `1-min` intraday runtime state when applicable
+  - active gap/repair metadata
+  - symbol-scoped readiness summaries
+
+### Daily runtime state
+
+- Daily runtime state retains up to `300` daily bars in memory per required symbol.
+- Daily indicator snapshots are attached to daily runtime state and include all v1 daily indicators.
+- Benchmark dependency state is attached to daily runtime state when needed.
+
+### `1-min` intraday runtime state
+
+- `1-min` runtime state exists only for symbols with active intraday demand.
+- `1-min` runtime state contains:
+  - raw closed `1-min` bar working set
+  - latest closed-bar metadata and bar runtime state
+  - intraday indicator snapshot for `ema_30`, `ema_100`, `volume_buzz_percent`, and `vwap`
+  - current-session cumulative state
+  - provisional tick-extension state for live cumulative session volume only
+  - gap/repair metadata
+  - recompute watermark information
+
+### Intraday raw-window policy
+
+- v1 raw in-memory `1-min` bar window is `current session + prior session`.
+- Deeper intraday rebuild and repair ranges must reload from persisted history when needed.
+- v1 does not keep the full retained intraday history in memory.
+
+### Volume-buzz reference state
+
+- `volume_buzz_percent` hot-path calculation should remain memory-only in v1.
+- `Aegis` should not keep `10` prior sessions of raw `1-min` bars in memory solely for `volume_buzz_percent`.
+- Instead, `Aegis` keeps historical cumulative-volume reference curves by session offset for the prior `10` sessions.
+- The average historical cumulative-volume curve used by `volume_buzz_percent` is derived from those `10` prior session curves.
+- This preserves exactness for the v1 `volume_buzz_percent` formula because the metric depends on cumulative volume at the same session offset rather than prior-session raw `OHLCV` shape.
+
+### Quote/trade runtime state
+
+- `watchlist_symbol` runtime state does not require live trade or quote state.
+- `trading_active` symbols keep the latest quote snapshot, latest trade snapshot, and an optional small bounded recent-event buffer for diagnostics and UI responsiveness.
+- v1 should not keep large in-memory trade or quote histories.
+
+### Concurrency and read model
+
+- Runtime mutation should follow symbol-scoped single-writer behavior.
+- A symbol's runtime state should not be mutated concurrently by multiple writers.
+- Consumers should read immutable or read-safe runtime snapshots rather than traversing mutable collections directly.
+- When revised or repaired bars affect a symbol, `MarketData` recomputes from the affected timestamp forward and atomically swaps the updated symbol/interval runtime snapshot.
+
+### Eviction policy
+
+- Daily runtime state remains for symbols that remain in the `Universe` or are explicitly retained.
+- `1-min` intraday runtime state exists only while the symbol has active intraday demand or remains within configured teardown grace.
+- After teardown grace expires, `1-min` intraday runtime state is evicted completely for symbols without active intraday demand.
 
 ## 7) Warmup, gap detection, backfill, and readiness
 
