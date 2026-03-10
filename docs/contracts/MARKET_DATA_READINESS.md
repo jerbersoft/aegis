@@ -9,6 +9,7 @@ This document is the contract-level companion to `docs/modules/MARKET_DATA.md`.
 It defines:
 
 - readiness payload field names
+- operating-mode payload field names
 - readiness enums
 - readiness event payload shapes
 - naming conventions for internal notifications vs wire contracts
@@ -58,6 +59,11 @@ All payloads use singular, snake_case field names.
 - `awaiting_first_finalized_bar`
 - `awaiting_recompute`
 - `configuration_missing`
+
+### `market_data_operating_mode`
+
+- `full`
+- `limited`
 
 ## 5) Readiness View Payloads
 
@@ -112,15 +118,41 @@ All payloads use singular, snake_case field names.
 - `as_of_utc`
 - `readiness_state`
 - `reason_code`
+- `market_data_operating_mode`
+- `operating_mode_reason_codes`
 - `market_data_provider_status`
 - `historical_provider_status`
+- `active_provider`
+- `active_feed`
 - `subscription_runtime_status`
 - `warmup_runtime_status`
 - `repair_runtime_status`
 - `affected_symbol_count`
 - `last_state_changed_utc`
 
-## 6) Event Payloads
+## 6) Operating Mode Contract
+
+Operating mode is separate from readiness.
+
+- Readiness answers whether the relevant scope is ready under the active provider/feed contract.
+- Operating mode answers whether the active provider/feed environment is running with full intended production capability or with known limitations.
+
+Rules:
+
+- `limited` mode does not automatically imply `not_ready`.
+- A symbol, scanner scope, or operational scope may be `ready` while the environment remains `limited`.
+- Operating mode should be suitable for UI badging and operator awareness.
+- Transport teardown grace after `Execution` removal is an orchestration concern and does not preserve `trading_active` readiness semantics.
+
+Recommended v1 `operating_mode_reason_codes` values:
+
+- `single_exchange_feed`
+- `reduced_symbol_limit`
+- `recent_data_restricted`
+- `non_production_market_coverage`
+- `provider_plan_limited`
+
+## 7) Event Payloads
 
 ### `scanner_universe_readiness_changed`
 
@@ -159,7 +191,7 @@ All payloads use singular, snake_case field names.
 - `repaired_utc`
 - `reason_code`
 
-## 7) Related Documents
+## 8) Related Documents
 
 - `docs/modules/MARKET_DATA.md`: MarketData module design and policy
 - `docs/FLOWS.md`: readiness refresh and repair flow behavior
