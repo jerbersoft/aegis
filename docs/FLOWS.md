@@ -26,6 +26,8 @@ This file will hold the operational process flows for Aegis, including:
 
 - Startup/warmup is the process that prepares `MarketData` runtime state before strategies are allowed to act on live data.
 - For v1, `MarketData` performs warmup, gap repair, and recovery through a dedicated historical bar provider abstraction that returns provider-finalized historical bars only.
+- Historical bar requests use `from_utc` inclusive and `to_utc` exclusive semantics when `to_utc` is present; `to_utc = null` means open-ended through the latest provider-finalized bar available when the request is evaluated.
+- Historical warmup and repair responses are expected in ascending chronological order and finalized only.
 - `MarketData` classifies bars against an exchange-driven `US equities` session calendar in `America/New_York`, respecting holidays and shortened trading days.
 - The `Universe` is the distinct set of symbols that appear in any watchlist.
 - Daily warmup covers the full `Universe` for the daily indicator profile so daily scanners remain correct.
@@ -58,6 +60,7 @@ This file will hold the operational process flows for Aegis, including:
 - Repair upserts the recovered finalized bars, recomputes affected indicators/runtime state, validates the repaired sequence, and restores readiness only after that work completes.
 - Trailing-gap repair may append bars and use incremental recompute.
 - Internal-gap repair requires recompute from the earliest missing bar forward.
+- If a provider emits a correction for a previously finalized bar, `MarketData` compares the canonical values and recomputes downstream state from that bar forward only when values actually changed.
 - Later operational surfacing for gap detection and repair should be provided through alerts and audit events.
 
 ## 5) Live Intraday Volume and Indicator Updates
@@ -65,13 +68,18 @@ This file will hold the operational process flows for Aegis, including:
 - `MarketData` treats provider-finalized bars as the only canonical bar updates; neither Aegis nor adapters aggregate ticks or quotes into bars.
 - Realtime ingestion comes through a normalized realtime provider abstraction that emits symbol-centric ticks, quotes, finalized bars, and provider status events.
 - A symbol subscription implies ticks and quotes by default, while finalized bar intervals are declared per symbol.
+- Realtime subscription updates use replace-all target-state semantics: each update supplies the full desired subscription set for the affected scope.
 - The realtime provider abstraction hides whether finalized bars are delivered by native streaming, polling, or a hybrid adapter strategy.
+- Batch historical requests may be used when a provider supports them, but batch retrieval is optional capability rather than a universal provider contract requirement.
 - Between finalized intraday bars, trade ticks may extend only provisional in-memory cumulative session volume after the latest finalized intraday bar.
 - That provisional tick-based extension is used only for live cumulative session volume and live/provisional `volume_buzz` updates.
 - Quotes do not contribute to that provisional session-volume calculation.
 - Other intraday indicators remain unchanged until the next provider-finalized bar arrives.
 - Provisional tick-based state is never persisted.
 - When the next provider-finalized intraday bar arrives, `MarketData` discards/resets the provisional tick-based volume state and resumes canonical cumulative session volume from finalized bars.
+- Finalized bars and provider status should use stricter reliable-delivery semantics.
+- Ticks and quotes should use a fixed-capacity high-throughput buffer or ring-buffer style path that avoids unbounded growth without locking the design to a specific library.
+- In v1, tick and quote delivery is best-effort and oriented toward live enhancement, while provider-finalized bars remain canonical.
 
 ## 6) Next Flows To Define
 

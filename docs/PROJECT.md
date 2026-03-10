@@ -106,6 +106,8 @@ Retention notes:
 - Persisted timestamps remain `UTC`, but market-date and session classification are exchange-local.
 - Daily bars are `RTH`-only.
 - Startup/warmup is `DB`-first: load persisted bars first, detect missing bars, query the market data provider only for missing finalized bars, upsert those missing bars, then compute/finalize indicator state and readiness.
+- Historical bar contracts use `from_utc` inclusive and `to_utc` exclusive semantics when bounded; `to_utc = null` is open-ended through the latest provider-finalized bar available when the request is evaluated.
+- Historical bar responses are finalized only and returned in ascending chronological order.
 - Gap detection is session-aware and uses the exchange calendar plus interval/session rules to detect trailing gaps, internal gaps, and benchmark dependency gaps.
 - Intraday retention is tracked separately for each interval.
 - Intraday bar retention is not pooled across all intervals for a symbol.
@@ -113,13 +115,17 @@ Retention notes:
 - Intraday history includes extended-hours bars and session awareness for `pre-market`, `regular`, and `post-market`.
 - Only finalized bars are persisted; forming or in-progress bars are not stored in the database.
 - Aegis does not aggregate ticks into bars, and its market data adapters also do not aggregate ticks or quotes into bars; canonical bars come only from the market data provider as finalized bars.
+- Realtime subscription updates use replace-all target-state semantics.
+- Batch historical retrieval may be supported by some providers, but it is optional capability rather than a universal requirement.
 - Finalized bars may be upserted to support idempotent backfill, replay, recovery, duplicate handling, and data corrections.
+- If a provider corrects a previously finalized bar, downstream recompute starts at that bar and proceeds forward only when the corrected values actually changed.
 - Indicator values are not persisted in the database for v1.
 - Indicator values are computed during hydration/runtime and attached to in-memory bar or market state only.
 - Trade ticks may be used only for a provisional in-memory extension of cumulative session volume after the latest finalized intraday bar, and that provisional extension feeds only live cumulative session volume and live `volume buzz` updates.
 - Quotes do not contribute to that provisional session-volume calculation.
 - Other intraday indicators wait for the next finalized bar and are not updated from ticks.
 - Provisional tick-based state is never persisted and is discarded/reset when the next provider-finalized intraday bar arrives, after which canonical cumulative session volume resumes from finalized bars.
+- Finalized bars and provider status require stricter reliable delivery, while ticks and quotes should use bounded high-throughput buffering and remain best-effort/live-enhancement oriented in v1.
 - Final readiness requires a complete ordered bar sequence for the required warmup scope before indicators and dependent runtime state are treated as ready.
 - If a required gap is detected during warmup or runtime, the affected scope is marked not ready immediately, repair starts immediately, repaired finalized bars are upserted, indicators are recomputed, and readiness is restored only after repair, recompute, and validation complete.
 - Trailing gaps may use append/incremental recompute; internal gaps require recompute from the earliest missing bar forward.

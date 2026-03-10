@@ -95,8 +95,16 @@ Market data provider abstraction for v1:
 
 - `MarketData` uses three provider-facing abstractions: a historical bar provider, a realtime market data provider, and a provider capabilities contract.
 - The historical bar provider is used for warmup, gap repair, and recovery only, and returns provider-finalized historical bars only.
+- Historical bar requests use `from_utc` inclusive and `to_utc` exclusive semantics when `to_utc` is provided.
+- `to_utc = null` means the request is open-ended through the latest provider-finalized bar available when the request is evaluated.
+- Historical bar results are expected in ascending chronological order and finalized only.
 - The realtime market data provider exposes normalized streams/channels for ticks, quotes, finalized bars, and provider status events.
 - The realtime market data provider hides whether finalized bars come from true streaming, polling, or hybrid provider behavior.
+- Realtime subscription updates use replace-all target-state semantics rather than incremental add/remove patch semantics.
+- Batch historical requests are an optional provider capability exposed through provider capabilities, not a universal provider requirement.
+- Finalized-bar corrections trigger downstream recompute from the corrected bar forward only when canonical bar values actually changed.
+- Finalized bars and provider status require stricter reliable-delivery semantics, while ticks and quotes should use a fixed-capacity high-throughput buffering path that avoids unbounded growth without over-specifying a library choice.
+- In v1, tick and quote delivery may be described as best-effort live enhancement, while provider-finalized bars remain the canonical market-data record.
 - Adapters own vendor authentication/session setup, symbol translation, pagination and rate-limit handling, polling when required, and normalization into shared contracts.
 - Vendor SDK types must not cross the adapter boundary; adapter outputs should be normalized contracts such as `HistoricalBarRequest`, `HistoricalBarResult`, `TickEvent`, `QuoteEvent`, `FinalizedBarEvent`, and `ProviderStatusEvent`.
 
@@ -157,10 +165,12 @@ Market data bar persistence:
 - Gap detection is session-aware and uses the exchange calendar plus interval/session rules to detect trailing gaps, internal gaps, and benchmark dependency gaps.
 - Only finalized bars are persisted; forming or in-progress bars must remain in memory and are not written to the database.
 - Finalized bars may be upserted to support idempotent backfill, replay, recovery, duplicate handling, and source corrections.
+- If a provider later corrects a finalized bar, `MarketData` should propagate recompute only from that corrected bar forward, and only when the corrected canonical values differ from what Aegis already holds.
 - Trade ticks may extend only the latest finalized intraday bar's cumulative session-volume state in memory, and only for live cumulative session volume plus live/provisional `volume_buzz_percent` updates.
 - Quotes do not contribute to that provisional session-volume calculation.
 - Other intraday indicators wait for the next provider-finalized bar and are not updated from ticks or quotes.
 - Provisional tick-based session-volume state is never persisted; when the next provider-finalized intraday bar arrives, that provisional state is discarded/reset and canonical cumulative session volume resumes from finalized bars.
+- Finalized bars and provider status should flow through stricter reliable-delivery paths; tick and quote paths should instead favor fixed-capacity high-throughput buffering that bounds memory growth.
 - Indicator values are not persisted in the database for v1.
 - Indicator values are computed during hydration/runtime and attached to in-memory bar or market state rather than stored durably.
 - Final readiness requires a complete ordered bar sequence across the required warmup scope before indicators and dependent runtime state are considered ready.
