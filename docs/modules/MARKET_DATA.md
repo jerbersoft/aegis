@@ -72,6 +72,49 @@ Notes:
 - `volume_buzz_percent` and `vwap` are full-session in v1 and include `pre-market`, `regular`, and `post-market`.
 - Indicator definitions stay parameterized/configurable even with fixed v1 defaults.
 
+### Indicator definition rules
+
+- All indicators use completed/provider-emitted closed bars only.
+- Price-based `sma_n` and `ema_n` use bar `close` unless a different source field is explicitly named.
+- `sma_5_high` uses bar `high`.
+- `sma_5_low` uses bar `low`.
+- `sma_50_volume` and `sma_21_volume` use bar `volume`.
+- `ema_n` uses the standard exponential smoothing factor `2 / (n + 1)`.
+
+Daily indicator definitions:
+
+- `sma_200`, `sma_50`, `sma_21`, `sma_10`: arithmetic mean of the last `n` daily closes.
+- `sma_5_high`: arithmetic mean of the last `5` daily highs.
+- `sma_5_low`: arithmetic mean of the last `5` daily lows.
+- `sma_50_volume`, `sma_21_volume`: arithmetic mean of the last `n` daily volumes.
+- `dcr_percent = ((close - low) / (high - low)) * 100`; if `high == low`, the value is `null`.
+- `pocket_pivot = true` when current daily volume is greater than the highest volume among prior red daily bars in the lookback window and current `dcr_percent > 50`.
+- v1 default `pocket_pivot` lookback window is the prior `10` daily sessions.
+- For `pocket_pivot`, a prior red daily bar is a bar where `close < prior_close`.
+- `atr_14_value` uses Wilder `ATR` over the last `14` daily bars.
+- True range for `atr_14_value` is `max(high - low, abs(high - prior_close), abs(low - prior_close))`.
+- `atr_14_percent = (atr_14_value / close) * 100`.
+- `adr_14_value` is the arithmetic mean of `(high - low)` over the last `14` daily bars.
+- `adr_14_percent = (adr_14_value / close) * 100`.
+- `rs_50` is benchmark-relative performance over `50` daily bars, volatility-adjusted by the symbol's current `atr_14_percent`.
+- v1 default `rs_50` benchmark is `SPY`.
+- `rs_50` formula:
+  - `symbol_return_pct = ((close / close_50_bars_ago) - 1) * 100`
+  - `benchmark_return_pct = ((benchmark_close / benchmark_close_50_bars_ago) - 1) * 100`
+  - `relative_return_pct = symbol_return_pct - benchmark_return_pct`
+  - `rs_50 = relative_return_pct / atr_14_percent`
+
+Intraday indicator definitions:
+
+- `ema_30`, `ema_100`, `ema_6`, and `ema_20` use completed intraday closes for the relevant interval.
+- `vwap` is full-session in v1 and resets at the pre-market-open full-session boundary.
+- When the provider supplies `vwap`, provider `vwap` is used.
+- When the provider does not supply `vwap`, `Aegis` computes deterministic fallback `vwap` as cumulative `sum(typical_price * volume) / sum(volume)`.
+- Fallback `typical_price = (high + low + close) / 3`.
+- `volume_buzz_percent` is cumulative-through-session-point, not per-bar.
+- `volume_buzz_percent = (current_session_cumulative_volume / average_historical_cumulative_volume_at_same_session_offset) * 100`.
+- v1 default historical lookback for `volume_buzz_percent` is the prior `10` sessions.
+
 ## 6) In-memory runtime model
 
 - `MarketData` maintains shared symbol/interval rolling windows hydrated from persisted and repaired finalized bars.
