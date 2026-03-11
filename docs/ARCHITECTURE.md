@@ -38,7 +38,7 @@ Target physical solution layout:
 - The shared layer must not contain domain models or business logic.
 - Modules may reference only `Aegis.Shared` from other first-party projects.
 - Adapters may reference only `Aegis.Shared` from other first-party projects.
-- `Aegis.Api` is the composition root and may reference module and adapter projects.
+- `Aegis.Backend` is the composition root and may reference module and adapter projects.
 
 Project and namespace conventions:
 
@@ -66,7 +66,7 @@ Project and namespace conventions:
 
 Target first-party project layout:
 
-- `src/Aegis.Api`: `ASP.NET` host, API endpoints, SignalR endpoints, and composition root
+- `src/Aegis.Backend`: `ASP.NET` host, API endpoints, SignalR endpoints, and composition root
 - `src/Aegis.Shared`: shared contracts, integration ports, enums, primitives, and normalized DTOs
 - `src/modules/Aegis.MarketData`
 - `src/modules/Aegis.Universe`
@@ -145,7 +145,7 @@ Detailed recovery flow lives in `docs/FLOWS.md`.
 - System-wide and application-wide settings are owned by `Infrastructure`.
 - Module-specific configuration is owned by the module it applies to.
 - Each module exposes its own DI wiring from its `Configuration/` area.
-- `Aegis.Api` remains the top-level composition root.
+- `Aegis.Backend` remains the top-level composition root.
 
 ## 10) Persistence Boundaries
 
