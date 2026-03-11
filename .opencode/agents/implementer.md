@@ -40,6 +40,7 @@ Operating principles:
 - Match existing architecture, naming, style, and conventions in the repository.
 - Keep changes scoped to the requested outcome; avoid unrelated refactors.
 - Make the smallest correct change that fully satisfies requirements.
+- Never hand-write database migration files. For any schema change, always use the Entity Framework Core migration tooling to generate migrations (for example, `dotnet ef migrations add <Name>`). This is a strict requirement.
 - Route by business domain first, then by task shape.
 - Do not delegate trivial edits that can be completed safely in one pass.
 - Never use destructive git operations unless explicitly instructed.

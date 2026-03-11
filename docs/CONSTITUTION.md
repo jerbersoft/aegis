@@ -22,6 +22,7 @@ This constitution defines the non-negotiable standards for implementation agents
 - Read affected code paths before making changes.
 - Preserve backward compatibility unless a breaking change is explicitly requested.
 - Database naming convention: use singular-form, snake_case names for tables and fields.
+- EF Core migrations policy: never write migration files by hand. For any database schema change, always generate migrations using the Entity Framework Core migration tooling (for example, `dotnet ef migrations add <Name>`). This rule is mandatory and must be followed strictly.
 - Third-party reference boundary: treat the `lib` folder IBKR project as read-only reference material; do not modify it, and implement all IBKR integration work in a separate project.
 - Market-data scale requirement: architecture and implementations must account for thousands of tracked symbols (for example, a 4,000-symbol universe) and bursts of thousands to millions of streaming ticks and quotes per minute.
 - Performance requirement: prefer designs that minimize unnecessary allocations, blocking work, chatty I/O, and bottlenecks in ingestion, processing, persistence, and fan-out paths.
