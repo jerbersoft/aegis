@@ -200,6 +200,45 @@ Recommended v1 events:
 - `SymbolAddedToExecutionWatchlistEvent`
 - `SymbolRemovedFromExecutionWatchlistEvent`
 
+### API direction for UI integration
+
+- Primary v1 `Universe` UI integration should use REST endpoints under `/api/universe`.
+- `watchlist_id` is the canonical watchlist route identity.
+- `symbol_id` is the canonical symbol route identity for membership-removal and symbol-specific reads.
+- Domain-state conflicts such as blocked `Execution` removal should use `409 Conflict`.
+- A common structured API error shape should be used for failed mutations.
+
+Recommended endpoint groups:
+
+- watchlists:
+  - `GET /api/universe/watchlists`
+  - `GET /api/universe/watchlists/{watchlistId}`
+  - `POST /api/universe/watchlists`
+  - `PUT /api/universe/watchlists/{watchlistId}`
+  - `DELETE /api/universe/watchlists/{watchlistId}`
+- watchlist symbols:
+  - `GET /api/universe/watchlists/{watchlistId}/symbols`
+  - `POST /api/universe/watchlists/{watchlistId}/symbols`
+  - `DELETE /api/universe/watchlists/{watchlistId}/symbols/{symbolId}`
+- universe symbol reads:
+  - `GET /api/universe/symbols`
+  - `GET /api/universe/symbols/{symbolId}/memberships`
+- `Execution`-specific reads:
+  - `GET /api/universe/execution/symbols`
+  - `GET /api/universe/execution/symbols/{symbolId}/removal-blockers`
+
+Recommended common API error shape:
+
+- `code`
+- `message`
+- `details`
+
+Recommended status behavior:
+
+- `404` for missing watchlists or symbols
+- `409` for blocked domain-state operations such as guarded `Execution` removal or protected watchlist mutation
+- `503` when first-time symbol introduction cannot proceed because provider symbol reference is unavailable
+
 Behavior rules:
 
 - first watchlist membership for a symbol should emit `SymbolEnteredUniverseEvent`
@@ -285,6 +324,14 @@ Returns `watchlist_contents_view`.
 - `added_utc`
 - `is_in_execution`
 - `watchlist_count`
+- `current_price` optional
+- `percent_change` optional
+
+Rules:
+
+- `current_price` and `percent_change` are UI-facing market-data fields.
+- Their initial values may be delivered through REST read models.
+- These fields should later be eligible for live refresh via `SignalR` when `MarketData` UI integration is implemented.
 
 #### `GetSymbolWatchlistMembershipsQuery`
 
@@ -358,6 +405,8 @@ Returns `execution_watchlist_symbols_view`.
 - `has_open_position`
 - `has_open_orders`
 - `can_remove_from_execution`
+- `current_price` optional
+- `percent_change` optional
 
 #### `CanRemoveSymbolFromExecutionQuery`
 

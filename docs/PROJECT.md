@@ -198,6 +198,7 @@ Deferred for later definition:
 
 - `docs/ARCHITECTURE.md`: target system architecture, module boundaries, persistence ownership, and adapters
 - `docs/FLOWS.md`: startup, readiness, recovery, and live runtime behavior
+- `docs/UX.md`: v1 operator experience, screens, and UI workflow expectations
 - `docs/modules/MARKET_DATA.md`: MarketData module policy and detailed v1 design
 - `docs/modules/UNIVERSE.md`: Universe module policy, watchlists, and symbol membership rules
 - `docs/contracts/MARKET_DATA_READINESS.md`: readiness payload and event contract details

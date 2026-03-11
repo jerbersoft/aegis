@@ -8,6 +8,7 @@ This index is the entry point for repository documentation.
 2. `docs/PROJECT.md` — product scope, business requirements, and v1 boundaries
 3. `docs/ARCHITECTURE.md` — target first-party architecture, module boundaries, and persistence ownership
 4. `docs/FLOWS.md` — runtime startup, readiness, recovery, and live update behavior
+5. `docs/UX.md` — v1 operator experience, navigation, pages, and interaction expectations
 
 ## Module design documents
 
@@ -50,11 +51,13 @@ This index is the entry point for repository documentation.
 1. `docs/PROJECT.md`
 2. `docs/ARCHITECTURE.md`
 3. `docs/modules/UNIVERSE.md`
+4. `docs/UX.md`
 
 ## Documentation boundaries
 
 - `PROJECT.md` answers: what the system must do
 - `ARCHITECTURE.md` answers: how the first-party system is structured
 - `FLOWS.md` answers: how the system behaves at runtime
+- `UX.md` answers: how the operator interacts with the system
 - `modules/` contains module-specific design details
 - `contracts/` contains payload and event contract details
