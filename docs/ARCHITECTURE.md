@@ -106,6 +106,7 @@ Detailed provider contract semantics live in `docs/modules/MARKET_DATA.md` and `
 
 - `Universe` owns symbol and watchlist management independently of `MarketData`.
 - The `Universe` is the distinct set of symbols that appear in any watchlist.
+- First-time symbol introduction into `Universe` requires provider-backed symbol validation and normalization through a shared symbol-reference contract.
 - `Strategies` owns strategy assignments.
 - A strategy may trade only symbols assigned to it.
 - A symbol may be assigned to a strategy only if it is in the `Execution` watchlist.

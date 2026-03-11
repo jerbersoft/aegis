@@ -20,7 +20,7 @@ Core boundary rule:
 
 - The `Universe` is the distinct set of symbols present in one or more watchlists.
 - Watchlist membership is the operator-facing entry point for symbol creation.
-- The first time a symbol is added to any watchlist, the symbol record is created in the database.
+- The first time a symbol is added to any watchlist, provider-backed symbol validation must succeed before the symbol record is created in the database.
 - A symbol may belong to multiple watchlists.
 - Duplicate membership of the same symbol in the same watchlist is not allowed.
 - Empty watchlists are allowed.
@@ -28,6 +28,7 @@ Core boundary rule:
 - `Execution` membership is manual only in v1.
 - `Execution` membership does not require prior membership in any other watchlist.
 - `MarketData` retained-history-only symbols are not part of the `Universe` unless they are also present in a watchlist.
+- If provider-backed symbol reference is unavailable for first-time symbol introduction, symbol creation fails closed.
 
 ## 3) Core entities
 
@@ -169,6 +170,8 @@ Command rules:
 - renaming or deleting `Execution` is rejected
 - deleting a user watchlist removes its memberships
 - adding a symbol to a watchlist creates the symbol first if missing
+- adding a symbol to a watchlist validates the symbol against the provider first when it is not yet known locally
+- successful first-time symbol creation uses the provider-returned normalized symbol identity, not raw user input
 - duplicate symbol membership in the same watchlist is rejected or treated as an idempotent no-op
 - removing from `Execution` applies blocker checks before membership deletion
 
@@ -210,6 +213,12 @@ Behavior rules:
 - UI rendering concerns for large result sets should be handled through filtering, sorting, and client-side virtualization rather than server-driven paging.
 - Search and sort options are allowed in v1 primary query contracts.
 - Future alternate query contracts may add paging for administrative, export, or non-operator workflows if needed.
+
+### Symbol-reference dependency direction
+
+- `Universe` depends on a provider-backed symbol-reference contract for first-time symbol introduction.
+- v1 contract direction uses `ISymbolReferenceProvider.ValidateSymbolAsync(...)`.
+- Already-known local symbols do not require revalidation on every subsequent watchlist add in v1.
 
 ### Recommended query result shapes
 
@@ -507,6 +516,8 @@ Recommended v1 reason-code values:
 - `symbol_already_in_watchlist`
 - `symbol_not_in_watchlist`
 - `invalid_symbol`
+- `unsupported_asset_class`
+- `symbol_reference_unavailable`
 - `execution_removal_blocked_active_strategy`
 - `execution_removal_blocked_open_position`
 - `execution_removal_blocked_open_orders`
@@ -685,10 +696,12 @@ Rules:
 
 - `Universe` owns its own `DbContext`, mappings, and migrations.
 - `Universe` does not persist strategy assignments, positions, open orders, or `MarketData` retained-symbol state.
+- Provider-backed symbol reference is used at symbol-introduction time, but symbol reference metadata ownership beyond local symbol creation remains outside `Universe`.
 
 ## 11) Cross-module expectations
 
 - `MarketData` depends on watchlist membership and `Execution` membership, but does not own them.
+- `Universe` depends on provider-backed symbol reference for first-time symbol validation and normalization.
 - `Strategies` depend on `Execution` membership for symbol assignment eligibility.
 - `Universe` should use query-style cross-module reads to evaluate `Execution` removal blockers.
 
@@ -770,3 +783,4 @@ The following items still need deeper definition:
 - `docs/PROJECT.md`
 - `docs/ARCHITECTURE.md`
 - `docs/modules/MARKET_DATA.md`
+- `docs/contracts/MARKET_DATA_PROVIDER_CONTRACTS.md`

@@ -66,6 +66,7 @@ Initial expectations:
 Assignment model:
 
 - The `Universe` is the distinct set of symbols that appear in any watchlist.
+- The first time a symbol is introduced through a watchlist flow, it must be validated against the market-data provider before local creation.
 - Strategies may trade any symbol they are assigned to.
 - Symbols are eligible for strategy assignment only if they exist in the `Execution` watchlist.
 - The `Execution` watchlist is the first seeded watchlist.

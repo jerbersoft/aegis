@@ -32,11 +32,12 @@ This document does not define vendor-specific implementation details. Adapter pr
 
 ## 3) Provider-Facing Ports
 
-For v1, `MarketData` uses three provider-facing abstractions:
+For v1, `MarketData` uses four provider-facing abstractions:
 
 1. `historical bar provider`
 2. `realtime market data provider`
 3. `provider capabilities contract`
+4. `symbol reference provider`
 
 ### `IHistoricalBarProvider`
 
@@ -114,7 +115,70 @@ Recommended method:
 
 - `GetCapabilities()` returning immutable provider capability descriptor
 
-## 4) Historical Retrieval Contracts
+### `ISymbolReferenceProvider`
+
+Purpose:
+
+- provider-backed symbol existence checks
+- symbol normalization
+- minimal reference metadata for first-time local symbol creation
+
+Responsibilities:
+
+- validate whether a symbol is known to the active provider
+- return normalized symbol identity suitable for local persistence
+- return minimal reference metadata needed for initial symbol creation
+- normalize provider symbol-reference failures into shared result semantics
+
+Recommended method:
+
+- `ValidateSymbolAsync(request, ct)`
+
+`ISymbolReferenceProvider` rules:
+
+- v1 uses this contract primarily for first-time symbol introduction through `Universe` watchlist-add flows
+- if provider-backed symbol reference is unavailable for first-time symbol creation, symbol creation should fail closed
+- v1 does not require revalidation of already-known local symbols on every reuse
+
+## 4) Symbol Reference Contracts
+
+### `ValidateSymbolRequest`
+
+Recommended fields:
+
+- `symbol`
+- `asset_class` optional
+
+Rules:
+
+- `symbol` is required
+- v1 default asset class is `US equities`
+
+### `ValidatedSymbolResult`
+
+Recommended fields:
+
+- `is_valid`
+- `normalized_symbol`
+- `asset_class`
+- `provider_name`
+- `display_name` optional
+- `exchange` optional
+- `reason_code`
+
+Recommended `reason_code` values:
+
+- `none`
+- `invalid_symbol`
+- `unsupported_asset_class`
+- `symbol_reference_unavailable`
+
+Rules:
+
+- local symbol creation should use `normalized_symbol`, not raw user input
+- `symbol_reference_unavailable` represents fail-closed behavior when provider symbol reference cannot be completed for first-time symbol introduction
+
+## 5) Historical Retrieval Contracts
 
 ### `HistoricalBarRequest`
 
