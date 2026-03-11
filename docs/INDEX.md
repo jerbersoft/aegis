@@ -7,8 +7,9 @@ This index is the entry point for repository documentation.
 1. `docs/CONSTITUTION.md` — engineering rules, approved stack, safety constraints, and definition of done
 2. `docs/PROJECT.md` — product scope, business requirements, and v1 boundaries
 3. `docs/ARCHITECTURE.md` — target first-party architecture, module boundaries, and persistence ownership
-4. `docs/FLOWS.md` — runtime startup, readiness, recovery, and live update behavior
-5. `docs/UX.md` — v1 operator experience, navigation, pages, and interaction expectations
+4. `docs/IMPLEMENTATION_PLAN.md` — recommended bootstrap order, project structure, and first implementation slices
+5. `docs/FLOWS.md` — runtime startup, readiness, recovery, and live update behavior
+6. `docs/UX.md` — v1 operator experience, navigation, pages, and interaction expectations
 
 ## Module design documents
 
@@ -33,6 +34,7 @@ This index is the entry point for repository documentation.
 1. `docs/CONSTITUTION.md`
 2. `docs/PROJECT.md`
 3. `docs/ARCHITECTURE.md`
+4. `docs/IMPLEMENTATION_PLAN.md`
 
 ### Understand runtime market-data behavior
 
@@ -50,6 +52,13 @@ This index is the entry point for repository documentation.
 
 1. `docs/PROJECT.md`
 2. `docs/ARCHITECTURE.md`
+3. `docs/modules/UNIVERSE.md`
+4. `docs/UX.md`
+
+### Start implementation planning
+
+1. `docs/ARCHITECTURE.md`
+2. `docs/IMPLEMENTATION_PLAN.md`
 3. `docs/modules/UNIVERSE.md`
 4. `docs/UX.md`
 

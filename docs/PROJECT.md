@@ -197,6 +197,7 @@ Deferred for later definition:
 ## 10) Documentation Map
 
 - `docs/ARCHITECTURE.md`: target system architecture, module boundaries, persistence ownership, and adapters
+- `docs/IMPLEMENTATION_PLAN.md`: recommended v1 bootstrap sequence, project structure, and first implementation slices
 - `docs/FLOWS.md`: startup, readiness, recovery, and live runtime behavior
 - `docs/UX.md`: v1 operator experience, screens, and UI workflow expectations
 - `docs/modules/MARKET_DATA.md`: MarketData module policy and detailed v1 design
