@@ -381,6 +381,7 @@ Recommended `blocking_reason_codes` values:
 - `active_strategy_attached`
 - `open_position_exists`
 - `open_orders_exist`
+- `execution_removal_guard_unavailable`
 
 ### Recommended event payload shapes
 
@@ -509,8 +510,113 @@ Recommended v1 reason-code values:
 - `execution_removal_blocked_active_strategy`
 - `execution_removal_blocked_open_position`
 - `execution_removal_blocked_open_orders`
+- `execution_removal_guard_unavailable`
+- `strategy_detach_failed`
 
-## 9) Persistence design
+## 9) Operability and audit model
+
+### Operational domains
+
+- `Universe` operability should distinguish at least these domains:
+  - `watchlist_runtime`
+  - `membership_runtime`
+  - `execution_guard_runtime`
+  - `cross_module_blocker_checks`
+  - `query_read_runtime`
+
+### Audit expectations
+
+The following should be audited in v1:
+
+- watchlist created
+- watchlist renamed
+- watchlist deleted
+- symbol added to watchlist
+- symbol removed from watchlist
+- symbol added to `Execution`
+- symbol removed from `Execution`
+- blocked removal from `Execution`
+- strategy assignment detached as part of valid `Execution` removal
+
+### Alert model
+
+Recommended v1 alert severities:
+
+- `info`
+- `warning`
+
+Recommended usage:
+
+- `info` for meaningful successful `Execution` membership changes if operator surfacing is desired
+- `warning` for blocked `Execution` removal attempts
+- `warning` for repeated failures in blocker-check reads to `Strategies`, `Orders`, or `Portfolio`
+- `warning` when `Universe` cannot confirm `Execution` removal blockers because required cross-module guard checks are unavailable
+
+### Metrics
+
+Recommended v1 `Universe` metrics:
+
+- watchlist count
+- current `Universe` symbol count
+- `Execution` symbol count
+- watchlist mutation success count
+- watchlist mutation failure count
+- blocked `Execution` removal count
+- blocker-check failure count
+- cross-module blocker-check latency
+
+### Operator-facing visibility
+
+- Watchlist management UI should clearly identify `Execution` as a system watchlist.
+- UI should clearly show when rename/delete is disallowed.
+- `Execution` removal workflows should expose blocker state through query-driven fields rather than client inference.
+- The operator should be able to see:
+  - `has_active_strategy`
+  - `has_open_position`
+  - `has_open_orders`
+  - `can_remove_from_execution`
+  - blocker reason codes
+
+### Degraded versus failed
+
+- `degraded` means watchlist and symbol-management behavior still functions, but blocker checks, reads, or audit support are impaired.
+- `failed` means `Universe` cannot safely enforce `Execution` rules or cannot persist core watchlist mutations reliably.
+
+Examples of `degraded`:
+
+- blocker checks are slow or intermittently failing
+- audit persistence is delayed but safe mutations still complete
+- non-critical watchlist mutation paths are impaired
+
+Examples of `failed`:
+
+- `Universe` cannot safely determine whether `Execution` removal is allowed
+- core watchlist persistence is failing
+- successful mutations cannot be committed reliably
+
+### Fail-closed `Execution` rule
+
+- If `Universe` cannot determine whether active strategy, open position, or open orders exist, removal from `Execution` must be rejected.
+- This failure mode should be operator-visible, audited, and surfaced as a `warning` alert.
+
+### Recommended reason codes for guarded removal failures
+
+- `execution_removal_blocked_active_strategy`
+- `execution_removal_blocked_open_position`
+- `execution_removal_blocked_open_orders`
+- `execution_removal_guard_unavailable`
+- `strategy_detach_failed`
+
+### Coordinated removal audit expectations
+
+For valid `Execution` removal when an assigned strategy is inactive, the coordinated business operation should audit at least:
+
+1. removal requested
+2. blocker check passed
+3. strategy assignment detached
+4. symbol removed from `Execution`
+
+## 10) Persistence design
 
 ### Core tables
 
@@ -580,13 +686,13 @@ Rules:
 - `Universe` owns its own `DbContext`, mappings, and migrations.
 - `Universe` does not persist strategy assignments, positions, open orders, or `MarketData` retained-symbol state.
 
-## 10) Cross-module expectations
+## 11) Cross-module expectations
 
 - `MarketData` depends on watchlist membership and `Execution` membership, but does not own them.
 - `Strategies` depend on `Execution` membership for symbol assignment eligibility.
 - `Universe` should use query-style cross-module reads to evaluate `Execution` removal blockers.
 
-## 11) Strategy-assignment eligibility contract
+## 12) Strategy-assignment eligibility contract
 
 ### Core ownership split
 
@@ -653,17 +759,13 @@ Recommended event fields:
 - `Execution` removal that is allowed only because the strategy is inactive should coordinate assignment removal and watchlist removal together.
 - The combined effect should be atomic from the operator's point of view, even if implemented through coordinated module operations.
 
-## 12) Open items for continued planning
+## 13) Open items for continued planning
 
 The following items still need deeper definition:
 
-- detailed query result shapes
-- detailed event payload shapes and naming conventions
-- command failure reason-code contract
-- Universe operability and audit surfaces
 - Universe UI/read-model requirements
 
-## 13) Cross-references
+## 14) Cross-references
 
 - `docs/PROJECT.md`
 - `docs/ARCHITECTURE.md`

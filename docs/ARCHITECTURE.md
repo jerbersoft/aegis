@@ -111,6 +111,7 @@ Detailed provider contract semantics live in `docs/modules/MARKET_DATA.md` and `
 - A symbol may be assigned to a strategy only if it is in the `Execution` watchlist.
 - In v1, a symbol may have at most one assigned strategy, while a strategy may be assigned to multiple symbols.
 - Removing a symbol from `Execution` is blocked while its assigned strategy is active; valid removal with an inactive assigned strategy also detaches the assignment as part of the same business operation.
+- If `Universe` cannot safely determine `Execution` removal blockers, the removal must fail closed.
 - `MarketData` owns bar storage, tick and quote streams, warmup hydration, shared in-memory runtime state, indicators, readiness, and subscription intent.
 - `Strategies` consume `MarketData` state and should not maintain duplicate full bar or indicator engines by default.
 - `Strategies` emit order intent messages only.

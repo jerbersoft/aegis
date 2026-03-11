@@ -82,6 +82,8 @@ Daily indicator definitions:
 - `sma_5_high`: arithmetic mean of the last `5` daily highs.
 - `sma_5_low`: arithmetic mean of the last `5` daily lows.
 - `sma_50_volume`, `sma_21_volume`: arithmetic mean of the last `n` daily volumes.
+- `rel_volume_21 = volume / sma_21_volume`.
+- `rel_volume_50 = volume / sma_50_volume`.
 - `dcr_percent = ((close - low) / (high - low)) * 100`; if `high == low`, the value is `null`.
 - `pocket_pivot = true` when current daily volume is greater than the highest volume among prior red daily bars in the lookback window and current `dcr_percent > 50`.
 - v1 default `pocket_pivot` lookback window is the prior `10` daily sessions.
