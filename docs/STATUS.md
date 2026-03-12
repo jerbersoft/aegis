@@ -159,13 +159,25 @@ Operational/debugging context already learned:
 
 ## 9) Immediate next priorities
 
-Recommended next work:
+Recommended dependency-ordered next work:
 
 1. replace fake symbol validation with a real provider-backed `ISymbolReferenceProvider`
-2. replace fake execution-removal guard behavior with real cross-module contracts
-3. begin `MarketData` implementation from the documented design
-4. begin `Strategies` planning and initial contracts because `Execution` semantics already depend on it
-5. decide and document the `SignalR` integration path for live watchlist market-data fields
+2. begin `MarketData` bootstrap from the documented design
+3. decide and document the `SignalR` path for market-data-driven UI updates
+4. bootstrap `Strategies` contracts and assignment/runtime ownership
+5. bootstrap `Orders` contracts and open-order ownership
+6. bootstrap `Portfolio` contracts and open-position ownership
+7. replace fake `Execution` removal guard behavior with real cross-module integration
+8. bootstrap the `IBKR` adapter for order and portfolio state integration
+9. bootstrap `Infrastructure` for connectivity health, pause/resume, alerts, and audit
+10. replace dashboard placeholders and deepen positions/orders UI once the backing modules exist
+
+Why this order:
+
+- `MarketData` and real provider integration are the earliest reusable technical foundations.
+- `Strategies`, `Orders`, and `Portfolio` establish the ownership boundaries that the real `Execution` guard depends on.
+- `IBKR` and `Infrastructure` should follow the relevant module boundaries rather than precede them.
+- richer realtime UI work should follow the backend/runtime foundations that supply the data.
 
 ## 10) Related documents
 

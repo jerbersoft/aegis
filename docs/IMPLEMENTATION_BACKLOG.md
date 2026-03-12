@@ -561,12 +561,32 @@ Acceptance criteria:
 - `docs/modules/UNIVERSE.md`
 - `docs/modules/MARKET_DATA.md`
 
-## 12) Immediate follow-up backlog candidates
+## 12) Dependency-ordered remaining implementation
 
-Recommended next work to preserve context:
+Recommended next work in dependency order:
 
-1. replace fake symbol-reference validation with a real provider-backed implementation
-2. replace fake execution-removal guard service with real cross-module query contracts
-3. decide and document the realtime `SignalR` integration path for market-data-driven watchlist fields
-4. begin `MarketData` implementation using the already documented provider and readiness contracts
-5. begin `Strategies` planning and initial contracts because `Execution` rules already depend on it conceptually
+1. implement a real `ISymbolReferenceProvider`
+   - this removes the current bootstrap fake and establishes the first real provider-backed adapter path without forcing full `MarketData` delivery first
+2. start `MarketData` bootstrap
+   - this is the main technical foundation for downstream strategy evaluation, live watchlist fields, readiness, and realtime behavior
+3. decide and document the realtime `SignalR` path
+   - the UI live-update path should be set before deeper market-data/UI coupling work begins
+4. bootstrap `Strategies`
+   - `Execution` semantics already depend on strategy assignment and active/inactive state ownership
+5. bootstrap `Orders`
+   - real `Execution` blocker checks need open-order ownership and query contracts
+6. bootstrap `Portfolio`
+   - real `Execution` blocker checks need open-position ownership and query contracts
+7. replace the fake `Execution` removal guard service with real cross-module integration
+   - do this only after the owning modules and contracts for blocker state exist
+8. bootstrap the `IBKR` adapter
+   - this should back `Orders` and `Portfolio` once those module boundaries are in place
+9. bootstrap `Infrastructure`
+   - connectivity health, pause/resume, alerts, and audit should be built around real module and adapter boundaries rather than ahead of them
+10. deepen the UI beyond placeholders
+   - dashboard data, live watchlist price/change fields, and deeper positions/orders workflows should follow the supporting backend modules
+
+Current recommendation:
+
+- do not start by replacing the fake `Execution` guard directly
+- first establish the owning modules and contracts that the real guard must query
