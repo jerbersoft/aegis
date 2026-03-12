@@ -27,6 +27,8 @@ This constitution defines the non-negotiable standards for implementation agents
 - Market-data scale requirement: architecture and implementations must account for thousands of tracked symbols (for example, a 4,000-symbol universe) and bursts of thousands to millions of streaming ticks and quotes per minute.
 - Performance requirement: prefer designs that minimize unnecessary allocations, blocking work, chatty I/O, and bottlenecks in ingestion, processing, persistence, and fan-out paths.
 - Include tests/docs updates whenever behavior changes.
+- Production code must not carry test-environment runtime paths such as in-memory-database modes or test-mode execution branches used to avoid proper dev/test infrastructure.
+- Temporary bootstrap stubs or fakes are allowed only when they preserve the intended final architecture boundaries, are clearly temporary, and have an expected replacement path.
 - Do not commit or push unless explicitly asked by the user.
 
 ## 4) Approved Technology Stack (Allowlist)
@@ -62,6 +64,9 @@ Testing selection order:
 
 - Prefer unit tests first, then integration tests, then Playwright for critical user journeys.
 - Do not use Playwright as the primary vehicle for business-rule validation when unit/integration tests can cover the behavior.
+- Prefer PostgreSQL-backed testing via test/dev containers or Aspire-managed local infrastructure for integration and behavior verification rather than embedding in-memory-database support into production runtime code.
+- In-memory databases should live in test projects or test host overrides rather than normal production runtime code paths.
+- Fake providers or stub integrations are acceptable only when they are serving an approved architectural bootstrap purpose rather than acting as generic test-mode infrastructure.
 
 When to use each test type:
 

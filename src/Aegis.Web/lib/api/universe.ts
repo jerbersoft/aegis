@@ -9,8 +9,7 @@ import {
 } from "../types/universe";
 import { apiRequest } from "./client";
 
-const backendBaseUrl = (process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:5078").replace(/\/$/, "");
-const baseUrl = `${backendBaseUrl}/api/universe`;
+const baseUrl = "/api/universe";
 
 export async function getWatchlists(): Promise<WatchlistSummaryView[]> {
   return apiRequest<WatchlistSummaryView[]>(`${baseUrl}/watchlists`);

@@ -2,6 +2,10 @@ using Aegis.Adapters.Alpaca.Configuration;
 using Aegis.Adapters.Alpaca.Services;
 using Aegis.Backend.Auth;
 using Aegis.Backend.Endpoints;
+using Aegis.Backend.MarketData;
+using Aegis.MarketData.Application;
+using Aegis.MarketData.Application.Abstractions;
+using Aegis.MarketData.Infrastructure;
 using Aegis.Shared.Ports.MarketData;
 using Aegis.Universe.Application;
 using Aegis.Universe.Application.Abstractions;
@@ -42,27 +46,47 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddDbContext<UniverseDbContext>(options =>
 {
-    var useInMemory = builder.Configuration.GetValue<bool>("Universe:UseInMemory");
-    if (useInMemory)
-    {
-        var databaseName = builder.Configuration["Universe:InMemoryDatabaseName"] ?? "aegis-universe";
-        options.UseInMemoryDatabase(databaseName);
-    }
-    else
-    {
-        var connectionString = builder.Configuration.GetConnectionString("universe")
-                               ?? builder.Configuration.GetConnectionString("Universe")
-                               ?? builder.Configuration.GetConnectionString("DefaultConnection")
-                               ?? "Host=localhost;Port=5432;Database=aegis;Username=postgres;Password=postgres";
+    var connectionString = builder.Configuration.GetConnectionString("universe")
+                           ?? builder.Configuration.GetConnectionString("Universe")
+                           ?? builder.Configuration.GetConnectionString("DefaultConnection")
+                           ?? "Host=localhost;Port=5432;Database=aegis;Username=postgres;Password=postgres";
 
-        options.UseNpgsql(connectionString, npgsql => npgsql.UseNodaTime());
-    }
+    options.UseNpgsql(connectionString, npgsql => npgsql.UseNodaTime());
+});
+
+builder.Services.AddDbContext<MarketDataDbContext>(options =>
+{
+    var connectionString = builder.Configuration.GetConnectionString("marketdata")
+                           ?? builder.Configuration.GetConnectionString("MarketData")
+                           ?? builder.Configuration.GetConnectionString("DefaultConnection")
+                           ?? "Host=localhost;Port=5432;Database=aegis;Username=postgres;Password=postgres";
+
+    options.UseNpgsql(connectionString);
 });
 
 var alpacaSymbolReferenceOptions = builder.Configuration.GetSection(AlpacaSymbolReferenceOptions.SectionName).Get<AlpacaSymbolReferenceOptions>()
                                    ?? new AlpacaSymbolReferenceOptions();
+var alpacaHistoricalDataOptions = builder.Configuration.GetSection(AlpacaHistoricalDataOptions.SectionName).Get<AlpacaHistoricalDataOptions>()
+                                ?? new AlpacaHistoricalDataOptions();
+
+if (string.IsNullOrWhiteSpace(alpacaHistoricalDataOptions.ApiKey) || string.IsNullOrWhiteSpace(alpacaHistoricalDataOptions.ApiSecret))
+{
+    alpacaHistoricalDataOptions = new AlpacaHistoricalDataOptions
+    {
+        BaseUrl = alpacaHistoricalDataOptions.BaseUrl,
+        ApiKey = alpacaSymbolReferenceOptions.ApiKey,
+        ApiSecret = alpacaSymbolReferenceOptions.ApiSecret,
+        TimeoutSeconds = alpacaHistoricalDataOptions.TimeoutSeconds,
+        Feed = alpacaHistoricalDataOptions.Feed
+    };
+}
 
 builder.Services.AddSingleton(alpacaSymbolReferenceOptions);
+builder.Services.AddSingleton(alpacaHistoricalDataOptions);
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddSingleton<MarketDataBootstrapStateStore>();
+builder.Services.AddScoped<IMarketDataSymbolDemandReader, UniverseMarketDataDemandReader>();
+builder.Services.AddScoped<MarketDataBootstrapService>();
 builder.Services.AddScoped<UniverseService>();
 if (alpacaSymbolReferenceOptions.UseFakeProvider)
 {
@@ -77,6 +101,13 @@ else
         client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds > 0 ? options.TimeoutSeconds : 10);
     });
 }
+
+builder.Services.AddHttpClient<IHistoricalBarProvider, AlpacaHistoricalBarProvider>((serviceProvider, client) =>
+{
+    var options = serviceProvider.GetRequiredService<AlpacaHistoricalDataOptions>();
+    client.BaseAddress = new Uri(EnsureTrailingSlash(options.BaseUrl), UriKind.Absolute);
+    client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds > 0 ? options.TimeoutSeconds : 10);
+});
 
 builder.Services.AddScoped<IExecutionRemovalGuardService, FakeExecutionRemovalGuardService>();
 builder.Services.AddHealthChecks();
@@ -96,9 +127,16 @@ using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<UniverseDbContext>();
     await UniverseDbInitializer.EnsureInitializedAsync(dbContext, CancellationToken.None);
+
+    var marketDataDbContext = scope.ServiceProvider.GetRequiredService<MarketDataDbContext>();
+    await MarketDataDbInitializer.EnsureInitializedAsync(marketDataDbContext, CancellationToken.None);
+
+    var bootstrapService = scope.ServiceProvider.GetRequiredService<MarketDataBootstrapService>();
+    await bootstrapService.RunWarmupAsync(CancellationToken.None);
 }
 
 app.MapAuthEndpoints();
+app.MapMarketDataEndpoints();
 app.MapUniverseEndpoints();
 app.MapDefaultEndpoints();
 

@@ -92,13 +92,25 @@ Implemented now:
 - provider result mapping normalizes invalid symbol, unsupported asset class, and unavailable-provider outcomes into shared reason codes
 - a fake fallback switch still exists for controlled test/bootstrap scenarios
 
+### MarketData bootstrap
+
+Implemented now:
+
+- `src/modules/Aegis.MarketData` exists as a first-party module
+- MarketData owns `bar` persistence through its own DbContext and initial migration
+- shared historical-bar provider contracts exist in `Aegis.Shared`
+- `Aegis.Adapters.Alpaca` includes a historical daily bar provider
+- MarketData derives daily warmup demand from current `Universe` symbols
+- bootstrap warmup fetches and upserts daily bars
+- MarketData exposes bootstrap status and daily-bar read endpoints
+
 ### Web/backend connectivity under Aspire
 
 Implemented now:
 
-- the frontend API layer uses the injected `NEXT_PUBLIC_BACKEND_URL` instead of hardcoded backend URLs
-- the backend avoids HTTPS redirection in Development so the local Aspire/browser HTTP flow works cleanly
-- browser login and downstream watchlist symbol workflows now work under Aspire with the current local setup
+- the frontend uses same-origin `/api` proxy routes instead of direct browser calls to hardcoded backend URLs
+- the backend avoids HTTPS redirection in Development so the local browser HTTP flow works cleanly
+- browser login and downstream watchlist symbol workflows work in the verified local development setup
 
 ## 5) Implemented frontend behavior
 
@@ -128,6 +140,7 @@ Implemented UI behaviors:
 - clickable watchlist cards with rename/delete actions excluded from card selection
 - autofocus in add/create dialogs
 - rename dialog preloaded with current watchlist name
+- dashboard MarketData bootstrap widget with refresh action
 
 ## 6) Current bootstrap-only compromises
 
@@ -161,6 +174,12 @@ Additional verification performed for symbol-reference work:
 - live API verification with Alpaca credentials confirming valid-symbol success and invalid-symbol rejection
 - browser-level verification under Aspire confirming login, watchlist creation, valid symbol add, and invalid symbol error display
 
+Additional verification performed for MarketData bootstrap work:
+
+- MarketData unit tests covering warmup success and failure behavior
+- MarketData integration test covering Universe-demand -> bootstrap -> persisted bars flow
+- browser-level verification confirming add-symbol -> dashboard refresh -> ready MarketData status with persisted daily bars
+
 Browser-level verification was also performed during implementation using Playwright against the web app.
 
 Verified workflows included:
@@ -181,9 +200,9 @@ Verified workflows included:
 Operational/debugging context already learned:
 
 - browser auth required CORS fixes in addition to backend auth endpoints
-- the web app needed a stable local port under Aspire to avoid origin drift
-- the frontend must use the injected backend base URL under Aspire rather than hardcoded local backend URLs
-- backend HTTPS redirection interfered with the browser/Aspire local HTTP flow until it was limited to non-Development environments
+- the web app needed a stable local port to avoid origin drift
+- the frontend proxy layer must forward to the configured backend base URL instead of relying on hardcoded browser-side backend URLs
+- backend HTTPS redirection interfered with the local browser HTTP flow until it was limited to non-Development environments
 - pgAdmin must use a valid email format for default credentials
 - a custom pgAdmin server-mount attempt conflicted with container startup and was removed
 - malformed build artifact paths were observed and `.gitignore` was adjusted accordingly during implementation work
@@ -192,7 +211,7 @@ Operational/debugging context already learned:
 
 Recommended dependency-ordered next work:
 
-1. begin `MarketData` bootstrap from the documented design
+1. continue `MarketData` beyond the daily bootstrap foundation
 2. decide and document the `SignalR` path for market-data-driven UI updates
 3. bootstrap `Strategies` contracts and assignment/runtime ownership
 4. bootstrap `Orders` contracts and open-order ownership
@@ -204,7 +223,7 @@ Recommended dependency-ordered next work:
 
 Why this order:
 
-- `MarketData` is now the earliest remaining reusable technical foundation.
+- `MarketData` remains the primary remaining technical foundation area, but it now has an implemented daily-bootstrap base to build on.
 - `Strategies`, `Orders`, and `Portfolio` establish the ownership boundaries that the real `Execution` guard depends on.
 - `IBKR` and `Infrastructure` should follow the relevant module boundaries rather than precede them.
 - richer realtime UI work should follow the backend/runtime foundations that supply the data.

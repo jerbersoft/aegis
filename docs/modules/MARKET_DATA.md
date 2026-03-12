@@ -12,16 +12,24 @@ Boundaries:
 
 ## Current implementation status
 
-`MarketData` is currently a design/planning area, not a fully implemented module.
+`MarketData` is now partially implemented as a bootstrap daily-historical foundation, but the broader module remains incomplete.
 
 Current repository reality:
 
-- there is not yet a first-party `src/modules/Aegis.MarketData` project in active use
+- there is now a first-party `src/modules/Aegis.MarketData` project in active use
 - the current implemented business module is `Universe`
 - the only currently implemented market-data-adjacent contract in active use is the shared symbol-reference contract used for first-time `Universe` symbol introduction
-- the current `Aegis.Adapters.Alpaca` project contains a fake `ISymbolReferenceProvider` bootstrap implementation, not a full market-data adapter
+- the current `Aegis.Adapters.Alpaca` project includes the real `ISymbolReferenceProvider` used by `Universe`, but it is not yet a full historical/realtime market-data adapter
 
-This document should therefore be read as target design for upcoming implementation work.
+Implemented bootstrap pieces now include:
+
+- MarketData-owned `bar` persistence
+- shared historical-bar provider contracts
+- Alpaca historical daily bar retrieval
+- daily warmup demand derivation from `Universe`
+- bootstrap status and daily-bar read paths
+
+This document should therefore be read as target design layered on top of the now-implemented daily bootstrap foundation.
 
 ## 2) Core v1 policies
 

@@ -1,5 +1,7 @@
+using System.Diagnostics;
 using System.Net;
 using System.Net.Http.Json;
+using System.Net.Sockets;
 using Aegis.Adapters.Alpaca.Services;
 using Aegis.Shared.Contracts.Auth;
 using Aegis.Shared.Contracts.Common;
@@ -13,12 +15,12 @@ using Shouldly;
 
 namespace Aegis.Universe.IntegrationTests;
 
-public sealed class UniverseApiTests : IClassFixture<WebApplicationFactory<Program>>
+public sealed class UniverseApiTests : IClassFixture<WebApplicationFactory<Program>>, IClassFixture<PostgresTestContainer>
 {
     private readonly WebApplicationFactory<Program> _factory;
     private readonly WebApplicationFactory<Program> _realProviderFactory;
 
-    public UniverseApiTests(WebApplicationFactory<Program> factory)
+    public UniverseApiTests(WebApplicationFactory<Program> factory, PostgresTestContainer postgres)
     {
         _factory = factory.WithWebHostBuilder(builder =>
         {
@@ -26,8 +28,9 @@ public sealed class UniverseApiTests : IClassFixture<WebApplicationFactory<Progr
             {
                 configBuilder.AddInMemoryCollection(new Dictionary<string, string?>
                 {
-                    ["Universe:UseInMemory"] = "true",
-                    ["Universe:InMemoryDatabaseName"] = $"universe-api-tests-{Guid.NewGuid():N}",
+                    ["ConnectionStrings:DefaultConnection"] = postgres.ConnectionString,
+                    ["ConnectionStrings:Universe"] = postgres.ConnectionString,
+                    ["ConnectionStrings:MarketData"] = postgres.ConnectionString,
                     ["Alpaca:SymbolReference:UseFakeProvider"] = "true"
                 });
             });
@@ -36,6 +39,8 @@ public sealed class UniverseApiTests : IClassFixture<WebApplicationFactory<Progr
             {
                 services.RemoveAll<ISymbolReferenceProvider>();
                 services.AddScoped<ISymbolReferenceProvider, FakeSymbolReferenceProvider>();
+                services.RemoveAll<IHistoricalBarProvider>();
+                services.AddScoped<IHistoricalBarProvider, TestHistoricalBarProvider>();
             });
         });
 
@@ -45,12 +50,21 @@ public sealed class UniverseApiTests : IClassFixture<WebApplicationFactory<Progr
             {
                 configBuilder.AddInMemoryCollection(new Dictionary<string, string?>
                 {
-                    ["Universe:UseInMemory"] = "true",
-                    ["Universe:InMemoryDatabaseName"] = $"universe-api-tests-real-provider-{Guid.NewGuid():N}",
+                    ["ConnectionStrings:DefaultConnection"] = postgres.ConnectionString,
+                    ["ConnectionStrings:Universe"] = postgres.ConnectionString,
+                    ["ConnectionStrings:MarketData"] = postgres.ConnectionString,
                     ["Alpaca:SymbolReference:UseFakeProvider"] = "false",
-                    ["Alpaca:SymbolReference:ApiKey"] = "",
-                    ["Alpaca:SymbolReference:ApiSecret"] = ""
+                    ["Alpaca:SymbolReference:ApiKey"] = "invalid-key",
+                    ["Alpaca:SymbolReference:ApiSecret"] = "invalid-secret"
                 });
+            });
+
+            builder.ConfigureServices(services =>
+            {
+                services.RemoveAll<ISymbolReferenceProvider>();
+                services.AddScoped<ISymbolReferenceProvider, UnavailableSymbolReferenceProvider>();
+                services.RemoveAll<IHistoricalBarProvider>();
+                services.AddScoped<IHistoricalBarProvider, TestHistoricalBarProvider>();
             });
         });
     }
@@ -134,7 +148,7 @@ public sealed class UniverseApiTests : IClassFixture<WebApplicationFactory<Progr
         var createdWatchlist = await createResponse.Content.ReadFromJsonAsync<WatchlistDetailView>();
         createdWatchlist.ShouldNotBeNull();
 
-        var addSymbolResponse = await client.PostAsJsonAsync($"/api/universe/watchlists/{createdWatchlist.WatchlistId}/symbols", new AddSymbolToWatchlistRequest("AAPL"));
+        var addSymbolResponse = await client.PostAsJsonAsync($"/api/universe/watchlists/{createdWatchlist.WatchlistId}/symbols", new AddSymbolToWatchlistRequest("TSLA"));
         addSymbolResponse.StatusCode.ShouldBe(HttpStatusCode.ServiceUnavailable);
 
         var error = await addSymbolResponse.Content.ReadFromJsonAsync<ApiErrorResponse>();
@@ -153,5 +167,89 @@ public sealed class UniverseApiTests : IClassFixture<WebApplicationFactory<Progr
         var loginResponse = await client.PostAsJsonAsync("/api/auth/login", new LoginRequest("demo", "demo"));
         loginResponse.EnsureSuccessStatusCode();
         return client;
+    }
+
+    private sealed class TestHistoricalBarProvider : IHistoricalBarProvider
+    {
+        public Task<HistoricalBarBatchResult> GetDailyBarsAsync(HistoricalBarRequest request, CancellationToken cancellationToken)
+        {
+            HistoricalBarRecord[] bars =
+            [
+                new(request.Symbol, "1day", new DateTimeOffset(2026, 3, 10, 0, 0, 0, TimeSpan.Zero), 100, 105, 99, 104, 1000, "regular", new DateOnly(2026, 3, 10), "reconciled", true)
+            ];
+
+            return Task.FromResult(HistoricalBarBatchResult.Success(request.Symbol, "1day", bars, "fake", "iex"));
+        }
+    }
+
+    private sealed class UnavailableSymbolReferenceProvider : ISymbolReferenceProvider
+    {
+        public Task<ValidatedSymbolResult> ValidateSymbolAsync(ValidateSymbolRequest request, CancellationToken cancellationToken) =>
+            Task.FromResult(ValidatedSymbolResult.Invalid("symbol_reference_unavailable", "fake"));
+    }
+}
+
+public sealed class PostgresTestContainer : IAsyncLifetime
+{
+    private readonly string _containerName = $"aegis-tests-{Guid.NewGuid():N}";
+    private readonly int _hostPort = GetFreePort();
+
+    public string ConnectionString => $"Host=localhost;Port={_hostPort};Database=aegis;Username=postgres;Password=postgres";
+
+    public async Task InitializeAsync()
+    {
+        await RunDockerAsync($"run -d --name {_containerName} -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=aegis -p {_hostPort}:5432 postgres:17");
+
+        for (var attempt = 0; attempt < 30; attempt++)
+        {
+            var result = await RunDockerAsync($"exec {_containerName} pg_isready -U postgres -d aegis", throwOnFailure: false);
+            if (result == 0)
+            {
+                return;
+            }
+
+            await Task.Delay(1000);
+        }
+
+        throw new InvalidOperationException("PostgreSQL test container did not become ready in time.");
+    }
+
+    public async Task DisposeAsync()
+    {
+        await RunDockerAsync($"rm -f {_containerName}", throwOnFailure: false);
+    }
+
+    private static async Task<int> RunDockerAsync(string arguments, bool throwOnFailure = true)
+    {
+        using var process = new Process
+        {
+            StartInfo = new ProcessStartInfo
+            {
+                FileName = "docker",
+                Arguments = arguments,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            }
+        };
+
+        process.Start();
+        await process.WaitForExitAsync();
+
+        if (throwOnFailure && process.ExitCode != 0)
+        {
+            var error = await process.StandardError.ReadToEndAsync();
+            throw new InvalidOperationException($"Docker command failed: docker {arguments}\n{error}");
+        }
+
+        return process.ExitCode;
+    }
+
+    private static int GetFreePort()
+    {
+        using var listener = new TcpListener(IPAddress.Loopback, 0);
+        listener.Start();
+        return ((IPEndPoint)listener.LocalEndpoint).Port;
     }
 }

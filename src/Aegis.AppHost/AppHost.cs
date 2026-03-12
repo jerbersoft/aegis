@@ -16,7 +16,6 @@ var universeDatabase = postgres.AddDatabase("universe");
 
 var backend = builder.AddProject<Projects.Aegis_Backend>("backend")
     .WithReference(universeDatabase)
-    .WithEnvironment("Universe__UseInMemory", "false")
     .WithEnvironment("Cors__AllowedOrigins__0", "http://localhost:3001")
     .WaitFor(universeDatabase)
     .WithExternalHttpEndpoints();

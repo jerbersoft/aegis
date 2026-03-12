@@ -613,7 +613,7 @@ Current note:
 
 ### Task 8.2 — Start `MarketData` bootstrap
 
-Status: `next`
+Status: `complete`
 
 Goal:
 
@@ -622,6 +622,130 @@ Goal:
 Acceptance criteria:
 
 - `MarketData` can read watchlist-driven symbol demand without requiring structural changes to `Universe`
+
+Detailed implementation plan:
+
+#### Recommended bootstrap target
+
+The first `MarketData` slice should be a smallest-real foundation rather than a broad feature push.
+
+Recommended slice:
+
+- daily historical warmup bootstrap
+- first-party `Aegis.MarketData` module
+- `bar` persistence ownership in `MarketData`
+- watchlist-driven symbol-demand derivation from `Universe`
+- Alpaca-backed historical daily retrieval path
+- simple readiness/status query path
+
+#### Scope
+
+In scope:
+
+- create `src/modules/Aegis.MarketData`
+- add MarketData EF Core persistence ownership
+- add initial `bar` persistence model and generated migration
+- add shared historical-provider contracts needed for the first slice
+- implement Alpaca historical daily retrieval behind shared contracts
+- derive daily warmup demand from `Universe` symbols/watchlists
+- implement simple bootstrap readiness/status behavior
+- expose at least one observable backend read/status path for verification
+
+Out of scope for this first slice:
+
+- full realtime websocket/streaming ingestion
+- quote/trade ingestion
+- live minute-bar revision handling
+- full gap-repair engine
+- full indicator engine
+- `SignalR`
+- scanner/trading readiness split
+- full limited/full operating mode behavior
+
+#### Design constraints
+
+- `MarketData` must read `Universe` demand without taking ownership of watchlists or symbol membership rules
+- provider SDK or HTTP payloads must remain inside adapter boundaries
+- persistence ownership for bars must belong to `MarketData`
+- bootstrap should start with daily-only historical behavior before intraday complexity
+- the first slice should expose observable status/read behavior for direct verification
+
+#### Recommended first persistence scope
+
+Start with one logical `bar` persistence model owned by `MarketData`.
+
+Recommended initial fields:
+
+- `bar_id`
+- `symbol`
+- `interval`
+- `bar_time_utc`
+- `open`
+- `high`
+- `low`
+- `close`
+- `volume`
+- `session_type`
+- `market_date`
+- `provider_name`
+- `provider_feed`
+- `runtime_state`
+- `is_reconciled`
+- `created_utc`
+- `updated_utc`
+
+#### Recommended implementation phases
+
+1. create the `Aegis.MarketData` project and wire it into `Aegis.Backend`
+2. add MarketData DbContext and generate the initial `bar` migration
+3. add shared historical-bar/provider contracts required for this slice
+4. implement an Alpaca historical daily provider behind the shared contract
+5. derive daily warmup symbol demand from `Universe`
+6. load persisted daily bars, detect missing initial history, fetch missing bars, and upsert them
+7. compute simple bootstrap readiness/state for the warmed-up scope
+8. add an observable backend read/status endpoint for validation
+
+#### Recommended first acceptance boundary
+
+Treat this slice as complete only when all are true:
+
+- `Aegis.MarketData` exists and is wired into the backend
+- MarketData owns its own EF Core persistence
+- a generated initial migration exists for `bar` storage
+- MarketData can derive warmup scope from current `Universe` state
+- a historical provider can fetch normalized daily bars
+- fetched daily bars are persisted and queryable
+- a simple readiness/status path is available for verification
+
+#### Recommended tests
+
+Unit tests:
+
+- historical-bar normalization mapping
+- daily warmup demand derivation from `Universe`
+- simple readiness-state behavior for warmup success/failure cases
+
+Integration tests:
+
+- MarketData persistence behavior
+- historical provider result -> persistence flow
+- backend endpoint returning warmup/status or bar-read results
+
+#### Current recommendation
+
+- do not begin with realtime or intraday runtime behavior
+- establish daily historical warmup, persistence, and readiness foundations first
+- use this slice to prove the module boundaries, persistence ownership, and provider contracts before adding live-stream complexity
+
+Current note:
+
+- `Aegis.MarketData` now exists and is wired into the backend
+- MarketData owns bar persistence through its own DbContext and generated initial migration
+- shared historical-bar provider contracts now exist in `Aegis.Shared`
+- Alpaca historical daily retrieval is implemented behind the shared provider contract
+- daily warmup demand is derived from `Universe`
+- bootstrap status and daily-bar read endpoints are implemented
+- the Home dashboard now includes a MarketData bootstrap widget for browser-level verification
 
 ## 11) Related Documents
 
@@ -634,8 +758,8 @@ Acceptance criteria:
 
 Recommended next work in dependency order:
 
-1. start `MarketData` bootstrap
-   - this is the main technical foundation for downstream strategy evaluation, live watchlist fields, readiness, and realtime behavior
+1. continue `MarketData` beyond the daily bootstrap foundation
+   - the next MarketData work should extend into intraday scope, richer readiness, and runtime state on top of the now-implemented daily bootstrap base
 2. decide and document the realtime `SignalR` path
    - the UI live-update path should be set before deeper market-data/UI coupling work begins
 3. bootstrap `Strategies`

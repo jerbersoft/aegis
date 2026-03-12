@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Aegis.Shared\Aegis.Shared.csproj" />
+    <ProjectReference Include="..\modules\Aegis.MarketData\Aegis.MarketData.csproj" />
     <ProjectReference Include="..\modules\Aegis.Universe\Aegis.Universe.csproj" />
     <ProjectReference Include="..\adapters\Aegis.Adapters.Alpaca\Aegis.Adapters.Alpaca.csproj" />
     <ProjectReference Include="..\Aegis.ServiceDefaults\Aegis.ServiceDefaults.csproj" />

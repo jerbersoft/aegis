@@ -1,6 +1,7 @@
 "use client";
 
 import { AppShell } from "@/components/layout/app-shell";
+import { MarketDataWidget } from "@/components/dashboard/market-data-widget";
 import { OrdersWidget } from "@/components/dashboard/orders-widget";
 import { PortfolioSummaryWidget } from "@/components/dashboard/portfolio-summary-widget";
 import { PositionsWidget } from "@/components/dashboard/positions-widget";
@@ -30,6 +31,7 @@ export default function HomePage() {
   return (
     <AppShell session={session}>
       <div className="grid gap-6 lg:grid-cols-2">
+        <MarketDataWidget />
         <PortfolioSummaryWidget />
         <PositionsWidget />
         <OrdersWidget />

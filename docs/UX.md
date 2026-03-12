@@ -26,7 +26,7 @@ This document is UX-focused. Detailed module behavior, backend ownership, and co
 - The user first lands on a very simple login page.
 - For v1, any username/password combination is accepted.
 - Successful login routes the user to the main dashboard.
-- Under Aspire, the frontend should use the injected backend base URL rather than hardcoded local backend URLs.
+- Under Aspire and standalone local development, the frontend should use its own same-origin API proxy layer rather than hardcoded browser-side backend URLs.
 
 ### Post-login shell
 
@@ -91,6 +91,7 @@ Displays strategy attachment information relevant to the current account/positio
 - v1 may use placeholder/mock values for widget content until the underlying modules are implemented.
 - Dashboard widgets remain static in behavior for now.
 - Clicking positions, orders, or strategy items does not yet need to navigate deeper in v1.
+- The dashboard may expose backend/bootstrap status widgets when that helps verify new module delivery before richer portfolio/order data exists.
 
 ## 5) Watchlists Experience
 
@@ -321,6 +322,7 @@ Important UI-specific implementation choices already locked in:
 - clickable watchlist cards with isolated rename/delete actions
 - standardized add/edit/delete action styling
 - autofocus in create/add dialogs and prefilled rename dialog state
+- Home includes a MarketData bootstrap widget for current status and manual refresh
 
 Still intentionally placeholder or deferred:
 
