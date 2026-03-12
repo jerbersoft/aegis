@@ -15,6 +15,7 @@ export function useMarketDataBootstrap() {
     setIsLoading(true);
     setError(null);
     try {
+      // Bootstrap status and readiness are separate read models, so keep them in sync with one refresh call.
       const [bootstrapStatus, readiness] = await Promise.all([getMarketDataBootstrapStatus(), getDailyReadiness()]);
       setStatus(bootstrapStatus);
       setDailyReadiness(readiness);
@@ -29,6 +30,7 @@ export function useMarketDataBootstrap() {
     setIsRefreshing(true);
     setError(null);
     try {
+      // Re-read readiness after bootstrap because the write response and the derived runtime snapshot can diverge briefly.
       const bootstrapStatus = await runMarketDataBootstrap();
       setStatus(bootstrapStatus);
       setDailyReadiness(await getDailyReadiness());

@@ -20,6 +20,7 @@ export type DailySymbolReadinessView = {
   readinessState: string;
   reasonCode: string;
   hasRequiredDailyBars: boolean;
+  hasRequiredIndicatorState: boolean;
   hasBenchmarkDependency: boolean;
   benchmarkSymbol?: string | null;
   benchmarkReadinessState?: string | null;

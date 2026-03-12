@@ -40,6 +40,7 @@ export default function WatchlistsPage() {
     return watchlists.filter((item) => item.name.toLowerCase().includes(value));
   }, [watchlistSearch, watchlists]);
 
+  // Keep a stable fallback selection so the detail pane still has a target after list refreshes or deletes.
   const effectiveWatchlistId = selectedWatchlistId ?? filteredWatchlists[0]?.watchlistId ?? watchlists[0]?.watchlistId ?? null;
 
   const selectedWatchlist = useMemo(
@@ -80,6 +81,7 @@ export default function WatchlistsPage() {
   }
 
   async function handleRefreshAll() {
+    // Refresh both lists because symbol mutations can change sidebar counts and the selected detail pane at once.
     await refresh();
     await refreshSymbols();
   }
@@ -93,6 +95,7 @@ export default function WatchlistsPage() {
       await removeSymbolFromWatchlist(selectedWatchlistId, symbolId);
       await handleRefreshAll();
     } catch {
+      // Execution removals fail closed, so only that path needs the extra blocker lookup on error.
       if (isExecution) {
         await blockerState.load(symbolId);
       }

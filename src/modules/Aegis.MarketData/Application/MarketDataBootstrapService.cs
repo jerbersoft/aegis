@@ -24,6 +24,7 @@ public sealed class MarketDataBootstrapService(
 
     public async Task<MarketDataBootstrapStatusView> RunWarmupAsync(CancellationToken cancellationToken)
     {
+        // Expand raw watchlist demand into the full daily warmup set, including benchmark dependencies.
         var demand = DailyMarketDataDemandExpander.Expand(await demandReader.GetDailyDemandAsync(cancellationToken));
         var symbols = demand
             .Select(x => x.Symbol)
@@ -58,6 +59,7 @@ public sealed class MarketDataBootstrapService(
                 continue;
             }
 
+            // When we already have partial history, request older bars instead of re-fetching the same recent window.
             var request = BuildHistoricalRequest(coverage, startedAt);
             var batch = await historicalBarProvider.GetDailyBarsAsync(request, cancellationToken);
             if (!batch.Succeeded)
@@ -145,6 +147,7 @@ public sealed class MarketDataBootstrapService(
 
     private async Task<DailyHistoryCoverage> GetDailyCoverageAsync(string symbol, CancellationToken cancellationToken)
     {
+        // Coverage is used only to decide whether warmup needs more history and which direction to fetch.
         var items = await dbContext.Bars
             .AsNoTracking()
             .Where(x => x.Symbol == symbol && x.Interval == DailyInterval)
@@ -166,6 +169,7 @@ public sealed class MarketDataBootstrapService(
 
         if (coverage.EarliestBarUtc is { } earliestBarUtc)
         {
+            // Backfill from the earliest persisted bar so missing-history fixes preserve the newest data already on disk.
             var toUtc = earliestBarUtc;
             var fromUtc = toUtc - Duration.FromDays(limit * 2);
             return new HistoricalBarRequest(coverage.Symbol, fromUtc, toUtc, limit, HistoricalFeed);

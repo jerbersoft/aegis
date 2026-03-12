@@ -6,6 +6,7 @@ import { useMarketDataBootstrap } from "@/hooks/use-market-data-bootstrap";
 
 export function MarketDataWidget() {
   const { status, dailyReadiness, isLoading, isRefreshing, error, runBootstrap } = useMarketDataBootstrap();
+  // Surface degraded symbols first so the top-level rollup and the visible detail rows stay easy to reconcile.
   const readinessSymbols = dailyReadiness
     ? [...dailyReadiness.symbols].sort((left, right) => {
         if (left.readinessState === right.readinessState) {
@@ -73,6 +74,7 @@ export function MarketDataWidget() {
                   <p key={symbol.symbol}>
                     <span className="font-semibold text-slate-100">{symbol.symbol}</span>: {symbol.readinessState} ({symbol.availableBarCount}/{symbol.requiredBarCount})
                     {symbol.hasBenchmarkDependency && symbol.benchmarkSymbol ? ` • benchmark ${symbol.benchmarkSymbol}: ${symbol.benchmarkReadinessState ?? "unknown"}` : ""}
+                    {symbol.hasRequiredIndicatorState ? " • indicators ready" : " • indicators pending"}
                   </p>
                 ))}
               </div>

@@ -33,6 +33,7 @@ Implemented bootstrap pieces now include:
 - daily rollup readiness and per-symbol daily readiness REST reads
 - bootstrap-driven missing-history backfill for required daily symbols before final readiness is reported
 - benchmark-aware daily readiness for `daily_core`, including `SPY` dependency expansion and benchmark-caused not-ready state
+- runtime-only `daily_core` indicator-state hydration for `sma_200`, `atr_14_percent`, and benchmark-aware `rs_50`
 
 Current local-runtime note:
 
@@ -177,7 +178,7 @@ Intraday indicator definitions:
 ### Daily runtime state
 
 - Daily runtime state retains up to `300` daily bars in memory per required symbol.
-- Daily indicator snapshots are attached to daily runtime state and include all v1 daily indicators.
+- Daily indicator snapshots are attached to daily runtime state; the currently implemented slice includes `sma_200`, `atr_14_percent`, and `rs_50`.
 - Benchmark dependency state is attached to daily runtime state when needed.
 
 ### `1-min` intraday runtime state

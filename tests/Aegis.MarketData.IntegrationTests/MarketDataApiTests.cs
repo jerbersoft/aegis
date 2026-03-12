@@ -4,11 +4,14 @@ using System.Net.Http.Json;
 using System.Net.Sockets;
 using Aegis.Adapters.Alpaca.Services;
 using Aegis.MarketData.Application;
+using Aegis.MarketData.Infrastructure;
 using Aegis.Shared.Contracts.Auth;
 using Aegis.Shared.Contracts.MarketData;
 using Aegis.Shared.Contracts.Universe;
 using Aegis.Shared.Ports.MarketData;
+using Aegis.Universe.Infrastructure;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -119,6 +122,7 @@ public sealed class MarketDataApiTests : IClassFixture<WebApplicationFactory<Pro
     [Fact]
     public async Task RunBootstrap_ShouldWarmPersistedBars_ForUniverseSymbols()
     {
+        await ResetStateAsync(_factory);
         using var client = await CreateAuthenticatedClientAsync();
 
         var watchlist = await client.PostAsJsonAsync("/api/universe/watchlists", new CreateWatchlistRequest("MarketDataDemand"));
@@ -151,6 +155,7 @@ public sealed class MarketDataApiTests : IClassFixture<WebApplicationFactory<Pro
     [Fact]
     public async Task DailyReadiness_ShouldBeReady_WhenSufficientHistoryExists()
     {
+        await ResetStateAsync(_readyFactory);
         using var client = await CreateAuthenticatedClientAsync(_readyFactory);
 
         var watchlist = await client.PostAsJsonAsync("/api/universe/watchlists", new CreateWatchlistRequest("MarketDataReady"));
@@ -168,6 +173,7 @@ public sealed class MarketDataApiTests : IClassFixture<WebApplicationFactory<Pro
         symbolReadiness.ShouldNotBeNull();
         symbolReadiness.ReadinessState.ShouldBe("ready");
         symbolReadiness.AvailableBarCount.ShouldBeGreaterThanOrEqualTo(DailyHistoryHistoricalBarProvider.ReadyBarCount);
+        symbolReadiness.HasRequiredIndicatorState.ShouldBeTrue();
         symbolReadiness.HasBenchmarkDependency.ShouldBeTrue();
         symbolReadiness.BenchmarkSymbol.ShouldBe(DailyMarketDataDemandExpander.BenchmarkSymbol);
         symbolReadiness.BenchmarkReadinessState.ShouldBe("ready");
@@ -176,6 +182,7 @@ public sealed class MarketDataApiTests : IClassFixture<WebApplicationFactory<Pro
     [Fact]
     public async Task Bootstrap_ShouldBackfillMissingHistory_AndTransitionToReady()
     {
+        await ResetStateAsync(_backfillFactory);
         using var client = await CreateAuthenticatedClientAsync(_backfillFactory);
 
         var watchlist = await client.PostAsJsonAsync("/api/universe/watchlists", new CreateWatchlistRequest("MarketDataBackfill"));
@@ -202,6 +209,7 @@ public sealed class MarketDataApiTests : IClassFixture<WebApplicationFactory<Pro
     [Fact]
     public async Task DailyReadiness_ShouldShowBenchmarkNotReady_WhenBenchmarkHistoryIsInsufficient()
     {
+        await ResetStateAsync(_benchmarkBlockedFactory);
         using var client = await CreateAuthenticatedClientAsync(_benchmarkBlockedFactory);
 
         var watchlist = await client.PostAsJsonAsync("/api/universe/watchlists", new CreateWatchlistRequest("MarketDataBenchmarkBlocked"));
@@ -219,6 +227,7 @@ public sealed class MarketDataApiTests : IClassFixture<WebApplicationFactory<Pro
         symbolReadiness.ShouldNotBeNull();
         symbolReadiness.ReadinessState.ShouldBe("not_ready");
         symbolReadiness.ReasonCode.ShouldBe("benchmark_not_ready");
+        symbolReadiness.HasRequiredIndicatorState.ShouldBeFalse();
         symbolReadiness.BenchmarkSymbol.ShouldBe(DailyMarketDataDemandExpander.BenchmarkSymbol);
         symbolReadiness.BenchmarkReadinessState.ShouldBe("not_ready");
     }
@@ -234,6 +243,16 @@ public sealed class MarketDataApiTests : IClassFixture<WebApplicationFactory<Pro
         var loginResponse = await client.PostAsJsonAsync("/api/auth/login", new LoginRequest("demo", "demo"));
         loginResponse.EnsureSuccessStatusCode();
         return client;
+    }
+
+    private static async Task ResetStateAsync(WebApplicationFactory<Program> factory)
+    {
+        using var scope = factory.Services.CreateScope();
+        var marketDataDbContext = scope.ServiceProvider.GetRequiredService<MarketDataDbContext>();
+        var universeDbContext = scope.ServiceProvider.GetRequiredService<UniverseDbContext>();
+
+        await marketDataDbContext.Database.ExecuteSqlRawAsync("TRUNCATE TABLE bar RESTART IDENTITY CASCADE;");
+        await universeDbContext.Database.ExecuteSqlRawAsync("TRUNCATE TABLE watchlist_item, watchlist, symbol RESTART IDENTITY CASCADE;");
     }
 
     private sealed class TestHistoricalBarProvider : IHistoricalBarProvider

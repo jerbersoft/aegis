@@ -23,6 +23,7 @@ public sealed record DailySymbolReadinessView(
     string ReadinessState,
     string ReasonCode,
     bool HasRequiredDailyBars,
+    bool HasRequiredIndicatorState,
     bool HasBenchmarkDependency,
     string? BenchmarkSymbol,
     string? BenchmarkReadinessState,

@@ -7,6 +7,7 @@ async function proxy(request: NextRequest, { params }: { params: Promise<{ path:
   const search = request.nextUrl.search;
   const targetUrl = `${backendBaseUrl}/api/${path.join("/")}${search}`;
   const headers = new Headers(request.headers);
+  // Let the backend own hop-by-hop headers after the proxy rewrites the request target.
   headers.delete("host");
   headers.delete("content-length");
 

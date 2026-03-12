@@ -108,6 +108,8 @@ Implemented now:
 - MarketData bootstrap now attempts requirement-based daily backfill before leaving symbols in `missing_required_bars`
 - MarketData daily readiness is now benchmark-aware and expands `SPY` as a benchmark dependency for `daily_core`
 - per-symbol readiness now surfaces benchmark dependency metadata and benchmark readiness state
+- MarketData now computes `daily_core` indicator-state during daily hydration, including `sma_200`, `atr_14_percent`, and benchmark-aware `rs_50`
+- per-symbol readiness now surfaces whether required daily indicator state is available
 - current domain/backend/shared date-time handling has been refactored to `NodaTime` for auth, Universe contracts, MarketData contracts, MarketData persistence, and Alpaca historical bar mapping
 
 ### Web/backend connectivity under Aspire
@@ -155,6 +157,7 @@ Implemented UI behaviors:
 - dashboard MarketData bootstrap widget with refresh action
 - dashboard MarketData widget now shows daily ready/not-ready counts, reason code, and daily readiness detail
 - dashboard MarketData detail rows now surface benchmark dependency state for benchmark-aware symbols
+- dashboard MarketData detail rows now surface whether daily indicator state is ready or pending
 
 ## 6) Current bootstrap-only compromises
 
@@ -198,6 +201,7 @@ Additional verification performed for MarketData bootstrap work:
 - MarketData integration tests covering rollup and per-symbol daily readiness endpoints
 - MarketData regression tests covering missing-history backfill during bootstrap warmup
 - MarketData unit and integration tests covering benchmark-aware daily readiness behavior
+- MarketData unit and integration tests covering daily indicator-state hydration and readiness availability behavior
 - browser-level verification under Aspire, with `Aegis.AppHost` running first, confirming add-symbol -> dashboard refresh -> ready MarketData status with persisted daily bars
 - browser-level verification under Aspire, with `Aegis.AppHost` running first, confirming invalid-symbol error display in Add Symbol and clean dialog state after close/reopen
 - NodaTime refactor verification via unit tests, integration tests, web lint/build, and browser regression coverage under Aspire of login, watchlist creation, symbol add, MarketData refresh, and invalid-symbol dialog reset
@@ -237,7 +241,7 @@ Operational/debugging context already learned:
 Recommended dependency-ordered next work:
 
 1. continue `MarketData` beyond the current benchmark-aware daily runtime/readiness foundation
-   - immediate recommended slice: the next step toward deeper readiness semantics and intraday/runtime expansion
+   - immediate recommended slice: broader daily indicator coverage and then the next step toward intraday/runtime expansion
 2. decide and document the `SignalR` path for market-data-driven UI updates
 3. bootstrap `Strategies` contracts and assignment/runtime ownership
 4. bootstrap `Orders` contracts and open-order ownership

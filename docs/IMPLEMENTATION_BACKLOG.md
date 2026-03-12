@@ -1214,6 +1214,24 @@ Current note:
 - a symbol can now become `not_ready` with `benchmark_not_ready` when the benchmark is not ready
 - the Home widget now shows benchmark readiness detail inline for benchmark-aware symbols
 
+### Task 12.3 — Add daily indicator-state hydration for `daily_core`
+
+Status:
+
+- implemented
+
+#### Goal
+
+Extend the current daily runtime/readiness slice so `MarketData` computes the first real daily indicator state for `daily_core` during hydration and uses that state in readiness.
+
+#### Current note
+
+- `MarketData` now computes runtime-only `daily_core` indicator state during daily hydration
+- the current implemented daily indicator-state slice includes `sma_200`, `atr_14_percent`, and benchmark-aware `rs_50`
+- per-symbol readiness now exposes `has_required_indicator_state`
+- a symbol can now remain `not_ready` because indicator state is still unavailable even when bars and benchmark state are otherwise present
+- the Home widget now surfaces whether indicator state is ready or pending in each displayed readiness detail row
+
 #### Recommended tests
 
 Unit tests:

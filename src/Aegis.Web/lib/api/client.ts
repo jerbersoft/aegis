@@ -18,6 +18,7 @@ export async function apiRequest<T>(url: string, options: RequestOptions = {}): 
   if (!response.ok) {
     let errorBody: ApiError | null = null;
     try {
+      // Prefer backend-normalized API errors, but still fall back to HTTP status data for non-JSON failures.
       errorBody = (await response.json()) as ApiError;
     } catch {
       // ignored

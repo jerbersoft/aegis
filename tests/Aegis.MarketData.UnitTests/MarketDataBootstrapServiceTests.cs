@@ -95,6 +95,7 @@ public sealed class MarketDataBootstrapServiceTests
         readiness.ReadinessState.ShouldBe("ready");
         readiness.RequiredBarCount.ShouldBe(DailyMarketDataHydrationService.DailyCoreRequiredBarCount);
         readiness.AvailableBarCount.ShouldBe(220);
+        readiness.HasRequiredIndicatorState.ShouldBeTrue();
         readiness.HasBenchmarkDependency.ShouldBeTrue();
         readiness.BenchmarkSymbol.ShouldBe(DailyMarketDataDemandExpander.BenchmarkSymbol);
         readiness.BenchmarkReadinessState.ShouldBe("ready");
@@ -120,6 +121,7 @@ public sealed class MarketDataBootstrapServiceTests
         readiness.ShouldNotBeNull();
         readiness.ReadinessState.ShouldBe("not_ready");
         readiness.ReasonCode.ShouldBe("missing_required_bars");
+        readiness.HasRequiredIndicatorState.ShouldBeFalse();
         readiness.AvailableBarCount.ShouldBe(50);
     }
 
@@ -144,8 +146,32 @@ public sealed class MarketDataBootstrapServiceTests
         readiness.ShouldNotBeNull();
         readiness.ReadinessState.ShouldBe("not_ready");
         readiness.ReasonCode.ShouldBe("benchmark_not_ready");
+        readiness.HasRequiredIndicatorState.ShouldBeFalse();
         readiness.BenchmarkSymbol.ShouldBe(DailyMarketDataDemandExpander.BenchmarkSymbol);
         readiness.BenchmarkReadinessState.ShouldBe("not_ready");
+    }
+
+    [Fact]
+    public async Task RebuildAsync_ShouldPopulateIndicatorState_WhenSymbolAndBenchmarkAreReady()
+    {
+        await using var dbContext = CreateDbContext();
+        var runtimeStore = new MarketDataDailyRuntimeStore();
+        var demandReader = new StubDemandReader(["AAPL"]);
+        var clock = new FakeClock(Instant.FromUtc(2026, 3, 12, 13, 0));
+
+        SeedBars(dbContext, "AAPL", 220, clock.GetCurrentInstant());
+        SeedBars(dbContext, DailyMarketDataDemandExpander.BenchmarkSymbol, 220, clock.GetCurrentInstant());
+        await dbContext.SaveChangesAsync();
+
+        var hydrationService = new DailyMarketDataHydrationService(dbContext, demandReader, runtimeStore, clock);
+        await hydrationService.RebuildAsync(cancellationToken: CancellationToken.None);
+
+        var snapshot = runtimeStore.GetSymbol("AAPL");
+        snapshot.ShouldNotBeNull();
+        snapshot.IndicatorState.HasRequiredIndicatorState.ShouldBeTrue();
+        snapshot.IndicatorState.Sma200.ShouldNotBeNull();
+        snapshot.IndicatorState.Atr14Percent.ShouldNotBeNull();
+        snapshot.IndicatorState.Rs50.ShouldNotBeNull();
     }
 
     [Fact]
