@@ -138,6 +138,7 @@ Implemented UI behaviors:
 - add symbol dialog
 - blocked `Execution` removal modal
 - standardized `+ Add` actions
+- shared button styling applied to rename/delete/remove actions in the watchlists workspace
 - clickable watchlist cards with rename/delete actions excluded from card selection
 - autofocus in add/create dialogs
 - add-symbol dialog reopens in a fresh state after close, clearing prior input and validation errors

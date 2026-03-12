@@ -65,22 +65,30 @@ export function WatchlistSidebar({
                 ) : null}
               </div>
 
-              <div className="mt-3 flex gap-2 text-xs text-slate-400">
+              <div className="mt-3 flex gap-2">
                 {watchlist.canRename ? (
-                  <button className="hover:text-white" type="button" onClick={(event) => {
-                    event.stopPropagation();
-                    onRename(watchlist);
-                  }}>
+                  <Button
+                    className="px-2 py-1 text-xs"
+                    type="button"
+                    variant="secondary"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onRename(watchlist);
+                    }}>
                     Rename
-                  </button>
+                  </Button>
                 ) : null}
                 {watchlist.canDelete ? (
-                  <button className="hover:text-red-300" type="button" onClick={(event) => {
-                    event.stopPropagation();
-                    onDelete(watchlist);
-                  }}>
+                  <Button
+                    className="px-2 py-1 text-xs"
+                    type="button"
+                    variant="danger"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onDelete(watchlist);
+                    }}>
                     Delete
-                  </button>
+                  </Button>
                 ) : null}
               </div>
             </div>

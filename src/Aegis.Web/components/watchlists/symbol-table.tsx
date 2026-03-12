@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/button";
 import { WatchlistItemView } from "@/lib/types/universe";
 import { ExecutionIndicator } from "./execution-indicator";
 
@@ -32,9 +33,9 @@ export function SymbolTable({ items, onRemove }: Props) {
                 </td>
                 <td className="px-4 py-3">{item.isInExecution ? <ExecutionIndicator /> : null}</td>
                 <td className="px-4 py-3">
-                  <button className="text-sm text-slate-300 hover:text-white" onClick={() => onRemove(item)} type="button">
+                  <Button className="px-2 py-1 text-xs" onClick={() => onRemove(item)} type="button" variant="danger">
                     Remove
-                  </button>
+                  </Button>
                 </td>
               </tr>
             );

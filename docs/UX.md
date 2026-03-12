@@ -256,7 +256,7 @@ v1 rules:
 
 Current implementation note:
 
-- the standardized `+ Add` treatment is already used for watchlist and symbol creation actions
+- the shared button primitives are now used for add, rename, delete, and remove actions in the current watchlists UI
 
 Examples include:
 
@@ -270,12 +270,12 @@ Examples include:
 
 ### Preferences
 
-- `Preferences` exists in the avatar menu.
+- `Preferences` exists in the top navigation session area.
 - v1 `Preferences` may be a placeholder page.
 
 ### Logout
 
-- `Logout` exists in the avatar menu.
+- `Logout` exists in the top navigation session area.
 - Logging out returns the user to the login view.
 
 ## 13) Placeholder and Mock-Data Guidance
