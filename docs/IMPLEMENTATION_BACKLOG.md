@@ -761,7 +761,8 @@ Current note:
 Recommended next work in dependency order:
 
 1. continue `MarketData` beyond the daily bootstrap foundation
-   - the next MarketData work should extend into intraday scope, richer readiness, and runtime state on top of the now-implemented daily bootstrap base
+   - the next MarketData work should first implement a daily runtime/readiness foundation on top of the now-implemented daily bootstrap base
+   - intraday runtime, realtime ingestion, and broader operating/readiness scope should follow only after that daily foundation exists
 2. decide and document the realtime `SignalR` path
    - the UI live-update path should be set before deeper market-data/UI coupling work begins
 3. bootstrap `Strategies`
@@ -783,3 +784,272 @@ Current recommendation:
 
 - do not start by replacing the fake `Execution` guard directly
 - first establish the owning modules and contracts that the real guard must query
+
+### Task 12.1 — Build daily `MarketData` runtime/readiness foundation
+
+#### Goal
+
+Extend `MarketData` from daily bootstrap persistence/status into a true daily runtime/readiness slice that owns:
+
+- required-symbol daily demand interpretation
+- daily runtime snapshots in memory
+- symbol-scoped daily readiness
+- daily rollup readiness
+- REST-observable readiness reads
+- minimal richer Home widget visibility
+
+This task should remain daily-only and should not yet introduce realtime, `SignalR`, or intraday runtime behavior.
+
+#### Why this task is next
+
+Current repository reality already proves the first bootstrap layer:
+
+- `Aegis.MarketData` owns daily bar persistence
+- historical provider contracts and Alpaca daily retrieval are implemented
+- warmup demand is derived from `Universe`
+- bootstrap status and daily-bar reads are available
+
+What is still missing is the first real `MarketData`-owned runtime/readiness layer:
+
+- bootstrap readiness today is still a simple summary inside `MarketDataBootstrapService`
+- there is no symbol-scoped daily readiness model
+- there is no rollup daily readiness model
+- there is no in-memory daily runtime snapshot store
+- there is no scanner-facing daily readiness boundary for future `MarketData` work
+
+#### Scope
+
+In scope:
+
+- introduce richer daily demand modeling instead of a flat symbol list only
+- add a first daily profile/readiness rule set such as `daily_core`
+- add immutable/read-safe daily runtime snapshots for required symbols
+- add a `MarketData`-owned daily runtime store
+- add a daily hydration/rebuild service that hydrates runtime state from persisted bars
+- compute symbol-scoped daily readiness and rollup daily readiness
+- expose daily readiness through new backend REST endpoints
+- integrate runtime/readiness rebuild into the existing bootstrap path
+- extend the Home `MarketData` widget to surface richer readiness counts/state
+
+Out of scope for this slice:
+
+- realtime websocket/streaming ingestion
+- `SignalR`
+- intraday runtime state
+- quote/trade ingestion
+- minute-bar revision handling
+- repair queue/orchestration
+- full indicator engine
+- trading readiness and operational readiness
+- full provider capability/runtime-state support
+
+#### Recommended design constraints
+
+- keep `Universe` responsible only for symbol/watchlist membership demand, not market-data readiness
+- keep runtime/readiness ownership inside `MarketData`
+- keep shared contracts vendor-neutral
+- keep the slice daily-only even though the broader design includes intraday and realtime paths
+- use immutable or read-safe runtime snapshots and atomic replacement rather than ad hoc mutable shared state
+- use `NodaTime` for all domain/backend/shared date-time handling
+- avoid production test-mode runtime branches and avoid introducing in-memory-database runtime paths into production code
+- prefer batched DB reads for runtime hydration instead of per-symbol query loops where practical
+
+#### Recommended first readiness profile
+
+Implement one initial daily profile:
+
+- `daily_core`
+
+Recommended initial rules:
+
+- `ready` when the symbol has the required persisted daily history for the profile
+- `not_ready` when required daily history is insufficient
+- `not_requested` when there is no current required daily demand
+- `warming_up` while bootstrap/rebuild is actively in progress
+
+Recommended initial required history:
+
+- `200` daily bars
+
+Rationale:
+
+- this is the smallest meaningful readiness boundary that aligns with the documented daily-indicator direction such as `sma_200`
+
+Recommended initial reason-code subset for this slice:
+
+- `none`
+- `warmup_in_progress`
+- `missing_required_bars`
+
+Benchmark dependency handling:
+
+- keep benchmark dependency support architecturally possible in the demand/runtime model
+- but the recommended first implementation may defer enforcing benchmark dependency readiness until the next `MarketData` slice to keep this task coherent
+
+#### Recommended internal types
+
+Application/runtime types:
+
+- `DailySymbolDemand`
+- `DailySymbolRuntimeSnapshot`
+- `DailyUniverseRuntimeSnapshot`
+- `MarketDataDailyRuntimeStore`
+- `DailyMarketDataHydrationService`
+
+Recommended symbol snapshot contents:
+
+- `symbol`
+- `profile_key`
+- retained in-memory daily bars for the runtime window
+- `required_bar_count`
+- `available_bar_count`
+- `last_finalized_bar_utc`
+- `readiness_state`
+- `reason_code`
+- `last_state_changed_utc`
+
+Recommended rollup snapshot contents:
+
+- `profile_key`
+- `as_of_utc`
+- `readiness_state`
+- `reason_code`
+- `total_symbol_count`
+- `ready_symbol_count`
+- `not_ready_symbol_count`
+
+Recommended runtime retention:
+
+- up to `300` daily bars in memory per required symbol
+
+#### Recommended shared/API contracts
+
+Add shared DTOs under `Aegis.Shared.Contracts.MarketData` for:
+
+- `DailySymbolReadinessView`
+- `DailyUniverseReadinessView`
+
+Recommended `DailySymbolReadinessView` fields:
+
+- `symbol`
+- `profile_key`
+- `as_of_utc`
+- `readiness_state`
+- `reason_code`
+- `has_required_daily_bars`
+- `required_bar_count`
+- `available_bar_count`
+- `last_finalized_bar_utc`
+- `last_state_changed_utc`
+
+Recommended `DailyUniverseReadinessView` fields:
+
+- `profile_key`
+- `as_of_utc`
+- `readiness_state`
+- `reason_code`
+- `total_symbol_count`
+- `ready_symbol_count`
+- `not_ready_symbol_count`
+- `symbols`
+
+#### Recommended backend/API additions
+
+Add authenticated REST reads for:
+
+- `GET /api/market-data/daily/readiness`
+- `GET /api/market-data/daily/readiness/{symbol}`
+
+Keep the current bootstrap endpoints in place for continuity:
+
+- `GET /api/market-data/bootstrap/status`
+- `POST /api/market-data/bootstrap/run`
+- `GET /api/market-data/daily-bars/{symbol}`
+
+#### Recommended implementation phases
+
+1. Add shared daily readiness contracts.
+2. Evolve daily demand reading from a flat symbol list to a structured daily demand model.
+3. Add daily runtime snapshot types and a runtime store.
+4. Add a daily hydration service that rebuilds runtime/readiness state from persisted bars.
+5. Refactor bootstrap flow so warmup triggers runtime/readiness rebuild after persistence.
+6. Add daily readiness read endpoints.
+7. Extend the Home `MarketData` widget to show richer readiness summary data.
+8. Update docs to reflect the new actual slice once implemented.
+
+#### Recommended acceptance boundary
+
+Treat this slice as complete only when all are true:
+
+- `MarketData` owns a daily runtime snapshot model for required symbols
+- `MarketData` exposes rollup daily readiness through REST
+- `MarketData` exposes per-symbol daily readiness through REST
+- bootstrap rebuilds runtime/readiness after warmup completes
+- symbols with sufficient persisted history become `ready`
+- symbols with insufficient persisted history become `not_ready`
+- Home shows richer MarketData readiness summary beyond raw persisted-bar counts
+
+#### Recommended tests
+
+Unit tests:
+
+- symbol becomes `ready` when persisted daily history satisfies the required count
+- symbol becomes `not_ready` with `missing_required_bars` when history is insufficient
+- empty demand produces `not_requested`
+- rollup ready/not-ready counts are correct for mixed symbol state
+- hydration trims runtime retention to the configured daily window
+- latest finalized bar timestamp is reported correctly
+- `NodaTime` boundary/date handling remains correct
+
+Integration tests:
+
+- create watchlist/add symbol/bootstrap/query daily readiness rollup
+- insufficient-history provider result yields `not_ready`
+- per-symbol readiness endpoint returns the correct symbol state
+- JSON serialization/deserialization of new readiness contracts works correctly
+
+Browser verification:
+
+- login
+- create watchlist
+- add valid symbol
+- refresh the Home `MarketData` widget
+- verify richer readiness summary/counts are shown and coherent
+
+#### Develop handoff
+
+Objective:
+
+- implement the daily runtime/readiness foundation for `MarketData` on top of the existing daily bootstrap layer
+
+Files/code paths to inspect first:
+
+- `docs/CONSTITUTION.md`
+- `docs/modules/MARKET_DATA.md`
+- `docs/contracts/MARKET_DATA_READINESS.md`
+- `src/modules/Aegis.MarketData/Application/MarketDataBootstrapService.cs`
+- `src/modules/Aegis.MarketData/Application/Abstractions/IMarketDataSymbolDemandReader.cs`
+- `src/Aegis.Backend/MarketData/UniverseMarketDataDemandReader.cs`
+- `src/Aegis.Backend/Endpoints/MarketDataEndpoints.cs`
+- `src/Aegis.Shared/Contracts/MarketData/MarketDataContracts.cs`
+- `tests/Aegis.MarketData.UnitTests/MarketDataBootstrapServiceTests.cs`
+- `tests/Aegis.MarketData.IntegrationTests/MarketDataApiTests.cs`
+- `src/Aegis.Web/components/dashboard/market-data-widget.tsx`
+
+Implementation guidance:
+
+- keep this slice daily-only
+- use `NodaTime`
+- prefer immutable/read-safe runtime snapshots
+- keep `Universe` as the demand source only
+- do not introduce realtime/intraday/`SignalR` in this task
+- do not add production runtime test-mode paths
+- do not hand-write migrations if a schema change becomes necessary
+
+Minimum validation expected from the implementer:
+
+- `dotnet test "tests/Aegis.MarketData.UnitTests/Aegis.MarketData.UnitTests.csproj"`
+- `dotnet test "tests/Aegis.MarketData.IntegrationTests/Aegis.MarketData.IntegrationTests.csproj"`
+- `npm run lint` in `src/Aegis.Web`
+- `npm run build` in `src/Aegis.Web`
+- direct browser verification of the updated Home `MarketData` widget flow

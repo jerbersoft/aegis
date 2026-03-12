@@ -218,6 +218,7 @@ Operational/debugging context already learned:
 Recommended dependency-ordered next work:
 
 1. continue `MarketData` beyond the daily bootstrap foundation
+   - immediate recommended slice: daily runtime/readiness foundation for required symbols, rollup readiness, and richer Home visibility
 2. decide and document the `SignalR` path for market-data-driven UI updates
 3. bootstrap `Strategies` contracts and assignment/runtime ownership
 4. bootstrap `Orders` contracts and open-order ownership
@@ -230,6 +231,7 @@ Recommended dependency-ordered next work:
 Why this order:
 
 - `MarketData` remains the primary remaining technical foundation area, but it now has an implemented daily-bootstrap base to build on.
+- the next best `MarketData` step is daily runtime/readiness, not realtime or intraday expansion first.
 - `Strategies`, `Orders`, and `Portfolio` establish the ownership boundaries that the real `Execution` guard depends on.
 - `IBKR` and `Infrastructure` should follow the relevant module boundaries rather than precede them.
 - richer realtime UI work should follow the backend/runtime foundations that supply the data.

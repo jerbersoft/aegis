@@ -30,6 +30,10 @@ Implemented bootstrap pieces now include:
 - bootstrap status and daily-bar read paths
 - `NodaTime`-based MarketData time modeling for persisted bar timestamps and market dates
 
+Recommended immediate next implementation slice:
+
+- build a daily runtime/readiness foundation for required symbols on top of the current daily bootstrap layer before starting intraday runtime or realtime ingestion work
+
 This document should therefore be read as target design layered on top of the now-implemented daily bootstrap foundation.
 
 ## 2) Core v1 policies
