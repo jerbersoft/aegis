@@ -39,7 +39,7 @@ export function AddSymbolDialog({ watchlistId, open, onClose, onAdded }: Props) 
   return (
     <Modal open={open} title="Add Symbol" onClose={onClose}>
       <form className="space-y-4" onSubmit={handleSubmit}>
-        <Input placeholder="Ticker symbol" value={symbol} onChange={(event) => setSymbol(event.target.value)} />
+        <Input autoFocus placeholder="Ticker symbol" value={symbol} onChange={(event) => setSymbol(event.target.value)} />
         {error ? <p className="text-sm text-red-600">{error}</p> : null}
         <div className="flex justify-end">
           <Button type="submit">Add</Button>

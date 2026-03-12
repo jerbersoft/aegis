@@ -32,7 +32,7 @@ export function CreateWatchlistDialog({ open, onClose, onCreated }: Props) {
   return (
     <Modal open={open} title="Create Watchlist" onClose={onClose}>
       <form className="space-y-4" onSubmit={handleSubmit}>
-        <Input placeholder="Watchlist name" value={name} onChange={(event) => setName(event.target.value)} />
+        <Input autoFocus placeholder="Watchlist name" value={name} onChange={(event) => setName(event.target.value)} />
         {error ? <p className="text-sm text-red-600">{error}</p> : null}
         <div className="flex justify-end">
           <Button type="submit">Create</Button>

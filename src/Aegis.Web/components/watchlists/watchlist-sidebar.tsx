@@ -44,9 +44,18 @@ export function WatchlistSidebar({
           return (
             <div
               key={watchlist.watchlistId}
-              className={`rounded-lg border px-3 py-3 ${isSelected ? "border-cyan-500/60 bg-slate-800" : "border-slate-800 bg-slate-900"}`}
+              className={`rounded-lg border px-3 py-3 transition ${isSelected ? "border-cyan-500/60 bg-slate-800" : "border-slate-800 bg-slate-900 hover:border-slate-700 hover:bg-slate-800/70"}`}
+              onClick={() => onSelect(watchlist.watchlistId)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  onSelect(watchlist.watchlistId);
+                }
+              }}
+              role="button"
+              tabIndex={0}
             >
-              <button className="flex w-full items-center justify-between text-left" onClick={() => onSelect(watchlist.watchlistId)} type="button">
+              <div className="flex w-full items-center justify-between text-left">
                 <div>
                   <div className="font-medium text-slate-100">{watchlist.name}</div>
                   <div className="text-xs text-slate-400">{watchlist.symbolCount} symbols</div>
@@ -54,16 +63,22 @@ export function WatchlistSidebar({
                 {watchlist.isExecution ? (
                   <span className="rounded-full bg-cyan-500/15 px-2 py-1 text-[10px] font-semibold uppercase text-cyan-300">Execution</span>
                 ) : null}
-              </button>
+              </div>
 
               <div className="mt-3 flex gap-2 text-xs text-slate-400">
                 {watchlist.canRename ? (
-                  <button className="hover:text-white" type="button" onClick={() => onRename(watchlist)}>
+                  <button className="hover:text-white" type="button" onClick={(event) => {
+                    event.stopPropagation();
+                    onRename(watchlist);
+                  }}>
                     Rename
                   </button>
                 ) : null}
                 {watchlist.canDelete ? (
-                  <button className="hover:text-red-300" type="button" onClick={() => onDelete(watchlist)}>
+                  <button className="hover:text-red-300" type="button" onClick={(event) => {
+                    event.stopPropagation();
+                    onDelete(watchlist);
+                  }}>
                     Delete
                   </button>
                 ) : null}
