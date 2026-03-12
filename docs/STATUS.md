@@ -139,6 +139,7 @@ Implemented UI behaviors:
 - standardized `+ Add` actions
 - clickable watchlist cards with rename/delete actions excluded from card selection
 - autofocus in add/create dialogs
+- add-symbol dialog reopens in a fresh state after close, clearing prior input and validation errors
 - rename dialog preloaded with current watchlist name
 - dashboard MarketData bootstrap widget with refresh action
 
@@ -179,6 +180,7 @@ Additional verification performed for MarketData bootstrap work:
 - MarketData unit tests covering warmup success and failure behavior
 - MarketData integration test covering Universe-demand -> bootstrap -> persisted bars flow
 - browser-level verification confirming add-symbol -> dashboard refresh -> ready MarketData status with persisted daily bars
+- browser-level verification confirming invalid-symbol error display in Add Symbol and clean dialog state after close/reopen
 
 Browser-level verification was also performed during implementation using Playwright against the web app.
 
@@ -192,6 +194,7 @@ Verified workflows included:
 - remove symbol
 - watchlist and symbol search
 - dialog autofocus behavior
+- add-symbol dialog reset behavior after invalid submit and reopen
 - rename dialog prefill behavior
 - clickable watchlist-card behavior
 

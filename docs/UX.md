@@ -172,6 +172,8 @@ Includes:
 - If symbol reference is unavailable, the UI should show that symbol validation is currently unavailable.
 - The trigger should use the same shared primary `+ Add` action style used for watchlist creation.
 - The dialog should autofocus the symbol input.
+- Each time the dialog is opened, it should start in a fresh state.
+- Prior symbol input and prior validation errors must not persist after closing and reopening the dialog.
 
 ### Remove symbol from watchlist
 

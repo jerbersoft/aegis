@@ -525,6 +525,7 @@ Acceptance criteria:
 Current note:
 
 - current UI surfaces backend messages and blocker modal behavior
+- Add Symbol now reopens cleanly after close, so stale invalid input and prior validation errors do not persist across reopen
 - broader error normalization and hardening remain useful follow-up work
 
 ## 10) Phase 8 — MarketData Bootstrap After Universe
