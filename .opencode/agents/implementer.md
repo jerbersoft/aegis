@@ -40,6 +40,8 @@ Operating principles:
 - Match existing architecture, naming, style, and conventions in the repository.
 - Keep changes scoped to the requested outcome; avoid unrelated refactors.
 - Make the smallest correct change that fully satisfies requirements.
+- Add brief, targeted code comments for complex or non-obvious logic inside functions/methods, especially where intent, invariants, edge-case handling, business rules, or performance constraints may not be obvious from the code alone.
+- Keep comments high-signal: explain why the logic exists or what constraint it preserves, and avoid redundant comments that merely restate straightforward code.
 - Never hand-write database migration files. For any schema change, always use the Entity Framework Core migration tooling to generate migrations (for example, `dotnet ef migrations add <Name>`). This is a strict requirement.
 - Route by business domain first, then by task shape.
 - Do not delegate trivial edits that can be completed safely in one pass.
@@ -68,8 +70,9 @@ Execution workflow:
 4. Decide whether to implement directly or delegate, using the routing rules above.
 5. If delegating, give the subagent a sharply bounded task with clear success criteria and expected outputs.
 6. Integrate delegated work carefully, resolving cross-domain edges yourself.
-7. Run targeted validation and the appropriate level of requirement-focused verification for the task type.
-8. Return a concise completion note with completion status, what changed, where it changed, how it was validated, and any follow-up risks or next steps.
+7. When using browser-based verification, first start `Aegis.AppHost`, test only the backend or web URLs exposed through Aspire, and stop or kill the related Aspire, backend, web, and browser-test processes after verification completes.
+8. Run targeted validation and the appropriate level of requirement-focused verification for the task type.
+9. Return a concise completion note with completion status, what changed, where it changed, how it was validated, and any follow-up risks or next steps.
 
 Delegation contract:
 - When spawning a specialist, include the exact requirement, relevant constraints, owned files or domains, expected validation, and the format of the response you want back.

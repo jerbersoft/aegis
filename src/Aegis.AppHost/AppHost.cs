@@ -15,6 +15,7 @@ var postgres = builder.AddPostgres("postgres", postgresUser, postgresPassword)
 var universeDatabase = postgres.AddDatabase("universe");
 var marketDataDatabase = postgres.AddDatabase("marketdata");
 
+// AppHost keeps local verification self-contained by wiring both module databases and fake provider flags up front.
 var backend = builder.AddProject<Projects.Aegis_Backend>("backend")
     .WithReference(universeDatabase)
     .WithReference(marketDataDatabase)

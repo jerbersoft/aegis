@@ -235,6 +235,7 @@ public sealed class UniverseService(
             x.AddedUtc
         }).ToListAsync(cancellationToken);
 
+        // Guard state currently lives outside the query path, so enrich each execution symbol after the base DB read.
         var items = new List<ExecutionWatchlistSymbolView>(rows.Count);
         foreach (var row in rows)
         {
@@ -406,6 +407,7 @@ public sealed class UniverseService(
         var symbol = await dbContext.Symbols.SingleOrDefaultAsync(x => x.Ticker == normalizedTicker, cancellationToken);
         if (symbol is null)
         {
+            // First-time symbol introduction always goes through provider-backed validation and normalization.
             var validationResult = await symbolReferenceProvider.ValidateSymbolAsync(new ValidateSymbolRequest(normalizedTicker), cancellationToken);
             if (!validationResult.IsValid)
             {
@@ -460,6 +462,7 @@ public sealed class UniverseService(
         dbContext.WatchlistItems.Add(watchlistItem);
         if (dbContext.Entry(symbol).State == EntityState.Detached)
         {
+            // Re-attaching covers the path where we reused an existing symbol loaded outside the current tracking graph.
             dbContext.Symbols.Attach(symbol);
         }
 
@@ -503,6 +506,7 @@ public sealed class UniverseService(
 
         if (membership.Watchlist.NormalizedName == WatchlistConventions.ExecutionName.ToUpperInvariant())
         {
+            // Execution removals fail closed because strategy, order, and position state must all be clear first.
             var guardState = await executionRemovalGuardService.GetRemovalGuardStateAsync(symbolId, cancellationToken);
             if (!guardState.GuardAvailable)
             {
@@ -577,6 +581,7 @@ public sealed class UniverseService(
 
     private static ExecutionRemovalBlockersView ToExecutionRemovalBlockersView(Guid symbolId, string ticker, ExecutionRemovalGuardState guardState)
     {
+        // The UI expects blocker codes even when removal is allowed, so preserve an explicit "none" state.
         var codes = new List<string>();
         if (!guardState.GuardAvailable)
         {

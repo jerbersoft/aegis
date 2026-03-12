@@ -22,6 +22,7 @@ export function SymbolTable({ items, onRemove }: Props) {
         </thead>
         <tbody className="divide-y divide-slate-800 bg-slate-900">
           {items.map((item) => {
+            // Until live quote data is wired, keep the table stable with deterministic placeholder market values.
             const price = item.currentPrice ?? 100 + item.ticker.length;
             const percentChange = item.percentChange ?? ((item.ticker.charCodeAt(0) % 10) - 5) / 2;
             return (

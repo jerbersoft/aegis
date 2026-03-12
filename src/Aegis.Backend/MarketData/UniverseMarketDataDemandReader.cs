@@ -9,6 +9,7 @@ public sealed class UniverseMarketDataDemandReader(UniverseDbContext dbContext) 
     private static readonly string[] DailyCoreProfile = ["daily_core"];
 
     public async Task<IReadOnlyList<DailySymbolDemand>> GetDailyDemandAsync(CancellationToken cancellationToken) =>
+        // Daily warmup scope is defined by every active symbol currently present in the Universe registry.
         (await dbContext.Symbols
             .AsNoTracking()
             .Where(x => x.IsActive)

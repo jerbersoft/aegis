@@ -9,6 +9,7 @@ public static class DailyMarketDataDemandExpander
 
     public static IReadOnlyList<DailySymbolDemand> Expand(IReadOnlyList<DailySymbolDemand> demand)
     {
+        // Normalize first so later merging and dependency expansion work on a stable symbol/profile shape.
         var normalized = demand
             .Select(x => new DailySymbolDemand(
                 x.Symbol.Trim().ToUpperInvariant(),
@@ -42,6 +43,7 @@ public static class DailyMarketDataDemandExpander
     private static DailySymbolDemand MergeDemand(IGrouping<string, DailySymbolDemand> grouped)
     {
         var items = grouped.ToArray();
+        // Keep the primary watchlist tier if present so benchmark-only symbols do not overwrite direct demand intent.
         var demandTier = items.Any(x => !string.Equals(x.DemandTier, BenchmarkDemandTier, StringComparison.OrdinalIgnoreCase))
             ? items.First(x => !string.Equals(x.DemandTier, BenchmarkDemandTier, StringComparison.OrdinalIgnoreCase)).DemandTier
             : BenchmarkDemandTier;

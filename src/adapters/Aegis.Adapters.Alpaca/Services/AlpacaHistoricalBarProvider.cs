@@ -60,6 +60,7 @@ public sealed class AlpacaHistoricalBarProvider(HttpClient httpClient, AlpacaHis
             return HistoricalBarBatchResult.Failure(normalizedSymbol, "1day", "alpaca", options.Feed, "historical_data_unavailable", "Historical data is currently unavailable.");
         }
 
+        // Collapse auth, throttling, and server-side outages into one availability signal for the MarketData module.
         if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden ||
             (int)response.StatusCode == 429 ||
             (int)response.StatusCode >= 500)
@@ -86,6 +87,7 @@ public sealed class AlpacaHistoricalBarProvider(HttpClient httpClient, AlpacaHis
         var bars = (payload?.Bars ?? [])
             .Select(bar =>
             {
+                // Alpaca timestamps are provider-local payload strings; normalize them into the shared MarketData runtime shape here.
                 var barTimeUtc = ParseInstant(bar.Timestamp);
                 var marketDate = barTimeUtc.InUtc().Date;
 

@@ -76,6 +76,7 @@ var useFakeHistoricalProvider = builder.Configuration.GetValue<bool>("Alpaca:His
 
 if (string.IsNullOrWhiteSpace(alpacaHistoricalDataOptions.ApiKey) || string.IsNullOrWhiteSpace(alpacaHistoricalDataOptions.ApiSecret))
 {
+    // Local/dev historical reads can reuse symbol-reference credentials when a separate historical key pair is not configured.
     alpacaHistoricalDataOptions = new AlpacaHistoricalDataOptions
     {
         BaseUrl = alpacaHistoricalDataOptions.BaseUrl,
@@ -139,6 +140,7 @@ app.UseAuthorization();
 
 using (var scope = app.Services.CreateScope())
 {
+    // Startup eagerly initializes both module databases and the daily warmup so the first UI load can query real runtime state.
     var dbContext = scope.ServiceProvider.GetRequiredService<UniverseDbContext>();
     await UniverseDbInitializer.EnsureInitializedAsync(dbContext, CancellationToken.None);
 

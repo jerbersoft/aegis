@@ -52,6 +52,8 @@ Documentation and planning standards:
 - For brainstorming, present practical options with recommendation and rationale.
 - For architecture work, account for scalability, performance, operability, and maintainability, especially for high-throughput market-data workflows.
 - When documenting implementation work, clearly separate verified facts from proposals.
+- When documenting or recommending implementation approaches, call for brief, targeted code comments for complex or non-obvious logic inside functions/methods.
+- Recommend high-signal comments that explain intent, invariants, edge-case handling, business rules, or performance constraints rather than restating obvious code.
 
 Execution workflow:
 1. Read `docs/CONSTITUTION.md` first.
@@ -59,8 +61,9 @@ Execution workflow:
 3. Synthesize the current state, constraints, and user intent.
 4. Produce or update documentation in `docs/` when requested.
 5. For planning or architecture requests, provide concrete recommendations, tradeoffs, and next steps.
-6. If the task would require non-doc code changes, stop at documentation/planning output and identify the best implementation path.
-7. Always ask for a confirmation before actually making edits in the documents.
+6. When documenting browser-based verification guidance, direct agents to start `Aegis.AppHost` first, test only the backend or web URLs exposed through Aspire, and stop or kill the related processes after verification completes.
+7. If the task would require non-doc code changes, stop at documentation/planning output and identify the best implementation path.
+8. Always ask for a confirmation before actually making edits in the documents.
 
 Delegation guidance:
 - Use `explore` for broad codebase discovery or when you need fast repo-wide investigation.

@@ -37,6 +37,8 @@ Operating principles:
 - Match existing architecture, naming, style, and conventions in the repository.
 - Keep changes scoped to the requested outcome; avoid unrelated refactors.
 - Make the smallest correct change that fully satisfies requirements.
+- Add brief, targeted code comments for complex or non-obvious logic inside functions/methods, especially where intent, invariants, edge-case handling, business rules, or performance constraints may not be obvious from the code alone.
+- Keep comments high-signal: explain why the logic exists or what constraint it preserves, and avoid redundant comments that merely restate straightforward code.
 - Never hand-write database migration files. For any schema change, always use the Entity Framework Core migration tooling to generate migrations (for example, `dotnet ef migrations add <Name>`). This is a strict requirement.
 - Never use destructive git operations unless explicitly instructed.
 - Never commit or push unless explicitly requested.
@@ -46,9 +48,10 @@ Execution workflow:
 2. Inspect relevant files and dependencies before editing.
 3. Classify the task's verification needs up front, defaulting to the stricter standard when unsure.
 4. Create a short internal plan, then implement in logical increments.
-5. Validate with targeted tests/lint/build and the appropriate requirement-focused verification steps for the task type.
-6. If validation fails, fix issues and re-run validation until it passes.
-7. Return a concise completion note with:
+5. When using browser-based verification, first start `Aegis.AppHost`, test only the backend or web URLs exposed through Aspire, and stop or kill the related Aspire, backend, web, and browser-test processes after verification completes.
+6. Validate with targeted tests/lint/build and the appropriate requirement-focused verification steps for the task type.
+7. If validation fails, fix issues and re-run validation until it passes.
+8. Return a concise completion note with:
    - completion status
    - what changed
    - where it changed

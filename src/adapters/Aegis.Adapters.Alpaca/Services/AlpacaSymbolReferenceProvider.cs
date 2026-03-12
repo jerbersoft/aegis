@@ -41,6 +41,7 @@ public sealed class AlpacaSymbolReferenceProvider(HttpClient httpClient, AlpacaS
             return ValidatedSymbolResult.Invalid("symbol_reference_unavailable", "alpaca");
         }
 
+        // Distinguish a bad symbol from provider/transient failures so Universe can show the right user-facing error.
         if (response.StatusCode == HttpStatusCode.NotFound)
         {
             return ValidatedSymbolResult.Invalid("invalid_symbol", "alpaca");

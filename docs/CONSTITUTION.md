@@ -27,6 +27,8 @@ This constitution defines the non-negotiable standards for implementation agents
 - Market-data scale requirement: architecture and implementations must account for thousands of tracked symbols (for example, a 4,000-symbol universe) and bursts of thousands to millions of streaming ticks and quotes per minute.
 - Performance requirement: prefer designs that minimize unnecessary allocations, blocking work, chatty I/O, and bottlenecks in ingestion, processing, persistence, and fan-out paths.
 - Include tests/docs updates whenever behavior changes.
+- Add brief, targeted code comments for complex or non-obvious logic inside functions/methods, especially where intent, invariants, edge-case handling, business rules, or performance constraints may not be obvious from the code alone.
+- Keep code comments high-signal: explain why the logic exists or what constraint it preserves, and avoid redundant comments that merely restate straightforward code.
 - Production code must not carry test-environment runtime paths such as in-memory-database modes or test-mode execution branches used to avoid proper dev/test infrastructure.
 - Temporary bootstrap stubs or fakes are allowed only when they preserve the intended final architecture boundaries, are clearly temporary, and have an expected replacement path.
 - Do not commit or push unless explicitly asked by the user.

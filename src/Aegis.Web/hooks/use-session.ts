@@ -13,6 +13,7 @@ export function useSession() {
 
     getSession()
       .then((value) => {
+        // Ignore late async completions after unmount so route changes do not trigger stale state updates.
         if (isActive) {
           setSession(value);
         }
