@@ -5,7 +5,24 @@ import { Button } from "@/components/ui/button";
 import { useMarketDataBootstrap } from "@/hooks/use-market-data-bootstrap";
 
 export function MarketDataWidget() {
-  const { status, isLoading, isRefreshing, error, runBootstrap } = useMarketDataBootstrap();
+  const { status, dailyReadiness, isLoading, isRefreshing, error, runBootstrap } = useMarketDataBootstrap();
+  const readinessSymbols = dailyReadiness
+    ? [...dailyReadiness.symbols].sort((left, right) => {
+        if (left.readinessState === right.readinessState) {
+          return left.symbol.localeCompare(right.symbol);
+        }
+
+        if (left.readinessState === "not_ready") {
+          return -1;
+        }
+
+        if (right.readinessState === "not_ready") {
+          return 1;
+        }
+
+        return left.symbol.localeCompare(right.symbol);
+      })
+    : [];
 
   return (
     <WidgetCard title="MarketData Bootstrap">
@@ -13,11 +30,22 @@ export function MarketDataWidget() {
         <p className="text-sm text-slate-400">Loading MarketData status…</p>
       ) : status ? (
         <div className="space-y-3">
-          <div className="grid gap-3 sm:grid-cols-3">
-            <div>
-              <p className="text-xs uppercase tracking-wide text-slate-500">Readiness</p>
-              <p className="text-lg font-semibold text-slate-100">{status.readinessState}</p>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div>
+                <p className="text-xs uppercase tracking-wide text-slate-500">Readiness</p>
+                <p className="text-lg font-semibold text-slate-100">{dailyReadiness?.readinessState ?? status.readinessState}</p>
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-wide text-slate-500">Ready Symbols</p>
+                <p className="text-lg font-semibold text-slate-100">{dailyReadiness?.readySymbolCount ?? status.readySymbolCount}</p>
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-wide text-slate-500">Not Ready Symbols</p>
+                <p className="text-lg font-semibold text-slate-100">{dailyReadiness?.notReadySymbolCount ?? status.notReadySymbolCount}</p>
+              </div>
             </div>
+
+          <div className="grid gap-3 sm:grid-cols-3">
             <div>
               <p className="text-xs uppercase tracking-wide text-slate-500">Demand Symbols</p>
               <p className="text-lg font-semibold text-slate-100">{status.dailyDemandSymbolCount}</p>
@@ -26,12 +54,29 @@ export function MarketDataWidget() {
               <p className="text-xs uppercase tracking-wide text-slate-500">Persisted Bars</p>
               <p className="text-lg font-semibold text-slate-100">{status.persistedBarCount}</p>
             </div>
+            <div>
+              <p className="text-xs uppercase tracking-wide text-slate-500">Reason</p>
+              <p className="text-sm font-semibold text-slate-200">{dailyReadiness?.reasonCode ?? status.reasonCode}</p>
+            </div>
           </div>
 
           <div>
             <p className="text-xs uppercase tracking-wide text-slate-500">Demand Scope</p>
             <p className="text-sm text-slate-300">{status.demandSymbols.length > 0 ? status.demandSymbols.join(", ") : "No symbols currently require daily warmup."}</p>
           </div>
+
+          {dailyReadiness && readinessSymbols.length > 0 ? (
+            <div>
+              <p className="text-xs uppercase tracking-wide text-slate-500">Daily Readiness Detail</p>
+              <div className="mt-2 space-y-1 text-sm text-slate-300">
+                {readinessSymbols.slice(0, 5).map((symbol) => (
+                  <p key={symbol.symbol}>
+                    <span className="font-semibold text-slate-100">{symbol.symbol}</span>: {symbol.readinessState} ({symbol.availableBarCount}/{symbol.requiredBarCount})
+                  </p>
+                ))}
+              </div>
+            </div>
+          ) : null}
 
           {status.failedSymbols.length > 0 ? (
             <div>

@@ -4,12 +4,39 @@ namespace Aegis.Shared.Contracts.MarketData;
 
 public sealed record MarketDataBootstrapStatusView(
     string ReadinessState,
+    string ReasonCode,
+    string ProfileKey,
     int DailyDemandSymbolCount,
     int WarmedSymbolCount,
+    int ReadySymbolCount,
+    int NotReadySymbolCount,
     int PersistedBarCount,
+    Instant AsOfUtc,
     Instant? LastWarmupUtc,
     IReadOnlyList<string> DemandSymbols,
     IReadOnlyList<string> FailedSymbols);
+
+public sealed record DailySymbolReadinessView(
+    string Symbol,
+    string ProfileKey,
+    Instant AsOfUtc,
+    string ReadinessState,
+    string ReasonCode,
+    bool HasRequiredDailyBars,
+    int RequiredBarCount,
+    int AvailableBarCount,
+    Instant? LastFinalizedBarUtc,
+    Instant LastStateChangedUtc);
+
+public sealed record DailyUniverseReadinessView(
+    string ProfileKey,
+    Instant AsOfUtc,
+    string ReadinessState,
+    string ReasonCode,
+    int TotalSymbolCount,
+    int ReadySymbolCount,
+    int NotReadySymbolCount,
+    IReadOnlyList<DailySymbolReadinessView> Symbols);
 
 public sealed record DailyBarView(
     string Symbol,

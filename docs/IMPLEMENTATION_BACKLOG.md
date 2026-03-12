@@ -611,6 +611,8 @@ Current note:
 - backend DI now uses the real provider by default, with an explicit fake fallback switch for controlled test/bootstrap scenarios
 - provider-result mapping is covered by deterministic unit tests and backend integration tests
 - live verification has been completed through both direct API calls and the existing UI add-symbol flow under Aspire
+- when using browser-based verification for this flow, `Aegis.AppHost` should be started first and the Aspire-exposed backend/web URLs should be used
+- after this browser-based verification flow completes, the related Aspire and browser-test processes should be stopped or killed
 
 ### Task 8.2 — Start `MarketData` bootstrap
 
@@ -747,6 +749,8 @@ Current note:
 - daily warmup demand is derived from `Universe`
 - bootstrap status and daily-bar read endpoints are implemented
 - the Home dashboard now includes a MarketData bootstrap widget for browser-level verification
+- browser-level verification for the widget should run only after starting `Aegis.AppHost`, then using the Aspire-hosted backend/web URLs
+- after widget/browser verification completes, the related Aspire and browser-test processes should be stopped or killed
 - the delivered bootstrap slice now uses `NodaTime` across MarketData domain/persistence/contracts and related auth/Universe contract surfaces
 
 ## 11) Related Documents
@@ -786,6 +790,10 @@ Current recommendation:
 - first establish the owning modules and contracts that the real guard must query
 
 ### Task 12.1 — Build daily `MarketData` runtime/readiness foundation
+
+Status:
+
+- implemented
 
 #### Goal
 
@@ -885,6 +893,11 @@ Benchmark dependency handling:
 
 - keep benchmark dependency support architecturally possible in the demand/runtime model
 - but the recommended first implementation may defer enforcing benchmark dependency readiness until the next `MarketData` slice to keep this task coherent
+
+Implementation note:
+
+- the current delivered slice uses the `daily_core` profile with a `200`-bar readiness threshold and does not yet enforce benchmark dependency readiness
+- bootstrap now attempts requirement-based daily backfill so `missing_required_bars` reflects the post-fulfillment result rather than a passive pre-fetch shortage
 
 #### Recommended internal types
 
@@ -988,6 +1001,16 @@ Treat this slice as complete only when all are true:
 - symbols with sufficient persisted history become `ready`
 - symbols with insufficient persisted history become `not_ready`
 - Home shows richer MarketData readiness summary beyond raw persisted-bar counts
+
+Current note:
+
+- structured daily demand is now in place for `watchlist_symbol` demand using the `daily_core` profile
+- `MarketData` now maintains an in-memory daily runtime/readiness snapshot for required symbols
+- bootstrap now rebuilds runtime/readiness after daily warmup persistence
+- rollup and per-symbol daily readiness REST endpoints are now implemented
+- the Home `MarketData` widget now surfaces daily ready/not-ready counts, reason code, and symbol readiness detail
+- the bootstrap path now inspects persisted daily coverage and requests additional older history when required symbols are below the `daily_core` threshold
+- local `Aegis.AppHost` runtime now provisions both required PostgreSQL databases and uses fake symbol-reference/historical providers so end-to-end verification can run without external secrets
 
 #### Recommended tests
 

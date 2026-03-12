@@ -27,6 +27,8 @@ This document is UX-focused. Detailed module behavior, backend ownership, and co
 - For v1, any username/password combination is accepted.
 - Successful login routes the user to the main dashboard.
 - Under Aspire and standalone local development, the frontend should use its own same-origin API proxy layer rather than hardcoded browser-side backend URLs.
+- For browser-based local verification, start `Aegis.AppHost` first, then exercise the backend or web URLs provided by Aspire.
+- After browser-based local verification, stop or kill the related local Aspire and browser-test processes.
 
 ### Post-login shell
 

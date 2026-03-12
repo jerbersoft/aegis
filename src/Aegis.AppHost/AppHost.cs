@@ -13,11 +13,16 @@ var postgres = builder.AddPostgres("postgres", postgresUser, postgresPassword)
         .WithEnvironment("PGADMIN_CONFIG_ENHANCED_COOKIE_PROTECTION", "False"), containerName: "pgadmin");
 
 var universeDatabase = postgres.AddDatabase("universe");
+var marketDataDatabase = postgres.AddDatabase("marketdata");
 
 var backend = builder.AddProject<Projects.Aegis_Backend>("backend")
     .WithReference(universeDatabase)
+    .WithReference(marketDataDatabase)
     .WithEnvironment("Cors__AllowedOrigins__0", "http://localhost:3001")
+    .WithEnvironment("Alpaca__SymbolReference__UseFakeProvider", "true")
+    .WithEnvironment("Alpaca__HistoricalData__UseFakeProvider", "true")
     .WaitFor(universeDatabase)
+    .WaitFor(marketDataDatabase)
     .WithExternalHttpEndpoints();
 
 builder.AddNpmApp("web", "../Aegis.Web", "dev")

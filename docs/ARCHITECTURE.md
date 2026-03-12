@@ -52,6 +52,8 @@ Target physical solution layout:
 
 - Local orchestration uses `.NET Aspire`.
 - `Aegis.AppHost` orchestrates PostgreSQL, pgAdmin, backend startup, and `Aegis.Web` startup.
+- Browser-based local verification must be run through the active `Aegis.AppHost` Aspire environment before testing backend or web URLs.
+- After local browser verification, the related Aspire-managed processes should be cleanly stopped or killed.
 
 ### `Aegis.Backend` is the backend composition root
 
@@ -212,6 +214,8 @@ Current local runtime wiring:
 - `Aegis.AppHost` provisions PostgreSQL and pgAdmin.
 - `Aegis.Backend` receives database and CORS configuration through Aspire environment wiring.
 - `Aegis.Web` runs as an npm app under Aspire with the backend base URL injected through environment configuration.
+- Local browser testing should target the Aspire-managed backend and web endpoints rather than manually composed standalone URLs.
+- Once testing is complete, the related local runtime processes should be shut down to avoid stale background services.
 
 ## 11) Persistence Boundaries
 

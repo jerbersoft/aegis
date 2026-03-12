@@ -74,6 +74,13 @@ When to use each test type:
 - Integration tests: EF Core query behavior, migrations, API contracts, serialization, authentication/authorization policies, and SignalR hub interactions.
 - End-to-end tests (`Playwright`): high-value UI workflows, cross-page interactions, and user-visible regressions including realtime updates.
 
+Browser-based verification policy:
+
+- When validating the project through a browser, always start the ASP.NET Aspire host first via `Aegis.AppHost`.
+- Perform backend or web URL testing only against the backend and web endpoints exposed by the running Aspire host.
+- Do not treat ad hoc standalone browser launches against hardcoded service URLs as the default local verification path when Aspire orchestration is available.
+- After browser-based verification completes, stop or kill the related Aspire, backend, web, and browser-test processes so no unnecessary local test/runtime processes are left running.
+
 Verification depth by task type:
 
 - Trivial or non-behavioral changes: docs-only updates, copy or text edits, comments, formatting, or equivalent changes that do not alter runtime behavior. These may be verified with relevant low-cost checks such as build, lint, or unit tests to confirm no regressions.

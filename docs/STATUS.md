@@ -103,6 +103,9 @@ Implemented now:
 - MarketData derives daily warmup demand from current `Universe` symbols
 - bootstrap warmup fetches and upserts daily bars
 - MarketData exposes bootstrap status and daily-bar read endpoints
+- MarketData now exposes daily rollup readiness and per-symbol daily readiness endpoints
+- MarketData now owns an in-memory daily runtime/readiness snapshot for required symbols using the `daily_core` profile
+- MarketData bootstrap now attempts requirement-based daily backfill before leaving symbols in `missing_required_bars`
 - current domain/backend/shared date-time handling has been refactored to `NodaTime` for auth, Universe contracts, MarketData contracts, MarketData persistence, and Alpaca historical bar mapping
 
 ### Web/backend connectivity under Aspire
@@ -112,6 +115,10 @@ Implemented now:
 - the frontend uses same-origin `/api` proxy routes instead of direct browser calls to hardcoded backend URLs
 - the backend avoids HTTPS redirection in Development so the local browser HTTP flow works cleanly
 - browser login and downstream watchlist symbol workflows work in the verified local development setup
+- browser-based local verification should start by running `Aegis.AppHost`, then testing the backend or web URLs exposed through Aspire
+- browser-based local verification should end by stopping or killing the related Aspire, backend, web, and browser-test processes
+- `Aegis.AppHost` now provisions both `universe` and `marketdata` PostgreSQL databases for the local stack
+- current local `Aegis.AppHost` runtime uses fake symbol-reference and fake historical-bar providers so the stack can boot and verify without external provider credentials
 
 ## 5) Implemented frontend behavior
 
@@ -144,12 +151,14 @@ Implemented UI behaviors:
 - add-symbol dialog reopens in a fresh state after close, clearing prior input and validation errors
 - rename dialog preloaded with current watchlist name
 - dashboard MarketData bootstrap widget with refresh action
+- dashboard MarketData widget now shows daily ready/not-ready counts, reason code, and daily readiness detail
 
 ## 6) Current bootstrap-only compromises
 
 The following are intentional bootstrap implementations and should not be mistaken for final module integrations:
 
 - fake symbol-reference validation still exists only as an explicit fallback/testing path, not the default runtime path
+- fake historical daily bars now also exist as an explicit bootstrap/runtime fallback path for local `Aegis.AppHost` verification
 - `FakeExecutionRemovalGuardService` currently stands in for real strategy/order/position blocker queries
 - dashboard widgets are placeholder data only
 - market-data-driven symbol fields such as current price and percent change are not yet live-integrated
@@ -159,6 +168,7 @@ Updated note:
 
 - fake symbol-reference validation is no longer the default runtime path
 - live verification has been completed with Alpaca credentials loaded through local environment variables
+- local `Aegis.AppHost` verification currently uses fake symbol-reference and fake historical providers rather than live Alpaca credentials
 
 ## 7) Verification performed so far
 
@@ -175,17 +185,22 @@ Additional verification performed for symbol-reference work:
 - adapter-focused unit tests covering valid, invalid, unsupported-asset-class, and provider-unavailable mapping
 - backend integration test covering the default real-provider registration path when credentials are unavailable
 - live API verification with Alpaca credentials confirming valid-symbol success and invalid-symbol rejection
-- browser-level verification under Aspire confirming login, watchlist creation, valid symbol add, and invalid symbol error display
+- browser-level verification under Aspire, with `Aegis.AppHost` running first, confirming login, watchlist creation, valid symbol add, and invalid symbol error display
 
 Additional verification performed for MarketData bootstrap work:
 
 - MarketData unit tests covering warmup success and failure behavior
 - MarketData integration test covering Universe-demand -> bootstrap -> persisted bars flow
-- browser-level verification confirming add-symbol -> dashboard refresh -> ready MarketData status with persisted daily bars
-- browser-level verification confirming invalid-symbol error display in Add Symbol and clean dialog state after close/reopen
-- NodaTime refactor verification via unit tests, integration tests, web lint/build, and browser regression coverage of login, watchlist creation, symbol add, MarketData refresh, and invalid-symbol dialog reset
+- MarketData unit tests covering daily readiness ready/not-ready behavior
+- MarketData integration tests covering rollup and per-symbol daily readiness endpoints
+- MarketData regression tests covering missing-history backfill during bootstrap warmup
+- browser-level verification under Aspire, with `Aegis.AppHost` running first, confirming add-symbol -> dashboard refresh -> ready MarketData status with persisted daily bars
+- browser-level verification under Aspire, with `Aegis.AppHost` running first, confirming invalid-symbol error display in Add Symbol and clean dialog state after close/reopen
+- NodaTime refactor verification via unit tests, integration tests, web lint/build, and browser regression coverage under Aspire of login, watchlist creation, symbol add, MarketData refresh, and invalid-symbol dialog reset
+- browser-level verification under Aspire, with `Aegis.AppHost` running first, confirming the Home widget shows daily ready/not-ready counts, reason code, and per-symbol readiness detail after refresh
+- browser-level verification under Aspire, with `Aegis.AppHost` running first, confirming a newly added symbol is backfilled to `ready` with 200+ daily bars after refresh
 
-Browser-level verification was also performed during implementation using Playwright against the web app.
+Browser-level verification was also performed during implementation using Playwright against the Aspire-hosted web app, with `Aegis.AppHost` started first.
 
 Verified workflows included:
 
@@ -217,8 +232,8 @@ Operational/debugging context already learned:
 
 Recommended dependency-ordered next work:
 
-1. continue `MarketData` beyond the daily bootstrap foundation
-   - immediate recommended slice: daily runtime/readiness foundation for required symbols, rollup readiness, and richer Home visibility
+1. continue `MarketData` beyond the current daily runtime/readiness foundation
+   - immediate recommended slice: deeper readiness semantics, benchmark dependency handling, and the next step toward intraday/runtime expansion
 2. decide and document the `SignalR` path for market-data-driven UI updates
 3. bootstrap `Strategies` contracts and assignment/runtime ownership
 4. bootstrap `Orders` contracts and open-order ownership
@@ -231,7 +246,7 @@ Recommended dependency-ordered next work:
 Why this order:
 
 - `MarketData` remains the primary remaining technical foundation area, but it now has an implemented daily-bootstrap base to build on.
-- the next best `MarketData` step is daily runtime/readiness, not realtime or intraday expansion first.
+- the next best `MarketData` step is now the follow-on slice after daily runtime/readiness, not a jump straight to full realtime or SignalR work.
 - `Strategies`, `Orders`, and `Portfolio` establish the ownership boundaries that the real `Execution` guard depends on.
 - `IBKR` and `Infrastructure` should follow the relevant module boundaries rather than precede them.
 - richer realtime UI work should follow the backend/runtime foundations that supply the data.

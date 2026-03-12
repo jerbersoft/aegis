@@ -29,10 +29,18 @@ Implemented bootstrap pieces now include:
 - daily warmup demand derivation from `Universe`
 - bootstrap status and daily-bar read paths
 - `NodaTime`-based MarketData time modeling for persisted bar timestamps and market dates
+- daily runtime/readiness snapshots for required symbols under the `daily_core` profile
+- daily rollup readiness and per-symbol daily readiness REST reads
+- bootstrap-driven missing-history backfill for required daily symbols before final readiness is reported
+
+Current local-runtime note:
+
+- `Aegis.AppHost` now provisions both `universe` and `marketdata` PostgreSQL databases for the local stack
+- current local `Aegis.AppHost` verification uses fake symbol-reference and fake historical-bar providers behind the existing ports so the stack can boot and exercise the full flow without external provider credentials
 
 Recommended immediate next implementation slice:
 
-- build a daily runtime/readiness foundation for required symbols on top of the current daily bootstrap layer before starting intraday runtime or realtime ingestion work
+- after the new daily runtime/readiness foundation, continue with the next `MarketData` slice for deeper readiness semantics and eventual intraday runtime/realtime ingestion work
 
 This document should therefore be read as target design layered on top of the now-implemented daily bootstrap foundation.
 

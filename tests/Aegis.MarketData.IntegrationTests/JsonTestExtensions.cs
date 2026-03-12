@@ -10,4 +10,7 @@ internal static class JsonTestExtensions
 
     public static Task<T?> ReadAegisJsonAsync<T>(this HttpContent content, CancellationToken cancellationToken = default) =>
         content.ReadFromJsonAsync<T>(JsonOptions, cancellationToken);
+
+    public static Task<T?> GetAegisJsonAsync<T>(this HttpClient client, string? requestUri, CancellationToken cancellationToken = default) =>
+        client.GetFromJsonAsync<T>(requestUri, JsonOptions, cancellationToken);
 }

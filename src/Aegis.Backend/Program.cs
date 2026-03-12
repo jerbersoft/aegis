@@ -70,7 +70,9 @@ builder.Services.AddDbContext<MarketDataDbContext>(options =>
 var alpacaSymbolReferenceOptions = builder.Configuration.GetSection(AlpacaSymbolReferenceOptions.SectionName).Get<AlpacaSymbolReferenceOptions>()
                                    ?? new AlpacaSymbolReferenceOptions();
 var alpacaHistoricalDataOptions = builder.Configuration.GetSection(AlpacaHistoricalDataOptions.SectionName).Get<AlpacaHistoricalDataOptions>()
-                                ?? new AlpacaHistoricalDataOptions();
+                                 ?? new AlpacaHistoricalDataOptions();
+
+var useFakeHistoricalProvider = builder.Configuration.GetValue<bool>("Alpaca:HistoricalData:UseFakeProvider");
 
 if (string.IsNullOrWhiteSpace(alpacaHistoricalDataOptions.ApiKey) || string.IsNullOrWhiteSpace(alpacaHistoricalDataOptions.ApiSecret))
 {
@@ -88,7 +90,9 @@ builder.Services.AddSingleton(alpacaSymbolReferenceOptions);
 builder.Services.AddSingleton(alpacaHistoricalDataOptions);
 builder.Services.AddSingleton<IClock>(SystemClock.Instance);
 builder.Services.AddSingleton<MarketDataBootstrapStateStore>();
+builder.Services.AddSingleton<MarketDataDailyRuntimeStore>();
 builder.Services.AddScoped<IMarketDataSymbolDemandReader, UniverseMarketDataDemandReader>();
+builder.Services.AddScoped<DailyMarketDataHydrationService>();
 builder.Services.AddScoped<MarketDataBootstrapService>();
 builder.Services.AddScoped<UniverseService>();
 if (alpacaSymbolReferenceOptions.UseFakeProvider)
@@ -105,12 +109,19 @@ else
     });
 }
 
-builder.Services.AddHttpClient<IHistoricalBarProvider, AlpacaHistoricalBarProvider>((serviceProvider, client) =>
+if (useFakeHistoricalProvider)
 {
-    var options = serviceProvider.GetRequiredService<AlpacaHistoricalDataOptions>();
-    client.BaseAddress = new Uri(EnsureTrailingSlash(options.BaseUrl), UriKind.Absolute);
-    client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds > 0 ? options.TimeoutSeconds : 10);
-});
+    builder.Services.AddScoped<IHistoricalBarProvider, FakeHistoricalBarProvider>();
+}
+else
+{
+    builder.Services.AddHttpClient<IHistoricalBarProvider, AlpacaHistoricalBarProvider>((serviceProvider, client) =>
+    {
+        var options = serviceProvider.GetRequiredService<AlpacaHistoricalDataOptions>();
+        client.BaseAddress = new Uri(EnsureTrailingSlash(options.BaseUrl), UriKind.Absolute);
+        client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds > 0 ? options.TimeoutSeconds : 10);
+    });
+}
 
 builder.Services.AddScoped<IExecutionRemovalGuardService, FakeExecutionRemovalGuardService>();
 builder.Services.AddHealthChecks();

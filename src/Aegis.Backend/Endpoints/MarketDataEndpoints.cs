@@ -15,6 +15,17 @@ public static class MarketDataEndpoints
         group.MapPost("/bootstrap/run", async (MarketDataBootstrapService service, CancellationToken cancellationToken) =>
             Results.Ok(await service.RunWarmupAsync(cancellationToken)));
 
+        group.MapGet("/daily/readiness", async (MarketDataBootstrapService service, CancellationToken cancellationToken) =>
+            Results.Ok(await service.GetDailyReadinessAsync(cancellationToken)));
+
+        group.MapGet("/daily/readiness/{symbol}", async (string symbol, MarketDataBootstrapService service, CancellationToken cancellationToken) =>
+        {
+            var result = await service.GetDailyReadinessAsync(symbol, cancellationToken);
+            return result is null
+                ? Results.NotFound(new ApiErrorResponse("daily_readiness_not_found", "No daily readiness was found for the requested symbol."))
+                : Results.Ok(result);
+        });
+
         group.MapGet("/daily-bars/{symbol}", async (string symbol, MarketDataBootstrapService service, CancellationToken cancellationToken) =>
         {
             var result = await service.GetDailyBarsAsync(symbol, cancellationToken);
