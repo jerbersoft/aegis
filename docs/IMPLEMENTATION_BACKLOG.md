@@ -216,7 +216,7 @@ Acceptance criteria:
 
 ### Task 3.4 — Implement `Execution` removal guard flow
 
-Status: `partial`
+Status: `complete`
 
 Goal:
 
@@ -531,7 +531,7 @@ Current note:
 
 ### Task 8.1 — Implement real `ISymbolReferenceProvider`
 
-Status: `next`
+Status: `partial`
 
 Goal:
 
@@ -541,6 +541,75 @@ Acceptance criteria:
 
 - first-time symbol introduction validates against the real provider
 - `Universe` logic does not need to change when swapping from fake to real implementation
+
+Detailed implementation plan:
+
+#### Scope
+
+In scope:
+
+- implement a real Alpaca-backed `ISymbolReferenceProvider`
+- register it in backend DI
+- add provider configuration needed for symbol-reference validation
+- preserve the existing shared contract shape if possible
+- add deterministic tests for provider result mapping and failure normalization
+
+Out of scope:
+
+- full `MarketData` bootstrap
+- realtime subscriptions
+- historical bar ingestion
+- `SignalR`
+- execution-removal-guard replacement
+
+#### Design constraints
+
+- `Universe` must continue depending only on `ISymbolReferenceProvider`
+- provider-specific SDK or HTTP response types must not cross the adapter boundary
+- fail-closed behavior must be preserved for first-time symbol introduction
+- existing `UniverseService` reason-code mapping should remain structurally intact
+
+#### Planned provider-result mapping
+
+- empty or whitespace-only symbol -> `invalid_symbol`
+- unsupported asset class -> `unsupported_asset_class`
+- known supported symbol -> valid result using provider-normalized identity
+- unknown symbol -> `invalid_symbol`
+- provider/auth/network/timeout failure -> `symbol_reference_unavailable`
+
+#### Planned implementation steps
+
+1. lock the symbol-validation semantics above as the adapter mapping contract
+2. add strongly typed Alpaca symbol-reference options for credentials, environment, and timeout behavior
+3. implement a real `AlpacaSymbolReferenceProvider` in `src/adapters/Aegis.Adapters.Alpaca/Services/`
+4. update backend DI registration in `src/Aegis.Backend/Program.cs`
+5. keep `UniverseService` using the shared provider interface without architecture-breaking changes
+6. add adapter-focused tests for success, invalid symbol, unsupported asset class, and provider-unavailable paths
+7. verify that `Universe` add-symbol behavior still produces the expected API outcomes
+
+#### Likely files affected
+
+- `src/adapters/Aegis.Adapters.Alpaca/Services/`
+- `src/Aegis.Backend/Program.cs`
+- backend configuration files for Alpaca settings if needed
+- adapter-focused tests and possibly backend test host wiring
+
+#### Validation plan
+
+- automated tests remain deterministic and do not require live provider access
+- one optional local smoke test may use real credentials for confirmation
+- invalid symbol and provider-unavailable flows should still surface clearly through the existing API/UI path
+
+#### Completion note
+
+- this task should complete the first real provider-backed adapter path without pulling in broader `MarketData` responsibilities yet
+
+Current note:
+
+- a real Alpaca-backed provider implementation now exists in the adapter project
+- backend DI now uses the real provider by default, with an explicit fake fallback switch for controlled test/bootstrap scenarios
+- provider-result mapping is covered by deterministic unit tests and backend integration tests
+- live verification has been completed through both direct API calls and the existing UI add-symbol flow under Aspire
 
 ### Task 8.2 — Start `MarketData` bootstrap
 

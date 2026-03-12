@@ -1,3 +1,4 @@
+using Aegis.Adapters.Alpaca.Configuration;
 using Aegis.Adapters.Alpaca.Services;
 using Aegis.Backend.Auth;
 using Aegis.Backend.Endpoints;
@@ -58,14 +59,35 @@ builder.Services.AddDbContext<UniverseDbContext>(options =>
     }
 });
 
+var alpacaSymbolReferenceOptions = builder.Configuration.GetSection(AlpacaSymbolReferenceOptions.SectionName).Get<AlpacaSymbolReferenceOptions>()
+                                   ?? new AlpacaSymbolReferenceOptions();
+
+builder.Services.AddSingleton(alpacaSymbolReferenceOptions);
 builder.Services.AddScoped<UniverseService>();
-builder.Services.AddScoped<ISymbolReferenceProvider, FakeSymbolReferenceProvider>();
+if (alpacaSymbolReferenceOptions.UseFakeProvider)
+{
+    builder.Services.AddScoped<ISymbolReferenceProvider, FakeSymbolReferenceProvider>();
+}
+else
+{
+    builder.Services.AddHttpClient<ISymbolReferenceProvider, AlpacaSymbolReferenceProvider>((serviceProvider, client) =>
+    {
+        var options = serviceProvider.GetRequiredService<AlpacaSymbolReferenceOptions>();
+        client.BaseAddress = new Uri(EnsureTrailingSlash(options.BaseUrl), UriKind.Absolute);
+        client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds > 0 ? options.TimeoutSeconds : 10);
+    });
+}
+
 builder.Services.AddScoped<IExecutionRemovalGuardService, FakeExecutionRemovalGuardService>();
 builder.Services.AddHealthChecks();
 
 var app = builder.Build();
 
-app.UseHttpsRedirection();
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
+
 app.UseCors("web");
 app.UseAuthentication();
 app.UseAuthorization();
@@ -81,5 +103,10 @@ app.MapUniverseEndpoints();
 app.MapDefaultEndpoints();
 
 app.Run();
+
+static string EnsureTrailingSlash(string baseUrl) =>
+    string.IsNullOrWhiteSpace(baseUrl)
+        ? "https://paper-api.alpaca.markets/"
+        : baseUrl.EndsWith("/", StringComparison.Ordinal) ? baseUrl : $"{baseUrl}/";
 
 public partial class Program;

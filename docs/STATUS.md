@@ -83,6 +83,15 @@ Implemented in `src/modules/Aegis.Universe/Infrastructure/`.
 - `Execution` removal is blocked by active strategy, open position, or open orders
 - when an inactive assigned strategy exists, detach is required as part of allowed `Execution` removal
 
+### Symbol reference integration
+
+Implemented now:
+
+- `Aegis.Adapters.Alpaca` contains a real `AlpacaSymbolReferenceProvider`
+- backend DI uses the real provider by default
+- provider result mapping normalizes invalid symbol, unsupported asset class, and unavailable-provider outcomes into shared reason codes
+- a fake fallback switch still exists for controlled test/bootstrap scenarios
+
 ## 5) Implemented frontend behavior
 
 Implemented in `src/Aegis.Web/`.
@@ -116,11 +125,16 @@ Implemented UI behaviors:
 
 The following are intentional bootstrap implementations and should not be mistaken for final module integrations:
 
-- `FakeSymbolReferenceProvider` currently validates and normalizes symbols behind `ISymbolReferenceProvider`
+- fake symbol-reference validation still exists only as an explicit fallback/testing path, not the default runtime path
 - `FakeExecutionRemovalGuardService` currently stands in for real strategy/order/position blocker queries
 - dashboard widgets are placeholder data only
 - market-data-driven symbol fields such as current price and percent change are not yet live-integrated
 - auth is permissive bootstrap auth intended only to unblock the v1 operator slice
+
+Updated note:
+
+- fake symbol-reference validation is no longer the default runtime path
+- live verification has been completed with Alpaca credentials loaded through local environment variables
 
 ## 7) Verification performed so far
 
@@ -131,6 +145,13 @@ Verified in prior implementation work:
 - `dotnet test "tests/Aegis.Universe.IntegrationTests/Aegis.Universe.IntegrationTests.csproj"`
 - `npm run lint`
 - `npm run build`
+
+Additional verification performed for symbol-reference work:
+
+- adapter-focused unit tests covering valid, invalid, unsupported-asset-class, and provider-unavailable mapping
+- backend integration test covering the default real-provider registration path when credentials are unavailable
+- live API verification with Alpaca credentials confirming valid-symbol success and invalid-symbol rejection
+- browser-level verification under Aspire confirming login, watchlist creation, valid symbol add, and invalid symbol error display
 
 Browser-level verification was also performed during implementation using Playwright against the web app.
 
