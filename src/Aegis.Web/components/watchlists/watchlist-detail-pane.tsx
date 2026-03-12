@@ -24,7 +24,7 @@ export function WatchlistDetailPane({ watchlist, data, isLoading, search, onSear
             </div>
 
             <Button onClick={onAddSymbol} type="button">
-              Add Symbol
+              + Add
             </Button>
           </div>
 

@@ -16,6 +16,7 @@ This document is UX-focused. Detailed module behavior, backend ownership, and co
 - Special system behaviors, especially around the `Execution` watchlist, should be obvious in the interface.
 - v1 should prioritize clarity and operator confidence over configurability.
 - Placeholder/mock data is acceptable where backend modules are not yet implemented, as long as the UI clearly follows the intended structure.
+- Common CRUD-style actions should use standardized shared styling across all pages.
 
 ## 3) Global Application Flow
 
@@ -129,6 +130,7 @@ Includes:
 - Triggered from the watchlist pane.
 - Uses a modal dialog.
 - Creates an empty user watchlist.
+- The trigger should use the shared primary `+ Add` action style.
 
 ### Rename watchlist
 
@@ -153,6 +155,7 @@ Includes:
 - First-time symbol introduction follows the backend rule that provider-backed validation must succeed before local creation.
 - If validation fails, the UI should show a clear failure message.
 - If symbol reference is unavailable, the UI should show that symbol validation is currently unavailable.
+- The trigger should use the same shared primary `+ Add` action style used for watchlist creation.
 
 ### Remove symbol from watchlist
 
@@ -221,7 +224,26 @@ The intended approach is:
 - sorting as needed
 - client-side virtualization for rendering large sets
 
-## 11) Preferences and Logout
+## 11) Shared Action Styling Rules
+
+The UI should standardize common CRUD-style actions through shared reusable button styles.
+
+v1 rules:
+
+- Primary add actions display as `+ Add` and use the shared primary action style.
+- Edit-class actions such as rename use the shared secondary action style.
+- Delete-class actions use the shared destructive action style.
+- These styles should be implemented through shared UI primitives, not page-specific button styling.
+
+Examples include:
+
+- add watchlist
+- add symbol
+- rename watchlist
+- delete watchlist
+- future add/edit/delete flows on other pages
+
+## 12) Preferences and Logout
 
 ### Preferences
 
@@ -233,7 +255,7 @@ The intended approach is:
 - `Logout` exists in the avatar menu.
 - Logging out returns the user to the login view.
 
-## 12) Placeholder and Mock-Data Guidance
+## 13) Placeholder and Mock-Data Guidance
 
 Until all backend modules are implemented, v1 UI may use placeholders or mocked data for:
 
@@ -246,7 +268,7 @@ Until all backend modules are implemented, v1 UI may use placeholders or mocked 
 
 Mock data should preserve the intended layout and workflow shape even when the underlying backend features are not yet complete.
 
-## 13) UI Data Delivery Direction
+## 14) UI Data Delivery Direction
 
 - Primary `Universe` UI reads and mutations should use REST endpoints under `/api/universe`.
 - `SignalR` is expected to support later live refresh of market-data-driven UI fields.
@@ -256,7 +278,7 @@ Mock data should preserve the intended layout and workflow shape even when the u
 
 REST remains the source of the initial view load, while `SignalR` later augments the experience with live updates.
 
-## 14) Immediate UI Implementation Priorities
+## 15) Immediate UI Implementation Priorities
 
 The best first UI slice for v1 is:
 
@@ -268,7 +290,7 @@ The best first UI slice for v1 is:
 6. add symbol modal
 7. remove-from-`Execution` blocker modal
 
-## 15) Related Documents
+## 16) Related Documents
 
 - `docs/PROJECT.md`
 - `docs/ARCHITECTURE.md`
