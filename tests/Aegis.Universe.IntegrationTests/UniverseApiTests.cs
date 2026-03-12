@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using NodaTime;
 using Shouldly;
 
 namespace Aegis.Universe.IntegrationTests;
@@ -81,7 +82,7 @@ public sealed class UniverseApiTests : IClassFixture<WebApplicationFactory<Progr
         var loginResponse = await client.PostAsJsonAsync("/api/auth/login", new LoginRequest("demo", "demo"));
         loginResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
 
-        var session = await loginResponse.Content.ReadFromJsonAsync<SessionView>();
+        var session = await loginResponse.Content.ReadAegisJsonAsync<SessionView>();
         session.ShouldNotBeNull();
         session.IsAuthenticated.ShouldBeTrue();
 
@@ -97,7 +98,7 @@ public sealed class UniverseApiTests : IClassFixture<WebApplicationFactory<Progr
         var response = await client.GetAsync("/api/universe/watchlists");
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
 
-        var watchlists = await response.Content.ReadFromJsonAsync<List<WatchlistSummaryView>>();
+        var watchlists = await response.Content.ReadAegisJsonAsync<List<WatchlistSummaryView>>();
         watchlists.ShouldNotBeNull();
         watchlists.Any(x => x.IsExecution && x.Name == "Execution").ShouldBeTrue();
     }
@@ -110,13 +111,13 @@ public sealed class UniverseApiTests : IClassFixture<WebApplicationFactory<Progr
         var createResponse = await client.PostAsJsonAsync("/api/universe/watchlists", new CreateWatchlistRequest("Growth"));
         createResponse.StatusCode.ShouldBe(HttpStatusCode.Created);
 
-        var createdWatchlist = await createResponse.Content.ReadFromJsonAsync<WatchlistDetailView>();
+        var createdWatchlist = await createResponse.Content.ReadAegisJsonAsync<WatchlistDetailView>();
         createdWatchlist.ShouldNotBeNull();
 
         var addSymbolResponse = await client.PostAsJsonAsync($"/api/universe/watchlists/{createdWatchlist.WatchlistId}/symbols", new AddSymbolToWatchlistRequest("aapl"));
         addSymbolResponse.StatusCode.ShouldBe(HttpStatusCode.Created);
 
-        var createdMembership = await addSymbolResponse.Content.ReadFromJsonAsync<WatchlistItemView>();
+        var createdMembership = await addSymbolResponse.Content.ReadAegisJsonAsync<WatchlistItemView>();
         createdMembership.ShouldNotBeNull();
         createdMembership.Ticker.ShouldBe("AAPL");
     }
@@ -126,7 +127,7 @@ public sealed class UniverseApiTests : IClassFixture<WebApplicationFactory<Progr
     {
         using var client = await CreateAuthenticatedClientAsync();
 
-        var watchlists = await client.GetFromJsonAsync<List<WatchlistSummaryView>>("/api/universe/watchlists");
+        var watchlists = await client.GetAegisJsonAsync<List<WatchlistSummaryView>>("/api/universe/watchlists");
         var execution = watchlists!.Single(x => x.IsExecution);
 
         var deleteResponse = await client.DeleteAsync($"/api/universe/watchlists/{execution.WatchlistId}");
@@ -145,7 +146,7 @@ public sealed class UniverseApiTests : IClassFixture<WebApplicationFactory<Progr
         var createResponse = await client.PostAsJsonAsync("/api/universe/watchlists", new CreateWatchlistRequest("ProviderCheck"));
         createResponse.StatusCode.ShouldBe(HttpStatusCode.Created);
 
-        var createdWatchlist = await createResponse.Content.ReadFromJsonAsync<WatchlistDetailView>();
+        var createdWatchlist = await createResponse.Content.ReadAegisJsonAsync<WatchlistDetailView>();
         createdWatchlist.ShouldNotBeNull();
 
         var addSymbolResponse = await client.PostAsJsonAsync($"/api/universe/watchlists/{createdWatchlist.WatchlistId}/symbols", new AddSymbolToWatchlistRequest("TSLA"));
@@ -175,7 +176,7 @@ public sealed class UniverseApiTests : IClassFixture<WebApplicationFactory<Progr
         {
             HistoricalBarRecord[] bars =
             [
-                new(request.Symbol, "1day", new DateTimeOffset(2026, 3, 10, 0, 0, 0, TimeSpan.Zero), 100, 105, 99, 104, 1000, "regular", new DateOnly(2026, 3, 10), "reconciled", true)
+                new(request.Symbol, "1day", Instant.FromUtc(2026, 3, 10, 0, 0), 100, 105, 99, 104, 1000, "regular", new LocalDate(2026, 3, 10), "reconciled", true)
             ];
 
             return Task.FromResult(HistoricalBarBatchResult.Success(request.Symbol, "1day", bars, "fake", "iex"));

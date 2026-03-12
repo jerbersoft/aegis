@@ -28,8 +28,8 @@ public sealed class UniverseService(
                 x.IsMutable,
                 x.IsMutable,
                 x.WatchlistItems.Count,
-                x.CreatedUtc.ToDateTimeOffset(),
-                x.UpdatedUtc.ToDateTimeOffset()))
+                x.CreatedUtc,
+                x.UpdatedUtc))
             .ToListAsync(cancellationToken);
     }
 
@@ -46,8 +46,8 @@ public sealed class UniverseService(
                 x.IsMutable,
                 x.IsMutable,
                 x.WatchlistItems.Count,
-                x.CreatedUtc.ToDateTimeOffset(),
-                x.UpdatedUtc.ToDateTimeOffset()))
+                x.CreatedUtc,
+                x.UpdatedUtc))
             .SingleOrDefaultAsync(cancellationToken);
     }
 
@@ -110,7 +110,7 @@ public sealed class UniverseService(
                 x.SymbolId,
                 x.Ticker,
                 x.AssetClass,
-                x.AddedUtc.ToDateTimeOffset(),
+                x.AddedUtc,
                 x.IsInExecution,
                 x.WatchlistCount,
                 null,
@@ -165,8 +165,8 @@ public sealed class UniverseService(
                 x.AssetClass,
                 x.WatchlistItems.Count,
                 x.WatchlistItems.Any(y => y.Watchlist.NormalizedName == WatchlistConventions.ExecutionName.ToUpperInvariant()),
-                x.CreatedUtc.ToDateTimeOffset(),
-                x.UpdatedUtc.ToDateTimeOffset()))
+                x.CreatedUtc,
+                x.UpdatedUtc))
             .ToListAsync(cancellationToken);
 
         return new UniverseSymbolsView(items.Count, items);
@@ -192,7 +192,7 @@ public sealed class UniverseService(
                         WatchlistConventions.ToTypeValue(y.Watchlist.WatchlistType),
                         y.Watchlist.IsSystem,
                         y.Watchlist.NormalizedName == WatchlistConventions.ExecutionName.ToUpperInvariant(),
-                        y.AddedUtc.ToDateTimeOffset()))
+                        y.AddedUtc))
                     .ToList()))
             .SingleOrDefaultAsync(cancellationToken);
 
@@ -243,7 +243,7 @@ public sealed class UniverseService(
                 row.SymbolId,
                 row.Ticker,
                 row.AssetClass,
-                row.AddedUtc.ToDateTimeOffset(),
+                row.AddedUtc,
                 guardState.HasActiveStrategy,
                 guardState.HasOpenPosition,
                 guardState.HasOpenOrders,
@@ -478,7 +478,7 @@ public sealed class UniverseService(
                 symbol.SymbolId,
                 symbol.Ticker,
                 symbol.AssetClass,
-                watchlistItem.AddedUtc.ToDateTimeOffset(),
+                watchlistItem.AddedUtc,
                 isInExecution,
                 watchlistCount,
                 null,
@@ -569,8 +569,8 @@ public sealed class UniverseService(
             watchlist.IsMutable,
             watchlist.IsMutable,
             symbolCount,
-            watchlist.CreatedUtc.ToDateTimeOffset(),
-            watchlist.UpdatedUtc.ToDateTimeOffset());
+            watchlist.CreatedUtc,
+            watchlist.UpdatedUtc);
 
     private static bool CanRemove(ExecutionRemovalGuardState guardState) =>
         guardState.GuardAvailable && !guardState.HasActiveStrategy && !guardState.HasOpenPosition && !guardState.HasOpenOrders;

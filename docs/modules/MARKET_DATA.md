@@ -28,6 +28,7 @@ Implemented bootstrap pieces now include:
 - Alpaca historical daily bar retrieval
 - daily warmup demand derivation from `Universe`
 - bootstrap status and daily-bar read paths
+- `NodaTime`-based MarketData time modeling for persisted bar timestamps and market dates
 
 This document should therefore be read as target design layered on top of the now-implemented daily bootstrap foundation.
 

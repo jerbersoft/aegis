@@ -1,4 +1,5 @@
 using Aegis.Shared.Enums;
+using NodaTime;
 
 namespace Aegis.Shared.Contracts.Universe;
 
@@ -17,8 +18,8 @@ public sealed record WatchlistSummaryView(
     bool CanRename,
     bool CanDelete,
     int SymbolCount,
-    DateTimeOffset CreatedUtc,
-    DateTimeOffset UpdatedUtc);
+    Instant CreatedUtc,
+    Instant UpdatedUtc);
 
 public sealed record WatchlistDetailView(
     Guid WatchlistId,
@@ -29,8 +30,8 @@ public sealed record WatchlistDetailView(
     bool CanRename,
     bool CanDelete,
     int SymbolCount,
-    DateTimeOffset CreatedUtc,
-    DateTimeOffset UpdatedUtc);
+    Instant CreatedUtc,
+    Instant UpdatedUtc);
 
 public sealed record WatchlistItemView(
     Guid WatchlistItemId,
@@ -38,7 +39,7 @@ public sealed record WatchlistItemView(
     Guid SymbolId,
     string Ticker,
     string AssetClass,
-    DateTimeOffset AddedUtc,
+    Instant AddedUtc,
     bool IsInExecution,
     int WatchlistCount,
     decimal? CurrentPrice,
@@ -57,7 +58,7 @@ public sealed record SymbolMembershipWatchlistView(
     string WatchlistType,
     bool IsSystem,
     bool IsExecution,
-    DateTimeOffset AddedUtc);
+    Instant AddedUtc);
 
 public sealed record SymbolMembershipView(
     Guid SymbolId,
@@ -74,8 +75,8 @@ public sealed record UniverseSymbolView(
     string AssetClass,
     int WatchlistCount,
     bool IsInExecution,
-    DateTimeOffset CreatedUtc,
-    DateTimeOffset UpdatedUtc);
+    Instant CreatedUtc,
+    Instant UpdatedUtc);
 
 public sealed record UniverseSymbolsView(
     int TotalCount,
@@ -85,7 +86,7 @@ public sealed record ExecutionWatchlistSymbolView(
     Guid SymbolId,
     string Ticker,
     string AssetClass,
-    DateTimeOffset AddedToExecutionUtc,
+    Instant AddedToExecutionUtc,
     bool HasActiveStrategy,
     bool HasOpenPosition,
     bool HasOpenOrders,

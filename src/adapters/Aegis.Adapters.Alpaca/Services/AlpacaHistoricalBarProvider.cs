@@ -3,6 +3,8 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Aegis.Adapters.Alpaca.Configuration;
 using Aegis.Shared.Ports.MarketData;
+using NodaTime;
+using NodaTime.Text;
 
 namespace Aegis.Adapters.Alpaca.Services;
 
@@ -40,12 +42,12 @@ public sealed class AlpacaHistoricalBarProvider(HttpClient httpClient, AlpacaHis
 
         if (request.FromUtc is { } fromUtc)
         {
-            queryParts.Add($"start={Uri.EscapeDataString(fromUtc.UtcDateTime.ToString("O"))}");
+            queryParts.Add($"start={Uri.EscapeDataString(InstantPattern.ExtendedIso.Format(fromUtc))}");
         }
 
         if (request.ToUtc is { } toUtc)
         {
-            queryParts.Add($"end={Uri.EscapeDataString(toUtc.UtcDateTime.ToString("O"))}");
+            queryParts.Add($"end={Uri.EscapeDataString(InstantPattern.ExtendedIso.Format(toUtc))}");
         }
 
         using var httpRequest = new HttpRequestMessage(HttpMethod.Get, $"v2/stocks/{Uri.EscapeDataString(normalizedSymbol)}/bars?{string.Join("&", queryParts)}");
@@ -82,19 +84,25 @@ public sealed class AlpacaHistoricalBarProvider(HttpClient httpClient, AlpacaHis
         }
 
         var bars = (payload?.Bars ?? [])
-            .Select(bar => new HistoricalBarRecord(
-                normalizedSymbol,
-                "1day",
-                DateTimeOffset.Parse(bar.Timestamp!, null, System.Globalization.DateTimeStyles.AssumeUniversal),
-                bar.Open,
-                bar.High,
-                bar.Low,
-                bar.Close,
-                bar.Volume,
-                "regular",
-                DateOnly.FromDateTime(DateTimeOffset.Parse(bar.Timestamp!, null, System.Globalization.DateTimeStyles.AssumeUniversal).UtcDateTime),
-                "reconciled",
-                true))
+            .Select(bar =>
+            {
+                var barTimeUtc = ParseInstant(bar.Timestamp);
+                var marketDate = barTimeUtc.InUtc().Date;
+
+                return new HistoricalBarRecord(
+                    normalizedSymbol,
+                    "1day",
+                    barTimeUtc,
+                    bar.Open,
+                    bar.High,
+                    bar.Low,
+                    bar.Close,
+                    bar.Volume,
+                    "regular",
+                    marketDate,
+                    "reconciled",
+                    true);
+            })
             .OrderBy(x => x.BarTimeUtc)
             .ToArray();
 
@@ -115,6 +123,22 @@ public sealed class AlpacaHistoricalBarProvider(HttpClient httpClient, AlpacaHis
         {
             return null;
         }
+    }
+
+    private static Instant ParseInstant(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            throw new JsonException("Historical bar timestamp is required.");
+        }
+
+        var parseResult = InstantPattern.ExtendedIso.Parse(value);
+        if (!parseResult.Success)
+        {
+            throw new JsonException($"Historical bar timestamp '{value}' is invalid.");
+        }
+
+        return parseResult.Value;
     }
 
     private sealed class AlpacaHistoricalBarsResponse

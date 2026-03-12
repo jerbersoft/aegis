@@ -9,7 +9,8 @@ public sealed class MarketDataDesignTimeDbContextFactory : IDesignTimeDbContextF
     {
         var optionsBuilder = new DbContextOptionsBuilder<MarketDataDbContext>();
         optionsBuilder.UseNpgsql(
-            "Host=localhost;Port=5432;Database=aegis;Username=postgres;Password=postgres");
+            "Host=localhost;Port=5432;Database=aegis;Username=postgres;Password=postgres",
+            npgsql => npgsql.UseNodaTime());
 
         return new MarketDataDbContext(optionsBuilder.Options);
     }

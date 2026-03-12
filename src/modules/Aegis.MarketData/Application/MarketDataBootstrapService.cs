@@ -4,6 +4,7 @@ using Aegis.MarketData.Infrastructure;
 using Aegis.Shared.Contracts.MarketData;
 using Aegis.Shared.Ports.MarketData;
 using Microsoft.EntityFrameworkCore;
+using NodaTime;
 
 namespace Aegis.MarketData.Application;
 
@@ -12,7 +13,7 @@ public sealed class MarketDataBootstrapService(
     IMarketDataSymbolDemandReader demandReader,
     IHistoricalBarProvider historicalBarProvider,
     MarketDataBootstrapStateStore stateStore,
-    TimeProvider timeProvider)
+    IClock clock)
 {
     private const string DailyInterval = "1day";
 
@@ -31,8 +32,8 @@ public sealed class MarketDataBootstrapService(
         }
 
         var failedSymbols = new List<string>();
-        var now = timeProvider.GetUtcNow();
-        var fromUtc = now.AddDays(-365);
+        var now = clock.GetCurrentInstant();
+        var fromUtc = now - Duration.FromDays(365);
 
         foreach (var symbol in symbols)
         {
@@ -149,7 +150,7 @@ public sealed class MarketDataBootstrapService(
         IReadOnlyCollection<string> failedSymbols,
         IReadOnlyList<string> demandSymbols,
         CancellationToken cancellationToken,
-        DateTimeOffset? lastWarmupUtc)
+        Instant? lastWarmupUtc)
     {
         var persistedBarCount = await dbContext.Bars.CountAsync(cancellationToken);
         var warmedSymbolCount = demandSymbols.Count == 0

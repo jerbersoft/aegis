@@ -40,12 +40,12 @@ export function MarketDataWidget() {
             </div>
           ) : null}
 
-          <div className="flex items-center justify-between">
-            <p className="text-xs text-slate-500">
-              Last warmup: {status.lastWarmupUtc ? new Date(status.lastWarmupUtc).toLocaleString() : "Not run"}
-            </p>
-            <Button onClick={() => void runBootstrap()} type="button">
-              {isRefreshing ? "Refreshing…" : "Refresh"}
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-slate-500">
+               Last warmup: {status.lastWarmupUtc ?? "Not run"}
+              </p>
+              <Button onClick={() => void runBootstrap()} type="button">
+                {isRefreshing ? "Refreshing…" : "Refresh"}
             </Button>
           </div>
         </div>

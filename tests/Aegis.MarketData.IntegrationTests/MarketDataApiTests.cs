@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using NodaTime;
 using Shouldly;
 
 namespace Aegis.MarketData.IntegrationTests;
@@ -51,7 +52,7 @@ public sealed class MarketDataApiTests : IClassFixture<WebApplicationFactory<Pro
 
         var watchlist = await client.PostAsJsonAsync("/api/universe/watchlists", new CreateWatchlistRequest("MarketDataDemand"));
         watchlist.StatusCode.ShouldBe(HttpStatusCode.Created);
-        var createdWatchlist = await watchlist.Content.ReadFromJsonAsync<WatchlistDetailView>();
+        var createdWatchlist = await watchlist.Content.ReadAegisJsonAsync<WatchlistDetailView>();
         createdWatchlist.ShouldNotBeNull();
 
         var addSymbol = await client.PostAsJsonAsync($"/api/universe/watchlists/{createdWatchlist.WatchlistId}/symbols", new AddSymbolToWatchlistRequest("AAPL"));
@@ -60,7 +61,7 @@ public sealed class MarketDataApiTests : IClassFixture<WebApplicationFactory<Pro
         var bootstrapResponse = await client.PostAsync("/api/market-data/bootstrap/run", null);
         bootstrapResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
 
-        var status = await bootstrapResponse.Content.ReadFromJsonAsync<MarketDataBootstrapStatusView>();
+        var status = await bootstrapResponse.Content.ReadAegisJsonAsync<MarketDataBootstrapStatusView>();
         status.ShouldNotBeNull();
         status.ReadinessState.ShouldBe("ready");
         status.DemandSymbols.ShouldContain("AAPL");
@@ -86,8 +87,8 @@ public sealed class MarketDataApiTests : IClassFixture<WebApplicationFactory<Pro
         {
             HistoricalBarRecord[] bars =
             [
-                new(request.Symbol, "1day", new DateTimeOffset(2026, 3, 10, 0, 0, 0, TimeSpan.Zero), 100, 105, 99, 104, 1000, "regular", new DateOnly(2026, 3, 10), "reconciled", true),
-                new(request.Symbol, "1day", new DateTimeOffset(2026, 3, 11, 0, 0, 0, TimeSpan.Zero), 104, 106, 103, 105, 1200, "regular", new DateOnly(2026, 3, 11), "reconciled", true)
+                new(request.Symbol, "1day", Instant.FromUtc(2026, 3, 10, 0, 0), 100, 105, 99, 104, 1000, "regular", new LocalDate(2026, 3, 10), "reconciled", true),
+                new(request.Symbol, "1day", Instant.FromUtc(2026, 3, 11, 0, 0), 104, 106, 103, 105, 1200, "regular", new LocalDate(2026, 3, 11), "reconciled", true)
             ];
 
             return Task.FromResult(HistoricalBarBatchResult.Success(request.Symbol, "1day", bars, "fake", "iex"));

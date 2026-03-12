@@ -747,6 +747,7 @@ Current note:
 - daily warmup demand is derived from `Universe`
 - bootstrap status and daily-bar read endpoints are implemented
 - the Home dashboard now includes a MarketData bootstrap widget for browser-level verification
+- the delivered bootstrap slice now uses `NodaTime` across MarketData domain/persistence/contracts and related auth/Universe contract surfaces
 
 ## 11) Related Documents
 

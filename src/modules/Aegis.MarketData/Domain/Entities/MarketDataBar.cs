@@ -1,3 +1,5 @@
+using NodaTime;
+
 namespace Aegis.MarketData.Domain.Entities;
 
 public sealed class MarketDataBar
@@ -8,7 +10,7 @@ public sealed class MarketDataBar
 
     public string Interval { get; set; } = string.Empty;
 
-    public DateTimeOffset BarTimeUtc { get; set; }
+    public Instant BarTimeUtc { get; set; }
 
     public decimal Open { get; set; }
 
@@ -22,7 +24,7 @@ public sealed class MarketDataBar
 
     public string SessionType { get; set; } = string.Empty;
 
-    public DateOnly MarketDate { get; set; }
+    public LocalDate MarketDate { get; set; }
 
     public string ProviderName { get; set; } = string.Empty;
 
@@ -32,7 +34,7 @@ public sealed class MarketDataBar
 
     public bool IsReconciled { get; set; }
 
-    public DateTimeOffset CreatedUtc { get; set; }
+    public Instant CreatedUtc { get; set; }
 
-    public DateTimeOffset UpdatedUtc { get; set; }
+    public Instant UpdatedUtc { get; set; }
 }

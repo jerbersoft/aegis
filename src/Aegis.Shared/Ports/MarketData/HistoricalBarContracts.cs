@@ -1,3 +1,5 @@
+using NodaTime;
+
 namespace Aegis.Shared.Ports.MarketData;
 
 public interface IHistoricalBarProvider
@@ -7,8 +9,8 @@ public interface IHistoricalBarProvider
 
 public sealed record HistoricalBarRequest(
     string Symbol,
-    DateTimeOffset? FromUtc = null,
-    DateTimeOffset? ToUtc = null,
+    Instant? FromUtc = null,
+    Instant? ToUtc = null,
     int? Limit = null,
     string? Feed = null);
 
@@ -43,13 +45,13 @@ public sealed record HistoricalBarBatchResult(
 public sealed record HistoricalBarRecord(
     string Symbol,
     string Interval,
-    DateTimeOffset BarTimeUtc,
+    Instant BarTimeUtc,
     decimal Open,
     decimal High,
     decimal Low,
     decimal Close,
     long Volume,
     string SessionType,
-    DateOnly MarketDate,
+    LocalDate MarketDate,
     string RuntimeState,
     bool IsReconciled);

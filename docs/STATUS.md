@@ -103,6 +103,7 @@ Implemented now:
 - MarketData derives daily warmup demand from current `Universe` symbols
 - bootstrap warmup fetches and upserts daily bars
 - MarketData exposes bootstrap status and daily-bar read endpoints
+- current domain/backend/shared date-time handling has been refactored to `NodaTime` for auth, Universe contracts, MarketData contracts, MarketData persistence, and Alpaca historical bar mapping
 
 ### Web/backend connectivity under Aspire
 
@@ -181,6 +182,7 @@ Additional verification performed for MarketData bootstrap work:
 - MarketData integration test covering Universe-demand -> bootstrap -> persisted bars flow
 - browser-level verification confirming add-symbol -> dashboard refresh -> ready MarketData status with persisted daily bars
 - browser-level verification confirming invalid-symbol error display in Add Symbol and clean dialog state after close/reopen
+- NodaTime refactor verification via unit tests, integration tests, web lint/build, and browser regression coverage of login, watchlist creation, symbol add, MarketData refresh, and invalid-symbol dialog reset
 
 Browser-level verification was also performed during implementation using Playwright against the web app.
 

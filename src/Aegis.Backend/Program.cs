@@ -13,6 +13,8 @@ using Aegis.Universe.Infrastructure;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting;
+using Aegis.Shared.Serialization;
+using NodaTime;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -28,6 +30,7 @@ builder.Services
     });
 
 builder.Services.AddAuthorization();
+builder.Services.ConfigureHttpJsonOptions(options => AegisJson.Configure(options.SerializerOptions));
 builder.Services.AddCors(options =>
 {
     var configuredOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
@@ -61,7 +64,7 @@ builder.Services.AddDbContext<MarketDataDbContext>(options =>
                            ?? builder.Configuration.GetConnectionString("DefaultConnection")
                            ?? "Host=localhost;Port=5432;Database=aegis;Username=postgres;Password=postgres";
 
-    options.UseNpgsql(connectionString);
+    options.UseNpgsql(connectionString, npgsql => npgsql.UseNodaTime());
 });
 
 var alpacaSymbolReferenceOptions = builder.Configuration.GetSection(AlpacaSymbolReferenceOptions.SectionName).Get<AlpacaSymbolReferenceOptions>()
@@ -83,7 +86,7 @@ if (string.IsNullOrWhiteSpace(alpacaHistoricalDataOptions.ApiKey) || string.IsNu
 
 builder.Services.AddSingleton(alpacaSymbolReferenceOptions);
 builder.Services.AddSingleton(alpacaHistoricalDataOptions);
-builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddSingleton<IClock>(SystemClock.Instance);
 builder.Services.AddSingleton<MarketDataBootstrapStateStore>();
 builder.Services.AddScoped<IMarketDataSymbolDemandReader, UniverseMarketDataDemandReader>();
 builder.Services.AddScoped<MarketDataBootstrapService>();
