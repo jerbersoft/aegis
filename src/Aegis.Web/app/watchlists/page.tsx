@@ -22,6 +22,8 @@ export default function WatchlistsPage() {
   const { session, isLoading: sessionLoading } = useSession();
   const { watchlists, isLoading, refresh } = useWatchlists();
   const [selectedWatchlistId, setSelectedWatchlistId] = useState<string | null>(null);
+  const [watchlistSearch, setWatchlistSearch] = useState("");
+  const [symbolSearch, setSymbolSearch] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
   const [renameTarget, setRenameTarget] = useState<WatchlistSummaryView | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<WatchlistSummaryView | null>(null);
@@ -29,12 +31,39 @@ export default function WatchlistsPage() {
   const { data, isLoading: symbolsLoading, refresh: refreshSymbols } = useWatchlistSymbols(selectedWatchlistId);
   const blockerState = useExecutionRemovalBlockers();
 
-  const effectiveWatchlistId = selectedWatchlistId ?? watchlists[0]?.watchlistId ?? null;
+  const filteredWatchlists = useMemo(() => {
+    const value = watchlistSearch.trim().toLowerCase();
+    if (!value) {
+      return watchlists;
+    }
+
+    return watchlists.filter((item) => item.name.toLowerCase().includes(value));
+  }, [watchlistSearch, watchlists]);
+
+  const effectiveWatchlistId = selectedWatchlistId ?? filteredWatchlists[0]?.watchlistId ?? watchlists[0]?.watchlistId ?? null;
 
   const selectedWatchlist = useMemo(
     () => watchlists.find((item) => item.watchlistId === effectiveWatchlistId) ?? null,
     [effectiveWatchlistId, watchlists],
   );
+
+  const filteredData = useMemo(() => {
+    if (!data) {
+      return null;
+    }
+
+    const value = symbolSearch.trim().toLowerCase();
+    if (!value) {
+      return data;
+    }
+
+    const items = data.items.filter((item) => item.ticker.toLowerCase().includes(value));
+    return {
+      ...data,
+      totalCount: items.length,
+      items,
+    };
+  }, [data, symbolSearch]);
 
   useEffect(() => {
     if (!sessionLoading && !session) {
@@ -74,8 +103,10 @@ export default function WatchlistsPage() {
     <AppShell session={session}>
       <div className="flex gap-6">
         <WatchlistSidebar
-          watchlists={watchlists}
+          watchlists={filteredWatchlists}
           selectedWatchlistId={effectiveWatchlistId}
+          search={watchlistSearch}
+          onSearchChange={setWatchlistSearch}
           onSelect={setSelectedWatchlistId}
           onCreate={() => setCreateOpen(true)}
           onRename={setRenameTarget}
@@ -84,8 +115,10 @@ export default function WatchlistsPage() {
 
         <WatchlistDetailPane
           watchlist={selectedWatchlist}
-          data={data}
+          data={filteredData}
           isLoading={isLoading || symbolsLoading}
+          search={symbolSearch}
+          onSearchChange={setSymbolSearch}
           onAddSymbol={() => setAddSymbolOpen(true)}
           onRemoveSymbol={handleRemoveSymbol}
         />

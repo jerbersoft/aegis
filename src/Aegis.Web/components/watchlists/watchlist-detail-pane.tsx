@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/button";
 import { WatchlistContentsView, WatchlistSummaryView } from "@/lib/types/universe";
 import { SymbolTable } from "./symbol-table";
 
@@ -5,11 +6,13 @@ type Props = {
   watchlist: WatchlistSummaryView | null;
   data: WatchlistContentsView | null;
   isLoading: boolean;
+  search: string;
+  onSearchChange: (value: string) => void;
   onAddSymbol: () => void;
   onRemoveSymbol: (symbolId: string, ticker: string, isExecution: boolean) => void;
 };
 
-export function WatchlistDetailPane({ watchlist, data, isLoading, onAddSymbol, onRemoveSymbol }: Props) {
+export function WatchlistDetailPane({ watchlist, data, isLoading, search, onSearchChange, onAddSymbol, onRemoveSymbol }: Props) {
   return (
     <section className="flex-1 rounded-xl border border-slate-800 bg-slate-900 p-4 shadow-xl shadow-slate-950/30">
       {watchlist ? (
@@ -20,16 +23,16 @@ export function WatchlistDetailPane({ watchlist, data, isLoading, onAddSymbol, o
               <p className="text-sm text-slate-400">{watchlist.symbolCount} symbols</p>
             </div>
 
-            <button className="rounded-md bg-cyan-500 px-3 py-2 text-sm font-medium text-slate-950 hover:bg-cyan-400" onClick={onAddSymbol} type="button">
+            <Button onClick={onAddSymbol} type="button">
               Add Symbol
-            </button>
+            </Button>
           </div>
 
           <input
             className="mb-4 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500"
             placeholder="Search symbols"
-            readOnly
-            value=""
+            value={search}
+            onChange={(event) => onSearchChange(event.target.value)}
           />
 
           {isLoading ? (

@@ -1,8 +1,11 @@
+import { Button } from "@/components/ui/button";
 import { WatchlistSummaryView } from "@/lib/types/universe";
 
 type Props = {
   watchlists: WatchlistSummaryView[];
   selectedWatchlistId: string | null;
+  search: string;
+  onSearchChange: (value: string) => void;
   onSelect: (watchlistId: string) => void;
   onCreate: () => void;
   onRename: (watchlist: WatchlistSummaryView) => void;
@@ -12,6 +15,8 @@ type Props = {
 export function WatchlistSidebar({
   watchlists,
   selectedWatchlistId,
+  search,
+  onSearchChange,
   onSelect,
   onCreate,
   onRename,
@@ -21,16 +26,16 @@ export function WatchlistSidebar({
     <aside className="w-80 rounded-xl border border-slate-800 bg-slate-900 p-4 shadow-xl shadow-slate-950/30">
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">Watchlists</h2>
-        <button className="text-sm font-medium text-slate-100 hover:text-white" onClick={onCreate} type="button">
+        <Button className="px-3 py-1.5" onClick={onCreate} type="button">
           + Add
-        </button>
+        </Button>
       </div>
 
       <input
         className="mb-4 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500"
         placeholder="Search watchlists"
-        readOnly
-        value=""
+        value={search}
+        onChange={(event) => onSearchChange(event.target.value)}
       />
 
       <div className="space-y-2">
