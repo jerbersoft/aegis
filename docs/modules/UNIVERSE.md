@@ -16,6 +16,32 @@ Core boundary rule:
 - `Universe` answers which symbols belong to which watchlists and what watchlist rules apply.
 - `MarketData` answers what market-data behavior is required because of those watchlists.
 
+## Current implementation status
+
+The current repository includes a working first bootstrap slice of `Universe`.
+
+Implemented now:
+
+- `UniverseDbContext` with `symbol`, `watchlist`, and `watchlist_item`
+- seeded `Execution` watchlist through initializer logic
+- watchlist CRUD service behavior
+- symbol add/remove service behavior
+- first-time symbol introduction through `ISymbolReferenceProvider`
+- `Execution` removal blocker evaluation through `IExecutionRemovalGuardService`
+- REST endpoints under `/api/universe`
+- unit and integration tests for core v1 rules
+
+Bootstrap-only implementations currently in use:
+
+- fake symbol reference provider behind `ISymbolReferenceProvider`
+- fake execution removal guard service behind `IExecutionRemovalGuardService`
+
+Not yet implemented:
+
+- real cross-module blocker queries to `Strategies`, `Orders`, and `Portfolio`
+- event publication for the recommended lifecycle events in this document
+- realtime UI integration for market-data-driven watchlist fields
+
 ## 2) Core v1 policies
 
 - The `Universe` is the distinct set of symbols present in one or more watchlists.
@@ -227,6 +253,10 @@ Recommended endpoint groups:
   - `GET /api/universe/execution/symbols`
   - `GET /api/universe/execution/symbols/{symbolId}/removal-blockers`
 
+Current status:
+
+- all recommended endpoint groups above are implemented in the current bootstrap backend
+
 Recommended common API error shape:
 
 - `code`
@@ -252,6 +282,11 @@ Behavior rules:
 - UI rendering concerns for large result sets should be handled through filtering, sorting, and client-side virtualization rather than server-driven paging.
 - Search and sort options are allowed in v1 primary query contracts.
 - Future alternate query contracts may add paging for administrative, export, or non-operator workflows if needed.
+
+Current status:
+
+- the implemented read APIs follow the no-paging operator-read policy
+- current watchlist and symbol search parameters are supported at the API layer and filtered again client-side in the web UI where useful
 
 ### Symbol-reference dependency direction
 
@@ -573,6 +608,14 @@ Recommended v1 reason-code values:
 - `execution_removal_guard_unavailable`
 - `strategy_detach_failed`
 
+Current tested behaviors include:
+
+- normalized first-time symbol introduction using provider-returned ticker values
+- `symbol_reference_unavailable` failure path
+- fail-closed `execution_removal_guard_unavailable` behavior
+- inactive-strategy detach path contract behavior
+- protection against deleting `Execution`
+
 ## 9) Operability and audit model
 
 ### Operational domains
@@ -826,6 +869,13 @@ Recommended event fields:
 The following items still need deeper definition:
 
 - Universe UI/read-model requirements
+
+The following items also remain open implementation work:
+
+- real symbol-reference provider implementation
+- real strategy/order/position blocker integration
+- lifecycle event emission and downstream consumers
+- audit and metrics implementation beyond documented intent
 
 ## 14) Cross-references
 

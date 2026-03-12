@@ -6,6 +6,11 @@ This document evaluates `Alpaca` against the current `Aegis` MarketData requirem
 
 This is a research and planning document, not an implementation contract.
 
+Current status note:
+
+- The repository currently contains `src/adapters/Aegis.Adapters.Alpaca`, but that project is only being used for a fake `ISymbolReferenceProvider` bootstrap implementation.
+- This document should not be read as evidence that the full Alpaca market-data adapter has been implemented.
+
 ## 2) Sources reviewed
 
 - `https://github.com/alpacahq/alpaca-trade-api-csharp`

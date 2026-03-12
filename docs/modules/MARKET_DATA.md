@@ -10,6 +10,19 @@ Boundaries:
 - `Infrastructure` owns connectivity health and pause/resume control.
 - `Strategies` and scanners consume `MarketData` state; they should not maintain duplicate full bar/indicator engines by default.
 
+## Current implementation status
+
+`MarketData` is currently a design/planning area, not a fully implemented module.
+
+Current repository reality:
+
+- there is not yet a first-party `src/modules/Aegis.MarketData` project in active use
+- the current implemented business module is `Universe`
+- the only currently implemented market-data-adjacent contract in active use is the shared symbol-reference contract used for first-time `Universe` symbol introduction
+- the current `Aegis.Adapters.Alpaca` project contains a fake `ISymbolReferenceProvider` bootstrap implementation, not a full market-data adapter
+
+This document should therefore be read as target design for upcoming implementation work.
+
 ## 2) Core v1 policies
 
 - Provider-emitted closed bars are canonical for realtime runtime behavior.

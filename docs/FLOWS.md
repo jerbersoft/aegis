@@ -4,6 +4,12 @@ This document captures step-by-step runtime behavior for the system.
 
 It is intentionally flow-focused. Ownership rules and module boundaries belong in `docs/ARCHITECTURE.md`, while detailed MarketData policy belongs in `docs/modules/MARKET_DATA.md`.
 
+Current status note:
+
+- This document primarily describes target runtime behavior.
+- The currently implemented slice is `Universe` plus bootstrap auth, Aspire orchestration, and the `Aegis.Web` operator shell.
+- Current repo reality should be read alongside `docs/STATUS.md`.
+
 ## 1) Scope
 
 This document covers:

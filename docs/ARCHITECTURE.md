@@ -8,12 +8,21 @@ It is intentionally architecture-focused. Detailed runtime behavior belongs in `
 
 Current repository reality:
 
-- `src/` is currently empty.
-- `tests/` is not yet present.
-- `aegis.sln` currently includes only the read-only reference project under `lib/CSharpApi`.
+- The repository contains a working bootstrap implementation centered on `Aegis.Backend`, `Aegis.Web`, `Aegis.Universe`, and `.NET Aspire` orchestration.
+- Unit and integration tests exist for the current `Universe` slice.
 - `lib/` is third-party/reference material and is not part of the first-party business architecture.
 
-This document describes the intended target architecture for the first-party system, not the repo's current implementation footprint.
+Current implemented slice:
+
+- `.NET Aspire` orchestration is in place.
+- `Universe` is the first implemented business module.
+- `Aegis.Web` is implemented as a separate Next.js application.
+- Auth is currently a bootstrap cookie-auth flow intended to unblock v1 operator workflows.
+- `MarketData`, `Strategies`, `Orders`, `Portfolio`, and `Infrastructure` business modules remain target architecture work rather than implemented modules.
+
+This document describes the target architecture while recording only the current architectural facts needed for context.
+
+For the full current implementation inventory and verification history, see `docs/STATUS.md`.
 
 ## 2) Architecture Overview
 
@@ -21,6 +30,7 @@ This document describes the intended target architecture for the first-party sys
 - The UI is a separate application and is outside backend module boundaries.
 - All backend modules run inside a single `ASP.NET` process.
 - Brokerage integration and market data integration remain isolated from business modules through adapter boundaries.
+- System orchestration uses `.NET Aspire`.
 
 Target physical solution layout:
 
@@ -30,7 +40,48 @@ Target physical solution layout:
 - Tests live under `tests/`.
 - Third-party reference code in `lib/` remains read-only.
 
-## 3) Module Isolation Rules
+## 3) Key architectural decisions
+
+### `Universe` depends on shared symbol-reference contracts, not `MarketData`
+
+- `Universe` validates first-time symbol introduction through `ISymbolReferenceProvider` in `Aegis.Shared`.
+- `Universe` does not depend directly on `MarketData`.
+- This avoids circular dependency while preserving the intended module boundary.
+
+### `.NET Aspire` is the required local orchestration model
+
+- Local orchestration uses `.NET Aspire`.
+- `Aegis.AppHost` orchestrates PostgreSQL, pgAdmin, backend startup, and `Aegis.Web` startup.
+
+### `Aegis.Backend` is the backend composition root
+
+- `Aegis.Backend` remains the backend host and composition root for first-party backend code.
+- Module and adapter references are centralized there.
+
+### `Aegis.Web` is a separate frontend application
+
+- The frontend stack is Next.js App Router + TypeScript + Tailwind CSS.
+- Authentication uses backend cookie session behavior.
+- The current UI direction is dark-theme-first.
+
+### `Execution` is seeded, protected, and fail-closed
+
+- `Execution` is a seeded system watchlist.
+- It cannot be renamed or deleted.
+- Removing a symbol from `Execution` is blocked by active strategy, open position, or open orders.
+- If blocker state cannot be determined safely, removal fails closed.
+
+### Bootstrap stubs are allowed only when they preserve final architecture shape
+
+- The current fake symbol-reference provider and fake execution-removal guard service are acceptable because they preserve the intended contract boundaries.
+- They must later be replaced without changing `Universe` business logic contracts.
+
+### Primary operator-facing `Universe` reads avoid paging
+
+- Watchlists and primary symbol/workspace reads return full result sets rather than server-driven paging.
+- Search/filter-heavy operator workflows are preferred over paging for the main watchlist experience.
+
+## 4) Module Isolation Rules
 
 - Modules must not reference each other directly.
 - Modules communicate through shared contracts and in-process messaging only.
@@ -47,7 +98,7 @@ Project and namespace conventions:
 - Adapter projects use adapter-qualified names such as `Aegis.Adapters.IBKR` and `Aegis.Adapters.Alpaca`.
 - The shared project name is `Aegis.Shared`.
 
-## 4) Messaging Model
+## 5) Messaging Model
 
 - Cross-module communication uses strongly typed, in-process channels.
 - Modules publish and consume normalized messages rather than vendor-specific payloads.
@@ -55,7 +106,7 @@ Project and namespace conventions:
 - Message namespaces are split by purpose into `Commands`, `Queries`, and `Events`.
 - Message type suffixes are mandatory: `Command`, `Query`, `Result`, and `Event`.
 
-## 5) Target Backend Modules
+## 6) Target Backend Modules
 
 - `MarketData`: owns market data ingestion, finalized bars, warmup, gap detection and repair, indicators, shared runtime state, and readiness.
 - `Universe`: owns symbols, watchlists, and symbol eligibility for the seeded `Execution` watchlist.
@@ -66,6 +117,8 @@ Project and namespace conventions:
 
 Target first-party project layout:
 
+- `src/Aegis.AppHost`: Aspire orchestration host for local development/runtime composition
+- `src/Aegis.ServiceDefaults`: shared Aspire service defaults and telemetry wiring
 - `src/Aegis.Backend`: `ASP.NET` host, API endpoints, SignalR endpoints, and composition root
 - `src/Aegis.Shared`: shared contracts, integration ports, enums, primitives, and normalized DTOs
 - `src/modules/Aegis.MarketData`
@@ -85,7 +138,7 @@ Recommended module internal structure:
 - `Configuration/`
 - `Messaging/`
 
-## 6) Adapter Boundaries
+## 7) Adapter Boundaries
 
 - Broker-specific integrations live outside the modules folder.
 - `IBKR` connectivity is implemented in a separate adapter project under `src/adapters/`.
@@ -94,15 +147,21 @@ Recommended module internal structure:
 - Business modules must not depend on vendor SDK types or vendor-specific models.
 - Adapters own vendor authentication, symbol translation, pagination and rate-limit handling, polling when required, and normalization into shared contracts.
 
-For v1, `MarketData` uses three provider-facing abstractions:
+For v1, `MarketData` uses four provider-facing abstractions:
 
 - historical bar provider
 - realtime market data provider
 - provider capabilities contract
+- symbol reference provider
 
 Detailed provider contract semantics live in `docs/modules/MARKET_DATA.md` and `docs/contracts/MARKET_DATA_PROVIDER_CONTRACTS.md`.
 
-## 7) Ownership Rules
+Current bootstrap adapter reality:
+
+- `Aegis.Adapters.Alpaca` currently supplies a fake `ISymbolReferenceProvider` implementation for `Universe` symbol validation bootstrap.
+- A real provider-backed symbol-reference implementation remains future work.
+
+## 8) Ownership Rules
 
 - `Universe` owns symbol and watchlist management independently of `MarketData`.
 - The `Universe` is the distinct set of symbols that appear in any watchlist.
@@ -130,7 +189,7 @@ Detailed readiness payloads and wire contracts live in `docs/contracts/MARKET_DA
 
 Detailed MarketData operability and provider-contract expectations live in `docs/modules/MARKET_DATA.md` and `docs/contracts/MARKET_DATA_PROVIDER_CONTRACTS.md`.
 
-## 8) Connectivity and Engine Control
+## 9) Connectivity and Engine Control
 
 - `Infrastructure` is the single source of truth for broker and market data connectivity health.
 - If broker or market data connectivity drops, strategies and order activity must pause.
@@ -140,14 +199,21 @@ Detailed MarketData operability and provider-contract expectations live in `docs
 
 Detailed recovery flow lives in `docs/FLOWS.md`.
 
-## 9) Configuration Ownership
+## 10) Configuration Ownership
 
 - System-wide and application-wide settings are owned by `Infrastructure`.
 - Module-specific configuration is owned by the module it applies to.
 - Each module exposes its own DI wiring from its `Configuration/` area.
 - `Aegis.Backend` remains the top-level composition root.
+- `Aegis.AppHost` owns local orchestration wiring for PostgreSQL, pgAdmin, backend startup, and `Aegis.Web` startup.
 
-## 10) Persistence Boundaries
+Current local runtime wiring:
+
+- `Aegis.AppHost` provisions PostgreSQL and pgAdmin.
+- `Aegis.Backend` receives database and CORS configuration through Aspire environment wiring.
+- `Aegis.Web` runs as an npm app under Aspire with the backend base URL injected through environment configuration.
+
+## 11) Persistence Boundaries
 
 - Each module owns its own `EF Core DbContext`.
 - Each module owns its own persistence models, mappings, and migrations.
@@ -166,7 +232,7 @@ MarketData persistence expectations:
 
 Detailed MarketData persistence policy lives in `docs/modules/MARKET_DATA.md`.
 
-## 11) Auditability
+## 12) Auditability
 
 The system persists audit records in the database.
 
@@ -179,7 +245,7 @@ Audit scope for v1:
 
 Audit records are retained indefinitely for v1 and do not require a dedicated UI in v1.
 
-## 12) Core Domain Entities
+## 13) Core Domain Entities
 
 Key v1 entities include:
 
@@ -204,7 +270,7 @@ Key v1 entities include:
 - `SystemSetting`
 - `AuditEvent`
 
-## 13) Related Documents
+## 14) Related Documents
 
 - `docs/PROJECT.md`: product scope and business requirements
 - `docs/FLOWS.md`: runtime and recovery behavior

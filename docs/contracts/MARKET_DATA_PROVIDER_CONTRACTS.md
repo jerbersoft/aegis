@@ -20,6 +20,12 @@ This document defines:
 
 This document does not define vendor-specific implementation details. Adapter projects translate these contracts into vendor-native SDK or HTTP/WebSocket behavior.
 
+Current status note:
+
+- This is still primarily a target-contract document.
+- The only currently implemented portion in active use is the shared symbol-reference contract used by `Universe` for first-time symbol introduction.
+- Historical-bar, realtime-provider, and capability contracts remain planned rather than fully implemented.
+
 ## 2) Design Principles
 
 - `MarketData` owns market-data business behavior, warmup, repair, readiness, and subscription intent.
@@ -38,6 +44,10 @@ For v1, `MarketData` uses four provider-facing abstractions:
 2. `realtime market data provider`
 3. `provider capabilities contract`
 4. `symbol reference provider`
+
+Current implementation note:
+
+- `symbol reference provider` is the only one currently exercised by the implemented bootstrap slice
 
 ### `IHistoricalBarProvider`
 

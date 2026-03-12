@@ -17,6 +17,7 @@ This document is UX-focused. Detailed module behavior, backend ownership, and co
 - v1 should prioritize clarity and operator confidence over configurability.
 - Placeholder/mock data is acceptable where backend modules are not yet implemented, as long as the UI clearly follows the intended structure.
 - Common CRUD-style actions should use standardized shared styling across all pages.
+- v1 should use a dark theme by default.
 
 ## 3) Global Application Flow
 
@@ -38,6 +39,14 @@ The top master navigation bar contains:
 - avatar menu with:
   - `Preferences`
   - `Logout`
+
+Current implemented routes:
+
+- `/login`
+- `/home`
+- `/watchlists`
+- `/preferences`
+- `/` redirects based on session state
 
 ## 4) Dashboard Experience
 
@@ -92,6 +101,8 @@ The Watchlists area is the primary operator workspace for managing symbols and t
 
 The Watchlists page uses a two-pane layout.
 
+v1 currently implements client-side search/filtering in both panes.
+
 #### Left pane
 
 Displays all watchlists.
@@ -131,12 +142,14 @@ Includes:
 - Uses a modal dialog.
 - Creates an empty user watchlist.
 - The trigger should use the shared primary `+ Add` action style.
+- The dialog should autofocus the name input.
 
 ### Rename watchlist
 
 - Uses a modal dialog.
 - Available only for user watchlists.
 - Not available for `Execution`.
+- The dialog should preload the current watchlist name.
 
 ### Delete watchlist
 
@@ -156,6 +169,7 @@ Includes:
 - If validation fails, the UI should show a clear failure message.
 - If symbol reference is unavailable, the UI should show that symbol validation is currently unavailable.
 - The trigger should use the same shared primary `+ Add` action style used for watchlist creation.
+- The dialog should autofocus the symbol input.
 
 ### Remove symbol from watchlist
 
@@ -177,6 +191,7 @@ The `Execution` watchlist is special and should feel special in the UI.
 - `Execution` is visibly system-owned.
 - `Execution` is pinned at the top of the watchlist list.
 - Rename/delete controls are hidden or disabled for `Execution`.
+- The full watchlist card is clickable/selectable, while rename/delete actions remain isolated from card selection.
 
 ### Removing symbols from `Execution`
 
@@ -235,6 +250,10 @@ v1 rules:
 - Delete-class actions use the shared destructive action style.
 - These styles should be implemented through shared UI primitives, not page-specific button styling.
 
+Current implementation note:
+
+- the standardized `+ Add` treatment is already used for watchlist and symbol creation actions
+
 Examples include:
 
 - add watchlist
@@ -290,7 +309,26 @@ The best first UI slice for v1 is:
 6. add symbol modal
 7. remove-from-`Execution` blocker modal
 
-## 16) Related Documents
+## 16) Current implementation status
+
+For the full implemented UI inventory, see `docs/STATUS.md`.
+
+Important UI-specific implementation choices already locked in:
+
+- dark-theme-first shell and pages
+- client-side watchlist and symbol search
+- clickable watchlist cards with isolated rename/delete actions
+- standardized add/edit/delete action styling
+- autofocus in create/add dialogs and prefilled rename dialog state
+
+Still intentionally placeholder or deferred:
+
+- dashboard operational data
+- market-data-driven symbol fields such as current price and percent change
+- deeper positions/orders drill-down behavior
+- realtime `SignalR` UI updates
+
+## 17) Related Documents
 
 - `docs/PROJECT.md`
 - `docs/ARCHITECTURE.md`

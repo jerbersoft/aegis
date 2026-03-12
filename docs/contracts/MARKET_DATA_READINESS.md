@@ -14,6 +14,11 @@ It defines:
 - readiness event payload shapes
 - naming conventions for internal notifications vs wire contracts
 
+Current status note:
+
+- These readiness contracts are documented target contracts.
+- They are not yet backed by a fully implemented first-party `MarketData` module in the repository.
+
 ## 2) Naming Conventions
 
 Use both conventions consistently for different concerns:

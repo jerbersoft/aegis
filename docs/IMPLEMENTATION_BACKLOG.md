@@ -2,9 +2,7 @@
 
 ## 1) Purpose
 
-This document breaks the v1 bootstrap plan into concrete implementation slices.
-
-It is intended to be execution-oriented and to complement `docs/IMPLEMENTATION_PLAN.md`.
+This document combines implementation strategy, current bootstrap progress, and concrete implementation slices.
 
 ## 2) Backlog Rules
 
@@ -14,9 +12,40 @@ It is intended to be execution-oriented and to complement `docs/IMPLEMENTATION_P
 - Each task should be small enough to validate clearly.
 - Acceptance criteria should focus on observable outcomes.
 
+Status values used below:
+
+- `complete`
+- `partial`
+- `next`
+- `deferred`
+
+### Delivery strategy
+
+- Keep the implementation sequence aligned with the documented modular-monolith boundaries.
+- Avoid circular dependencies between `Universe` and `MarketData` by depending on shared provider ports, not module-to-module references.
+- Deliver the smallest usable operator slice first.
+- Start with `Universe` and UI enablement before the full `MarketData` implementation.
+- Use temporary development-safe stubs only when they preserve the final architecture shape.
+
+### Backlog scope from the current state
+
+- The current implemented inventory and verification history live in `docs/STATUS.md`.
+- This document focuses on implementation sequencing, completed backlog items, and remaining work from that current state.
+
+### Foundational contracts already in place
+
+- `Universe` DTOs/requests/results
+- `ISymbolReferenceProvider`
+- `ValidateSymbolRequest`
+- `ValidatedSymbolResult`
+- shared watchlist-type enum
+- shared API error shape
+
 ## 3) Phase 1 — Foundation and Solution Setup
 
 ### Task 1.1 — Create initial solution projects
+
+Status: `complete`
 
 Goal:
 
@@ -40,6 +69,8 @@ Acceptance criteria:
 
 ### Task 1.2 — Define initial shared contracts
 
+Status: `complete`
+
 Goal:
 
 - Create the minimum shared contracts needed for `Universe` and the UI.
@@ -58,6 +89,8 @@ Acceptance criteria:
 - contracts match documented `Universe` and provider boundaries
 
 ### Task 1.3 — Backend auth/session bootstrap
+
+Status: `complete`
 
 Goal:
 
@@ -81,6 +114,8 @@ Acceptance criteria:
 
 ### Task 2.1 — Implement `FakeSymbolReferenceProvider`
 
+Status: `complete`
+
 Goal:
 
 - Unblock first-time symbol introduction before the real provider integration is ready.
@@ -98,6 +133,8 @@ Acceptance criteria:
 
 ### Task 2.2 — Wire symbol reference provider into backend composition
 
+Status: `complete`
+
 Goal:
 
 - Make the fake provider available to `Universe` in development.
@@ -114,6 +151,8 @@ Acceptance criteria:
 ## 5) Phase 3 — Universe Backend
 
 ### Task 3.1 — Implement Universe persistence
+
+Status: `complete`
 
 Goal:
 
@@ -135,6 +174,8 @@ Acceptance criteria:
 
 ### Task 3.2 — Implement watchlist commands
 
+Status: `complete`
+
 Goal:
 
 - Support watchlist create/rename/delete flows.
@@ -155,6 +196,8 @@ Acceptance criteria:
 
 ### Task 3.3 — Implement symbol add/remove workflows
 
+Status: `complete`
+
 Goal:
 
 - Support symbol membership management.
@@ -173,6 +216,8 @@ Acceptance criteria:
 
 ### Task 3.4 — Implement `Execution` removal guard flow
 
+Status: `partial`
+
 Goal:
 
 - Enforce `Execution` safety rules.
@@ -190,7 +235,15 @@ Acceptance criteria:
 - open orders block removal
 - unavailable blocker checks fail closed
 
+Current note:
+
+- the `Universe` side of the rule is implemented
+- the concrete backend guard service is still a fake bootstrap implementation
+- real cross-module blocker queries remain future work
+
 ### Task 3.5 — Implement assignment-detach coordination contract
+
+Status: `partial`
 
 Goal:
 
@@ -207,7 +260,14 @@ Acceptance criteria:
 - strategy assignment is detached as part of the same business operation
 - failure to detach blocks successful completion
 
+Current note:
+
+- service behavior and tests cover the contract shape
+- real `Strategies` integration remains future work
+
 ### Task 3.6 — Implement Universe REST endpoints
+
+Status: `complete`
 
 Goal:
 
@@ -231,6 +291,8 @@ Acceptance criteria:
 
 ### Task 4.1 — Universe unit tests
 
+Status: `complete`
+
 Goal:
 
 - Verify core `Universe` business rules.
@@ -249,6 +311,8 @@ Acceptance criteria:
 - meaningful rule-focused unit tests exist and pass
 
 ### Task 4.2 — Universe integration tests
+
+Status: `complete`
 
 Goal:
 
@@ -269,6 +333,8 @@ Acceptance criteria:
 
 ### Task 5.1 — Create app shell and route structure
 
+Status: `complete`
+
 Goal:
 
 - Establish the core web application layout.
@@ -288,6 +354,8 @@ Acceptance criteria:
 
 ### Task 5.2 — Implement login UX
 
+Status: `complete`
+
 Goal:
 
 - Deliver the simple v1 login flow.
@@ -305,6 +373,8 @@ Acceptance criteria:
 - logout returns the user to `/login`
 
 ### Task 5.3 — Implement dashboard placeholder UX
+
+Status: `complete`
 
 Goal:
 
@@ -324,6 +394,8 @@ Acceptance criteria:
 
 ### Task 6.1 — Build watchlists page shell
 
+Status: `complete`
+
 Goal:
 
 - Deliver the two-pane watchlists workspace.
@@ -342,6 +414,8 @@ Acceptance criteria:
 
 ### Task 6.2 — Build watchlist dialogs
 
+Status: `complete`
+
 Goal:
 
 - Support create/rename/delete user watchlists.
@@ -358,6 +432,8 @@ Acceptance criteria:
 - `Execution` rename/delete controls are not available
 
 ### Task 6.3 — Build symbol management dialogs
+
+Status: `complete`
 
 Goal:
 
@@ -377,6 +453,8 @@ Acceptance criteria:
 
 ### Task 6.4 — Build `Execution` blocker modal
 
+Status: `complete`
+
 Goal:
 
 - Surface guarded removal details to the operator.
@@ -394,6 +472,8 @@ Acceptance criteria:
 
 ### Task 6.5 — Add symbol table presentation
 
+Status: `partial`
+
 Goal:
 
 - Render the symbol list according to the UX spec.
@@ -408,9 +488,16 @@ Acceptance criteria:
 - symbol list matches documented v1 UI shape
 - in-execution indicator is visible and understandable
 
+Current note:
+
+- ticker, execution indicator, and actions are present
+- market-data-driven fields remain placeholder/null until later module integration
+
 ## 9) Phase 7 — Universe UI Integration Hardening
 
 ### Task 7.1 — Replace mock watchlist data with live backend data
+
+Status: `complete`
 
 Goal:
 
@@ -423,6 +510,8 @@ Acceptance criteria:
 
 ### Task 7.2 — Add structured API error handling
 
+Status: `partial`
+
 Goal:
 
 - Handle backend validation and domain-state failures consistently.
@@ -433,9 +522,16 @@ Acceptance criteria:
 - blocked `Execution` removals display properly
 - symbol-reference-unavailable failures display clearly
 
+Current note:
+
+- current UI surfaces backend messages and blocker modal behavior
+- broader error normalization and hardening remain useful follow-up work
+
 ## 10) Phase 8 — MarketData Bootstrap After Universe
 
 ### Task 8.1 — Implement real `ISymbolReferenceProvider`
+
+Status: `next`
 
 Goal:
 
@@ -448,6 +544,8 @@ Acceptance criteria:
 
 ### Task 8.2 — Start `MarketData` bootstrap
 
+Status: `next`
+
 Goal:
 
 - Begin `MarketData` implementation using the already-delivered `Universe` contracts and memberships.
@@ -458,7 +556,17 @@ Acceptance criteria:
 
 ## 11) Related Documents
 
-- `docs/IMPLEMENTATION_PLAN.md`
+- `docs/ARCHITECTURE.md`
 - `docs/UX.md`
 - `docs/modules/UNIVERSE.md`
 - `docs/modules/MARKET_DATA.md`
+
+## 12) Immediate follow-up backlog candidates
+
+Recommended next work to preserve context:
+
+1. replace fake symbol-reference validation with a real provider-backed implementation
+2. replace fake execution-removal guard service with real cross-module query contracts
+3. decide and document the realtime `SignalR` integration path for market-data-driven watchlist fields
+4. begin `MarketData` implementation using the already documented provider and readiness contracts
+5. begin `Strategies` planning and initial contracts because `Execution` rules already depend on it conceptually
