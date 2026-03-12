@@ -1,0 +1,20 @@
+<Project Sdk="Aspire.AppHost.Sdk/13.1.0">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Aegis.Backend\Aegis.Backend.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Aspire.Hosting.NodeJs" Version="9.5.0" />
+    <PackageReference Include="Aspire.Hosting.PostgreSQL" Version="9.5.0" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <UserSecretsId>c926f018-c9dd-4300-8c8d-e7432c59fc73</UserSecretsId>
+  </PropertyGroup>
+
+</Project>

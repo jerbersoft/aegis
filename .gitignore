@@ -36,6 +36,11 @@ bld/
 
 # Build results on 'Bin' directories
 **/[Bb]in/*
+# Some tools may emit malformed Windows-style artifact directory names on Unix-like systems.
+**/[Bb]in\\*/
+**/[Oo]bj\\*/
+**/*\\[Dd]ebug/
+**/*\\[Rr]elease/
 # Uncomment if you have tasks that rely on *.refresh files to move binaries
 # (https://github.com/github/gitignore/pull/3736)
 #!**/[Bb]in/*.refresh
@@ -403,6 +408,7 @@ FodyWeavers.xsd
 !.vscode/launch.json
 !.vscode/extensions.json
 !.vscode/*.code-snippets
+.idea/
 
 # Local History for Visual Studio Code
 .history/

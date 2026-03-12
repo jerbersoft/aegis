@@ -198,6 +198,7 @@ Deferred for later definition:
 
 - `docs/ARCHITECTURE.md`: target system architecture, module boundaries, persistence ownership, and adapters
 - `docs/IMPLEMENTATION_PLAN.md`: recommended v1 bootstrap sequence, project structure, and first implementation slices
+- `docs/IMPLEMENTATION_BACKLOG.md`: concrete phased backend/UI tasks and acceptance criteria for v1 bootstrap
 - `docs/FLOWS.md`: startup, readiness, recovery, and live runtime behavior
 - `docs/UX.md`: v1 operator experience, screens, and UI workflow expectations
 - `docs/modules/MARKET_DATA.md`: MarketData module policy and detailed v1 design
