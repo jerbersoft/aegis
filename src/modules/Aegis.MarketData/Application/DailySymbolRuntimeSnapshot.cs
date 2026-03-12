@@ -12,6 +12,9 @@ public sealed record DailySymbolRuntimeSnapshot(
     string ReadinessState,
     string ReasonCode,
     Instant LastStateChangedUtc,
+    bool HasBenchmarkDependency,
+    string? BenchmarkSymbol,
+    string? BenchmarkReadinessState,
     IReadOnlyList<DailyBarView> Bars)
 {
     public DailySymbolReadinessView ToView(Instant asOfUtc) =>
@@ -22,6 +25,9 @@ public sealed record DailySymbolRuntimeSnapshot(
             ReadinessState,
             ReasonCode,
             AvailableBarCount >= RequiredBarCount,
+            HasBenchmarkDependency,
+            BenchmarkSymbol,
+            BenchmarkReadinessState,
             RequiredBarCount,
             AvailableBarCount,
             LastFinalizedBarUtc,

@@ -32,6 +32,7 @@ Implemented bootstrap pieces now include:
 - daily runtime/readiness snapshots for required symbols under the `daily_core` profile
 - daily rollup readiness and per-symbol daily readiness REST reads
 - bootstrap-driven missing-history backfill for required daily symbols before final readiness is reported
+- benchmark-aware daily readiness for `daily_core`, including `SPY` dependency expansion and benchmark-caused not-ready state
 
 Current local-runtime note:
 
@@ -40,7 +41,7 @@ Current local-runtime note:
 
 Recommended immediate next implementation slice:
 
-- after the new daily runtime/readiness foundation, continue with the next `MarketData` slice for deeper readiness semantics and eventual intraday runtime/realtime ingestion work
+- after the benchmark-aware daily readiness layer, continue with the next `MarketData` slice for deeper readiness semantics and eventual intraday/runtime expansion
 
 This document should therefore be read as target design layered on top of the now-implemented daily bootstrap foundation.
 

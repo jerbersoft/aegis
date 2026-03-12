@@ -29,11 +29,11 @@ public sealed class MarketDataBootstrapServiceTests
         var status = await service.RunWarmupAsync(CancellationToken.None);
 
         status.ReadinessState.ShouldBe("ready");
-        status.DailyDemandSymbolCount.ShouldBe(1);
-        status.WarmedSymbolCount.ShouldBe(1);
-        status.ReadySymbolCount.ShouldBe(1);
+        status.DailyDemandSymbolCount.ShouldBe(2);
+        status.WarmedSymbolCount.ShouldBe(2);
+        status.ReadySymbolCount.ShouldBe(2);
         status.NotReadySymbolCount.ShouldBe(0);
-        status.PersistedBarCount.ShouldBeGreaterThanOrEqualTo(DailyMarketDataHydrationService.DailyCoreRequiredBarCount);
+        status.PersistedBarCount.ShouldBeGreaterThanOrEqualTo(DailyMarketDataHydrationService.DailyCoreRequiredBarCount * 2);
 
         var dailyBars = await service.GetDailyBarsAsync("AAPL", CancellationToken.None);
         dailyBars.ShouldNotBeNull();
@@ -82,6 +82,7 @@ public sealed class MarketDataBootstrapServiceTests
         var clock = new FakeClock(Instant.FromUtc(2026, 3, 12, 13, 0));
 
         SeedBars(dbContext, "AAPL", 220, clock.GetCurrentInstant());
+        SeedBars(dbContext, DailyMarketDataDemandExpander.BenchmarkSymbol, 220, clock.GetCurrentInstant());
         await dbContext.SaveChangesAsync();
 
         var hydrationService = new DailyMarketDataHydrationService(dbContext, demandReader, runtimeStore, clock);
@@ -94,6 +95,9 @@ public sealed class MarketDataBootstrapServiceTests
         readiness.ReadinessState.ShouldBe("ready");
         readiness.RequiredBarCount.ShouldBe(DailyMarketDataHydrationService.DailyCoreRequiredBarCount);
         readiness.AvailableBarCount.ShouldBe(220);
+        readiness.HasBenchmarkDependency.ShouldBeTrue();
+        readiness.BenchmarkSymbol.ShouldBe(DailyMarketDataDemandExpander.BenchmarkSymbol);
+        readiness.BenchmarkReadinessState.ShouldBe("ready");
     }
 
     [Fact]
@@ -117,6 +121,31 @@ public sealed class MarketDataBootstrapServiceTests
         readiness.ReadinessState.ShouldBe("not_ready");
         readiness.ReasonCode.ShouldBe("missing_required_bars");
         readiness.AvailableBarCount.ShouldBe(50);
+    }
+
+    [Fact]
+    public async Task GetDailyReadinessAsync_ShouldReturnBenchmarkNotReady_WhenBenchmarkHistoryIsInsufficient()
+    {
+        await using var dbContext = CreateDbContext();
+        var runtimeStore = new MarketDataDailyRuntimeStore();
+        var demandReader = new StubDemandReader(["AAPL"]);
+        var clock = new FakeClock(Instant.FromUtc(2026, 3, 12, 13, 0));
+
+        SeedBars(dbContext, "AAPL", 220, clock.GetCurrentInstant());
+        SeedBars(dbContext, DailyMarketDataDemandExpander.BenchmarkSymbol, 50, clock.GetCurrentInstant());
+        await dbContext.SaveChangesAsync();
+
+        var hydrationService = new DailyMarketDataHydrationService(dbContext, demandReader, runtimeStore, clock);
+        var service = new MarketDataBootstrapService(dbContext, demandReader, new StubHistoricalBarProvider(), new MarketDataBootstrapStateStore(), hydrationService, runtimeStore, clock);
+
+        await hydrationService.RebuildAsync(cancellationToken: CancellationToken.None);
+        var readiness = await service.GetDailyReadinessAsync("AAPL", CancellationToken.None);
+
+        readiness.ShouldNotBeNull();
+        readiness.ReadinessState.ShouldBe("not_ready");
+        readiness.ReasonCode.ShouldBe("benchmark_not_ready");
+        readiness.BenchmarkSymbol.ShouldBe(DailyMarketDataDemandExpander.BenchmarkSymbol);
+        readiness.BenchmarkReadinessState.ShouldBe("not_ready");
     }
 
     [Fact]
@@ -144,9 +173,7 @@ public sealed class MarketDataBootstrapServiceTests
         var readiness = await service.GetDailyReadinessAsync("AAPL", CancellationToken.None);
 
         status.ReadinessState.ShouldBe("ready");
-        provider.LastRequest.ShouldNotBeNull();
-        provider.LastRequest.ToUtc.ShouldNotBeNull();
-        provider.LastRequest.ToUtc.Value.ShouldBe(Instant.FromUtc(2025, 1, 1, 0, 0));
+        provider.Requests.ShouldContain(x => x.Symbol == "AAPL" && x.ToUtc == Instant.FromUtc(2025, 1, 1, 0, 0));
         readiness.ShouldNotBeNull();
         readiness.ReadinessState.ShouldBe("ready");
         readiness.AvailableBarCount.ShouldBeGreaterThanOrEqualTo(DailyMarketDataHydrationService.DailyCoreRequiredBarCount);
@@ -176,15 +203,20 @@ public sealed class MarketDataBootstrapServiceTests
 
     private sealed class BackfillHistoricalBarProvider : IHistoricalBarProvider
     {
-        public HistoricalBarRequest? LastRequest { get; private set; }
+        public List<HistoricalBarRequest> Requests { get; } = [];
 
         public Task<HistoricalBarBatchResult> GetDailyBarsAsync(HistoricalBarRequest request, CancellationToken cancellationToken)
         {
-            LastRequest = request;
-            var bars = Enumerable.Range(0, 140)
+            Requests.Add(request);
+            var count = string.Equals(request.Symbol, DailyMarketDataDemandExpander.BenchmarkSymbol, StringComparison.OrdinalIgnoreCase) ? 220 : 140;
+            var start = string.Equals(request.Symbol, DailyMarketDataDemandExpander.BenchmarkSymbol, StringComparison.OrdinalIgnoreCase)
+                ? Instant.FromUtc(2025, 1, 1, 0, 0)
+                : Instant.FromUtc(2024, 8, 1, 0, 0);
+
+            var bars = Enumerable.Range(0, count)
                 .Select(index =>
                 {
-                    var barTime = Instant.FromUtc(2024, 8, 1, 0, 0) + Duration.FromDays(index);
+                    var barTime = start + Duration.FromDays(index);
                     return new HistoricalBarRecord(request.Symbol, "1day", barTime, 100 + index, 101 + index, 99 + index, 100 + index, 1000 + index, "regular", barTime.InUtc().Date, "reconciled", true);
                 })
                 .ToArray();

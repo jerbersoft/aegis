@@ -72,6 +72,7 @@ export function MarketDataWidget() {
                 {readinessSymbols.slice(0, 5).map((symbol) => (
                   <p key={symbol.symbol}>
                     <span className="font-semibold text-slate-100">{symbol.symbol}</span>: {symbol.readinessState} ({symbol.availableBarCount}/{symbol.requiredBarCount})
+                    {symbol.hasBenchmarkDependency && symbol.benchmarkSymbol ? ` • benchmark ${symbol.benchmarkSymbol}: ${symbol.benchmarkReadinessState ?? "unknown"}` : ""}
                   </p>
                 ))}
               </div>

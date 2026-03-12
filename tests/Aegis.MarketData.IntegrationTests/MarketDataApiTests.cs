@@ -88,10 +88,33 @@ public sealed class MarketDataApiTests : IClassFixture<WebApplicationFactory<Pro
                 services.AddScoped<IHistoricalBarProvider, BackfillHistoricalBarProvider>();
             });
         });
+
+        _benchmarkBlockedFactory = factory.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureAppConfiguration((_, configBuilder) =>
+            {
+                configBuilder.AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["ConnectionStrings:DefaultConnection"] = postgres.ConnectionString,
+                    ["ConnectionStrings:Universe"] = postgres.ConnectionString,
+                    ["ConnectionStrings:MarketData"] = postgres.ConnectionString,
+                    ["Alpaca:SymbolReference:UseFakeProvider"] = "true"
+                });
+            });
+
+            builder.ConfigureServices(services =>
+            {
+                services.RemoveAll<ISymbolReferenceProvider>();
+                services.AddScoped<ISymbolReferenceProvider, FakeSymbolReferenceProvider>();
+                services.RemoveAll<IHistoricalBarProvider>();
+                services.AddScoped<IHistoricalBarProvider, BenchmarkBlockedHistoricalBarProvider>();
+            });
+        });
     }
 
     private readonly WebApplicationFactory<Program> _readyFactory;
     private readonly WebApplicationFactory<Program> _backfillFactory;
+    private readonly WebApplicationFactory<Program> _benchmarkBlockedFactory;
 
     [Fact]
     public async Task RunBootstrap_ShouldWarmPersistedBars_ForUniverseSymbols()
@@ -114,13 +137,14 @@ public sealed class MarketDataApiTests : IClassFixture<WebApplicationFactory<Pro
         status.ReadinessState.ShouldBe("not_ready");
         status.ReasonCode.ShouldBe("missing_required_bars");
         status.DemandSymbols.ShouldContain("AAPL");
+        status.DemandSymbols.ShouldContain(DailyMarketDataDemandExpander.BenchmarkSymbol);
         status.PersistedBarCount.ShouldBeGreaterThan(0);
-        status.NotReadySymbolCount.ShouldBe(1);
+        status.NotReadySymbolCount.ShouldBe(2);
 
         var rollup = await client.GetAegisJsonAsync<DailyUniverseReadinessView>("/api/market-data/daily/readiness");
         rollup.ShouldNotBeNull();
-        rollup.TotalSymbolCount.ShouldBe(1);
-        rollup.NotReadySymbolCount.ShouldBe(1);
+        rollup.TotalSymbolCount.ShouldBe(2);
+        rollup.NotReadySymbolCount.ShouldBe(2);
         rollup.Symbols.ShouldContain(x => x.Symbol == "AAPL" && x.ReadinessState == "not_ready");
     }
 
@@ -144,6 +168,9 @@ public sealed class MarketDataApiTests : IClassFixture<WebApplicationFactory<Pro
         symbolReadiness.ShouldNotBeNull();
         symbolReadiness.ReadinessState.ShouldBe("ready");
         symbolReadiness.AvailableBarCount.ShouldBeGreaterThanOrEqualTo(DailyHistoryHistoricalBarProvider.ReadyBarCount);
+        symbolReadiness.HasBenchmarkDependency.ShouldBeTrue();
+        symbolReadiness.BenchmarkSymbol.ShouldBe(DailyMarketDataDemandExpander.BenchmarkSymbol);
+        symbolReadiness.BenchmarkReadinessState.ShouldBe("ready");
     }
 
     [Fact]
@@ -170,6 +197,30 @@ public sealed class MarketDataApiTests : IClassFixture<WebApplicationFactory<Pro
         symbolReadiness.ShouldNotBeNull();
         symbolReadiness.ReadinessState.ShouldBe("ready");
         symbolReadiness.AvailableBarCount.ShouldBeGreaterThanOrEqualTo(DailyMarketDataHydrationService.DailyCoreRequiredBarCount);
+    }
+
+    [Fact]
+    public async Task DailyReadiness_ShouldShowBenchmarkNotReady_WhenBenchmarkHistoryIsInsufficient()
+    {
+        using var client = await CreateAuthenticatedClientAsync(_benchmarkBlockedFactory);
+
+        var watchlist = await client.PostAsJsonAsync("/api/universe/watchlists", new CreateWatchlistRequest("MarketDataBenchmarkBlocked"));
+        watchlist.StatusCode.ShouldBe(HttpStatusCode.Created);
+        var createdWatchlist = await watchlist.Content.ReadAegisJsonAsync<WatchlistDetailView>();
+        createdWatchlist.ShouldNotBeNull();
+
+        var addSymbol = await client.PostAsJsonAsync($"/api/universe/watchlists/{createdWatchlist.WatchlistId}/symbols", new AddSymbolToWatchlistRequest("MSFT"));
+        addSymbol.StatusCode.ShouldBe(HttpStatusCode.Created);
+
+        var bootstrapResponse = await client.PostAsync("/api/market-data/bootstrap/run", null);
+        bootstrapResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        var symbolReadiness = await client.GetAegisJsonAsync<DailySymbolReadinessView>("/api/market-data/daily/readiness/MSFT");
+        symbolReadiness.ShouldNotBeNull();
+        symbolReadiness.ReadinessState.ShouldBe("not_ready");
+        symbolReadiness.ReasonCode.ShouldBe("benchmark_not_ready");
+        symbolReadiness.BenchmarkSymbol.ShouldBe(DailyMarketDataDemandExpander.BenchmarkSymbol);
+        symbolReadiness.BenchmarkReadinessState.ShouldBe("not_ready");
     }
 
     private async Task<HttpClient> CreateAuthenticatedClientAsync(WebApplicationFactory<Program>? factory = null)
@@ -225,6 +276,23 @@ public sealed class MarketDataApiTests : IClassFixture<WebApplicationFactory<Pro
                 .Select(index =>
                 {
                     var barTime = Instant.FromUtc(2024, 8, 1, 0, 0) + Duration.FromDays(index);
+                    return new HistoricalBarRecord(request.Symbol, "1day", barTime, 100 + index, 101 + index, 99 + index, 100 + index, 1000 + index, "regular", barTime.InUtc().Date, "reconciled", true);
+                })
+                .ToArray();
+
+            return Task.FromResult(HistoricalBarBatchResult.Success(request.Symbol, "1day", bars, "fake", "iex"));
+        }
+    }
+
+    private sealed class BenchmarkBlockedHistoricalBarProvider : IHistoricalBarProvider
+    {
+        public Task<HistoricalBarBatchResult> GetDailyBarsAsync(HistoricalBarRequest request, CancellationToken cancellationToken)
+        {
+            var count = string.Equals(request.Symbol, DailyMarketDataDemandExpander.BenchmarkSymbol, StringComparison.OrdinalIgnoreCase) ? 50 : 220;
+            var bars = Enumerable.Range(0, count)
+                .Select(index =>
+                {
+                    var barTime = Instant.FromUtc(2025, 1, 1, 0, 0) + Duration.FromDays(index);
                     return new HistoricalBarRecord(request.Symbol, "1day", barTime, 100 + index, 101 + index, 99 + index, 100 + index, 1000 + index, "regular", barTime.InUtc().Date, "reconciled", true);
                 })
                 .ToArray();

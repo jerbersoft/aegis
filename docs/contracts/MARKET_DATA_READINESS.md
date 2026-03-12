@@ -19,6 +19,7 @@ Current status note:
 - These readiness contracts remain broader target contracts for the full MarketData design.
 - The repository now implements a narrower first daily-readiness slice backed by first-party `MarketData` runtime state and REST endpoints.
 - The currently implemented slice covers daily rollup readiness and per-symbol daily readiness for the `daily_core` profile.
+- The currently implemented slice now includes benchmark-aware daily readiness metadata for `daily_core`, including explicit benchmark dependency state in per-symbol readiness payloads.
 
 ## 2) Naming Conventions
 

@@ -24,10 +24,9 @@ public sealed class MarketDataBootstrapService(
 
     public async Task<MarketDataBootstrapStatusView> RunWarmupAsync(CancellationToken cancellationToken)
     {
-        var demand = await demandReader.GetDailyDemandAsync(cancellationToken);
+        var demand = DailyMarketDataDemandExpander.Expand(await demandReader.GetDailyDemandAsync(cancellationToken));
         var symbols = demand
-            .Select(x => x.Symbol.Trim().ToUpperInvariant())
-            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Select(x => x.Symbol)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .OrderBy(x => x, StringComparer.OrdinalIgnoreCase)
             .ToArray();

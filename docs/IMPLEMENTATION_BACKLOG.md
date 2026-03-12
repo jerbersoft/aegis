@@ -1076,3 +1076,203 @@ Minimum validation expected from the implementer:
 - `npm run lint` in `src/Aegis.Web`
 - `npm run build` in `src/Aegis.Web`
 - direct browser verification of the updated Home `MarketData` widget flow
+
+### Task 12.2 — Add benchmark-aware daily readiness semantics
+
+Status:
+
+- implemented
+
+#### Goal
+
+Extend the current daily runtime/readiness foundation so `MarketData` can model benchmark-aware daily readiness rather than treating every symbol as independently ready based only on its own bar count.
+
+This slice should make daily readiness explicitly aware of benchmark dependencies such as `SPY`, while still remaining daily-only and stopping short of intraday runtime or realtime ingestion.
+
+#### Why this task is next
+
+Current implementation now provides:
+
+- structured daily demand under the `daily_core` profile
+- in-memory daily runtime/readiness snapshots
+- bootstrap-driven missing-history fulfillment
+- rollup and per-symbol daily readiness APIs
+- Home widget visibility for current readiness state
+
+What is still missing is the next semantic layer that the module design already anticipates:
+
+- benchmark symbols are documented as valid warmup dependencies
+- `rs_50` is documented as benchmark-relative with default benchmark `SPY`
+- current readiness does not yet distinguish benchmark dependency state from ordinary missing-history state
+- current demand shape has room for dependency tiers but does not yet emit benchmark dependency entries
+
+#### Scope
+
+In scope:
+
+- extend daily demand modeling to include benchmark dependency symbols
+- add benchmark-aware readiness evaluation for the daily profile
+- introduce benchmark-related reason codes where appropriate
+- expose benchmark dependency information through daily readiness contracts
+- make the Home widget surface benchmark-caused not-ready state clearly
+- keep benchmark dependency logic explicit and deterministic in API payloads and runtime snapshots
+
+Out of scope for this slice:
+
+- intraday runtime
+- realtime/streaming ingestion
+- `SignalR`
+- full indicator engine implementation
+- full scanner inclusion/exclusion logic
+- repair queue/orchestration
+- trading readiness or operational readiness
+
+#### Recommended design constraints
+
+- keep this slice daily-only
+- keep `Universe` as the source of primary watchlist demand only
+- let `MarketData` own benchmark dependency expansion and readiness semantics
+- keep benchmark dependencies explicit in runtime state rather than hidden implicit side effects
+- continue using `NodaTime`
+- keep the fake-provider AppHost bootstrap path confined to local bootstrap/runtime orchestration
+
+#### Recommended readiness behavior
+
+Continue using the `daily_core` profile but extend its semantics as follows:
+
+- a watchlist-demanded symbol is `ready` only when:
+  - it has the required daily bars for `daily_core`, and
+  - its configured benchmark dependency is also daily-ready
+- a benchmark dependency symbol is itself evaluated for daily bar sufficiency like any other symbol
+- if a symbol depends on a benchmark that is not ready, the symbol should be `not_ready` with `benchmark_not_ready`
+- if a symbol requires a benchmark symbol that is not present in runtime/demand expansion, the symbol should be `not_ready` with `gap_benchmark_dependency`
+
+Recommended benchmark defaults for this slice:
+
+- benchmark symbol: `SPY`
+- benchmark dependency enabled for `daily_core`
+
+#### Recommended contract changes
+
+Extend `DailySymbolReadinessView` with:
+
+- `has_benchmark_dependency`
+- `benchmark_symbol`
+- `benchmark_readiness_state`
+
+Extend `DailyUniverseReadinessView` only if necessary for summary visibility; keep the top-level contract small unless a strong reason emerges.
+
+#### Recommended internal/runtime changes
+
+Extend demand/runtime modeling with:
+
+- benchmark-demand expansion in `MarketData`
+- symbol snapshot awareness of benchmark dependency metadata
+- rollup logic that treats benchmark-driven not-ready states as first-class readiness failures
+
+Recommended runtime additions:
+
+- benchmark dependency expansion helper/service
+- benchmark-aware symbol snapshot builder logic in `DailyMarketDataHydrationService`
+
+#### Recommended API/UI changes
+
+Backend:
+
+- keep existing readiness endpoints stable
+- enrich per-symbol readiness payloads with benchmark dependency fields
+
+UI:
+
+- extend the Home widget detail rows so benchmark-caused not-ready states are understandable
+- if a symbol is blocked by benchmark readiness, show the benchmark symbol and reason in a concise operator-visible way
+
+#### Recommended implementation phases
+
+1. Extend shared readiness contracts for benchmark dependency visibility.
+2. Add benchmark dependency expansion to the daily demand/runtime model.
+3. Update daily hydration/readiness computation to account for benchmark state.
+4. Update bootstrap/demand rebuild flow so benchmark symbols are hydrated and persisted when required.
+5. Update the Home widget to surface benchmark-caused not-ready state clearly.
+6. Add unit/integration/browser verification and update docs.
+
+#### Recommended acceptance boundary
+
+Treat this slice as complete only when all are true:
+
+- `MarketData` expands required benchmark daily symbols for the relevant profile
+- benchmark symbols are visible in runtime/readiness state
+- a symbol can become `not_ready` because its benchmark is not ready
+- benchmark-related not-ready reasons are distinguishable from ordinary missing-history reasons
+- readiness APIs expose benchmark dependency information
+- the Home widget shows benchmark-caused not-ready states clearly enough for an operator to understand the issue
+
+Current note:
+
+- `MarketData` now expands `SPY` as a benchmark dependency for `daily_core` when non-benchmark symbols require the profile
+- per-symbol daily readiness now exposes `has_benchmark_dependency`, `benchmark_symbol`, and `benchmark_readiness_state`
+- a symbol can now become `not_ready` with `benchmark_not_ready` when the benchmark is not ready
+- the Home widget now shows benchmark readiness detail inline for benchmark-aware symbols
+
+#### Recommended tests
+
+Unit tests:
+
+- benchmark demand is added for benchmark-aware symbols
+- symbol becomes `not_ready` with `benchmark_not_ready` when benchmark history is insufficient
+- symbol becomes `not_ready` with `gap_benchmark_dependency` when benchmark dependency is missing from runtime state
+- symbol becomes `ready` when both symbol and benchmark are ready
+- rollup counts remain correct when some symbols are blocked by benchmark dependency
+
+Integration tests:
+
+- create watchlist/add symbol/bootstrap/query rollup when benchmark is also ready
+- create a scenario where the benchmark remains insufficient and verify symbol-level `benchmark_not_ready`
+- verify readiness contracts serialize benchmark metadata correctly
+
+Browser verification:
+
+- login
+- create watchlist
+- add valid symbol
+- refresh Home widget
+- verify benchmark-related readiness state is surfaced correctly when applicable
+
+#### Develop handoff
+
+Objective:
+
+- implement the next `MarketData` slice: benchmark-aware daily readiness semantics on top of the existing daily runtime/readiness foundation
+
+Files/code paths to inspect first:
+
+- `docs/CONSTITUTION.md`
+- `docs/modules/MARKET_DATA.md`
+- `docs/contracts/MARKET_DATA_READINESS.md`
+- `src/modules/Aegis.MarketData/Application/DailyMarketDataHydrationService.cs`
+- `src/modules/Aegis.MarketData/Application/Abstractions/IMarketDataSymbolDemandReader.cs`
+- `src/modules/Aegis.MarketData/Application/DailySymbolRuntimeSnapshot.cs`
+- `src/modules/Aegis.MarketData/Application/DailyUniverseRuntimeSnapshot.cs`
+- `src/modules/Aegis.MarketData/Application/MarketDataBootstrapService.cs`
+- `src/Aegis.Backend/MarketData/UniverseMarketDataDemandReader.cs`
+- `src/Aegis.Shared/Contracts/MarketData/MarketDataContracts.cs`
+- `src/Aegis.Web/components/dashboard/market-data-widget.tsx`
+- `tests/Aegis.MarketData.UnitTests/MarketDataBootstrapServiceTests.cs`
+- `tests/Aegis.MarketData.IntegrationTests/MarketDataApiTests.cs`
+
+Implementation guidance:
+
+- keep this slice daily-only
+- keep `Universe` as the primary watchlist demand source and let `MarketData` add benchmark dependencies
+- use explicit benchmark dependency metadata rather than hidden logic
+- continue to use `NodaTime`
+- do not introduce realtime/intraday/`SignalR` in this task
+- keep local AppHost bootstrap fakes behind existing provider ports only; do not add generic production test-mode branches
+
+Minimum validation expected from the implementer:
+
+- `dotnet test "tests/Aegis.MarketData.UnitTests/Aegis.MarketData.UnitTests.csproj"`
+- `dotnet test "tests/Aegis.MarketData.IntegrationTests/Aegis.MarketData.IntegrationTests.csproj"`
+- `npm run lint` in `src/Aegis.Web`
+- `npm run build` in `src/Aegis.Web`
+- browser verification under `Aegis.AppHost`, followed by process cleanup after verification

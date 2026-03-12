@@ -19,11 +19,13 @@ public sealed class DailyMarketDataHydrationService(
     public async Task<DailyUniverseRuntimeSnapshot> RebuildAsync(string? overrideReadinessState = null, string? overrideReasonCode = null, CancellationToken cancellationToken = default)
     {
         var asOfUtc = clock.GetCurrentInstant();
-        var demand = await demandReader.GetDailyDemandAsync(cancellationToken);
+        var baseDemand = await demandReader.GetDailyDemandAsync(cancellationToken);
+        var demand = DailyMarketDataDemandExpander.Expand(baseDemand);
+        var demandBySymbol = demand.ToDictionary(x => x.Symbol, StringComparer.OrdinalIgnoreCase);
+
         var symbols = demand
             .Where(x => x.ProfileKeys.Contains(DailyCoreProfileKey, StringComparer.OrdinalIgnoreCase))
-            .Select(x => x.Symbol.Trim().ToUpperInvariant())
-            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Select(x => x.Symbol)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .OrderBy(x => x, StringComparer.OrdinalIgnoreCase)
             .ToArray();
@@ -64,25 +66,36 @@ public sealed class DailyMarketDataHydrationService(
                 x => (IReadOnlyList<DailyBarView>)x.Take(DailyRuntimeRetentionCount).OrderBy(y => y.BarTimeUtc).ToArray(),
                 StringComparer.OrdinalIgnoreCase);
 
-        var symbolSnapshots = symbols.Select(symbol => BuildSymbolSnapshot(symbol, grouped.TryGetValue(symbol, out var bars) ? bars : [], asOfUtc)).ToArray();
+        var preliminarySnapshots = symbols.ToDictionary(
+            symbol => symbol,
+            symbol => BuildPreliminarySnapshot(
+                symbol,
+                demandBySymbol[symbol],
+                grouped.TryGetValue(symbol, out var bars) ? bars : [],
+                asOfUtc),
+            StringComparer.OrdinalIgnoreCase);
+
+        var finalSnapshots = symbols
+            .Select(symbol => BuildFinalSnapshot(preliminarySnapshots[symbol], preliminarySnapshots, asOfUtc))
+            .ToArray();
 
         var rollupReadiness = overrideReadinessState
-            ?? (symbolSnapshots.Any(x => x.ReadinessState == "not_ready") ? "not_ready" : "ready");
+            ?? (finalSnapshots.Any(x => x.ReadinessState == "not_ready") ? "not_ready" : "ready");
 
         var rollupReason = overrideReasonCode
-            ?? (symbolSnapshots.FirstOrDefault(x => x.ReadinessState == "not_ready")?.ReasonCode ?? "none");
+            ?? (finalSnapshots.FirstOrDefault(x => x.ReadinessState == "not_ready")?.ReasonCode ?? "none");
 
-        var snapshot = new DailyUniverseRuntimeSnapshot(DailyCoreProfileKey, asOfUtc, rollupReadiness, rollupReason, symbolSnapshots);
+        var snapshot = new DailyUniverseRuntimeSnapshot(DailyCoreProfileKey, asOfUtc, rollupReadiness, rollupReason, finalSnapshots);
         runtimeStore.SetSnapshot(snapshot);
         return snapshot;
     }
 
-    private static DailySymbolRuntimeSnapshot BuildSymbolSnapshot(string symbol, IReadOnlyList<DailyBarView> bars, Instant asOfUtc)
+    private static DailySymbolRuntimeSnapshot BuildPreliminarySnapshot(string symbol, DailySymbolDemand demand, IReadOnlyList<DailyBarView> bars, Instant asOfUtc)
     {
         var availableBarCount = bars.Count;
-        var isReady = availableBarCount >= DailyCoreRequiredBarCount;
-        var readinessState = isReady ? "ready" : "not_ready";
-        var reasonCode = isReady ? "none" : "missing_required_bars";
+        var hasRequiredBars = availableBarCount >= DailyCoreRequiredBarCount;
+        var isBenchmark = string.Equals(demand.DemandTier, DailyMarketDataDemandExpander.BenchmarkDemandTier, StringComparison.OrdinalIgnoreCase);
+        var hasBenchmarkDependency = !isBenchmark && !string.Equals(symbol, DailyMarketDataDemandExpander.BenchmarkSymbol, StringComparison.OrdinalIgnoreCase);
         var lastFinalizedBarUtc = bars.LastOrDefault()?.BarTimeUtc;
 
         return new DailySymbolRuntimeSnapshot(
@@ -91,9 +104,52 @@ public sealed class DailyMarketDataHydrationService(
             DailyCoreRequiredBarCount,
             availableBarCount,
             lastFinalizedBarUtc,
-            readinessState,
-            reasonCode,
+            hasRequiredBars ? "ready" : "not_ready",
+            hasRequiredBars ? "none" : "missing_required_bars",
             asOfUtc,
+            hasBenchmarkDependency,
+            hasBenchmarkDependency ? DailyMarketDataDemandExpander.BenchmarkSymbol : null,
+            null,
             bars);
+    }
+
+    private static DailySymbolRuntimeSnapshot BuildFinalSnapshot(
+        DailySymbolRuntimeSnapshot snapshot,
+        IReadOnlyDictionary<string, DailySymbolRuntimeSnapshot> preliminarySnapshots,
+        Instant asOfUtc)
+    {
+        if (!snapshot.HasBenchmarkDependency)
+        {
+            return snapshot with { BenchmarkReadinessState = snapshot.BenchmarkSymbol is null ? null : "ready" };
+        }
+
+        if (snapshot.BenchmarkSymbol is null || !preliminarySnapshots.TryGetValue(snapshot.BenchmarkSymbol, out var benchmarkSnapshot))
+        {
+            return snapshot with
+            {
+                ReadinessState = "not_ready",
+                ReasonCode = "gap_benchmark_dependency",
+                BenchmarkReadinessState = null,
+                LastStateChangedUtc = asOfUtc
+            };
+        }
+
+        if (snapshot.ReadinessState != "ready")
+        {
+            return snapshot with { BenchmarkReadinessState = benchmarkSnapshot.ReadinessState };
+        }
+
+        if (benchmarkSnapshot.ReadinessState != "ready")
+        {
+            return snapshot with
+            {
+                ReadinessState = "not_ready",
+                ReasonCode = "benchmark_not_ready",
+                BenchmarkReadinessState = benchmarkSnapshot.ReadinessState,
+                LastStateChangedUtc = asOfUtc
+            };
+        }
+
+        return snapshot with { BenchmarkReadinessState = benchmarkSnapshot.ReadinessState };
     }
 }
