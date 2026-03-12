@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { useMarketDataBootstrap } from "@/hooks/use-market-data-bootstrap";
 
 export function MarketDataWidget() {
-  const { status, dailyReadiness, isLoading, isRefreshing, error, runBootstrap } = useMarketDataBootstrap();
+  const { status, dailyReadiness, intradayReadiness, isLoading, isRefreshing, error, runBootstrap } = useMarketDataBootstrap();
   // Surface degraded symbols first so the top-level rollup and the visible detail rows stay easy to reconcile.
   const readinessSymbols = dailyReadiness
     ? [...dailyReadiness.symbols].sort((left, right) => {
@@ -65,6 +65,23 @@ export function MarketDataWidget() {
             <p className="text-xs uppercase tracking-wide text-slate-500">Demand Scope</p>
             <p className="text-sm text-slate-300">{status.demandSymbols.length > 0 ? status.demandSymbols.join(", ") : "No symbols currently require daily warmup."}</p>
           </div>
+
+          {intradayReadiness && intradayReadiness.totalSymbolCount > 0 ? (
+            <div>
+              <p className="text-xs uppercase tracking-wide text-slate-500">Intraday Readiness</p>
+              <p className="text-sm text-slate-300">
+                {intradayReadiness.readySymbolCount} ready / {intradayReadiness.notReadySymbolCount} not ready ({intradayReadiness.interval})
+              </p>
+              <div className="mt-2 space-y-1 text-sm text-slate-300">
+                {intradayReadiness.symbols.slice(0, 3).map((symbol) => (
+                  <p key={`${symbol.symbol}-${symbol.interval}`}>
+                    <span className="font-semibold text-slate-100">{symbol.symbol}</span>: {symbol.readinessState} ({symbol.availableBarCount}/{symbol.requiredBarCount})
+                    {symbol.hasRequiredIndicatorState ? " • indicators ready" : " • indicators pending"}
+                  </p>
+                ))}
+              </div>
+            </div>
+          ) : null}
 
           {dailyReadiness && readinessSymbols.length > 0 ? (
             <div>

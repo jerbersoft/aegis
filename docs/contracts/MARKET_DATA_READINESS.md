@@ -22,6 +22,7 @@ Current status note:
 - The currently implemented slice now includes benchmark-aware daily readiness metadata for `daily_core`, including explicit benchmark dependency state in per-symbol readiness payloads.
 - The currently implemented slice now also exposes whether required daily indicator state is available for `daily_core` readiness.
 - The current runtime-only `daily_core` indicator slice now covers a broader daily indicator set while preserving the same readiness contract shape.
+- The currently implemented slice now also exposes first `1-min` intraday readiness payloads for `intraday_core`, including `has_required_intraday_bars` and `has_required_indicator_state`.
 
 ## 2) Naming Conventions
 

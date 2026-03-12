@@ -24,6 +24,8 @@ public sealed class MarketDataBootstrapServiceTests
             new MarketDataBootstrapStateStore(),
             new DailyMarketDataHydrationService(dbContext, demandReader, runtimeStore, clock),
             runtimeStore,
+            new IntradayMarketDataHydrationService(dbContext, demandReader, new MarketDataIntradayRuntimeStore(), clock),
+            new MarketDataIntradayRuntimeStore(),
             clock);
 
         var status = await service.RunWarmupAsync(CancellationToken.None);
@@ -54,6 +56,8 @@ public sealed class MarketDataBootstrapServiceTests
             new MarketDataBootstrapStateStore(),
             new DailyMarketDataHydrationService(dbContext, demandReader, runtimeStore, clock),
             runtimeStore,
+            new IntradayMarketDataHydrationService(dbContext, demandReader, new MarketDataIntradayRuntimeStore(), clock),
+            new MarketDataIntradayRuntimeStore(),
             clock);
 
         var status = await service.RunWarmupAsync(CancellationToken.None);
@@ -86,7 +90,8 @@ public sealed class MarketDataBootstrapServiceTests
         await dbContext.SaveChangesAsync();
 
         var hydrationService = new DailyMarketDataHydrationService(dbContext, demandReader, runtimeStore, clock);
-        var service = new MarketDataBootstrapService(dbContext, demandReader, new StubHistoricalBarProvider(), new MarketDataBootstrapStateStore(), hydrationService, runtimeStore, clock);
+        var intradayRuntimeStore = new MarketDataIntradayRuntimeStore();
+        var service = new MarketDataBootstrapService(dbContext, demandReader, new StubHistoricalBarProvider(), new MarketDataBootstrapStateStore(), hydrationService, runtimeStore, new IntradayMarketDataHydrationService(dbContext, demandReader, intradayRuntimeStore, clock), intradayRuntimeStore, clock);
 
         await hydrationService.RebuildAsync(cancellationToken: CancellationToken.None);
         var readiness = await service.GetDailyReadinessAsync("AAPL", CancellationToken.None);
@@ -113,7 +118,8 @@ public sealed class MarketDataBootstrapServiceTests
         await dbContext.SaveChangesAsync();
 
         var hydrationService = new DailyMarketDataHydrationService(dbContext, demandReader, runtimeStore, clock);
-        var service = new MarketDataBootstrapService(dbContext, demandReader, new StubHistoricalBarProvider(), new MarketDataBootstrapStateStore(), hydrationService, runtimeStore, clock);
+        var intradayRuntimeStore = new MarketDataIntradayRuntimeStore();
+        var service = new MarketDataBootstrapService(dbContext, demandReader, new StubHistoricalBarProvider(), new MarketDataBootstrapStateStore(), hydrationService, runtimeStore, new IntradayMarketDataHydrationService(dbContext, demandReader, intradayRuntimeStore, clock), intradayRuntimeStore, clock);
 
         await hydrationService.RebuildAsync(cancellationToken: CancellationToken.None);
         var readiness = await service.GetDailyReadinessAsync("AAPL", CancellationToken.None);
@@ -138,7 +144,8 @@ public sealed class MarketDataBootstrapServiceTests
         await dbContext.SaveChangesAsync();
 
         var hydrationService = new DailyMarketDataHydrationService(dbContext, demandReader, runtimeStore, clock);
-        var service = new MarketDataBootstrapService(dbContext, demandReader, new StubHistoricalBarProvider(), new MarketDataBootstrapStateStore(), hydrationService, runtimeStore, clock);
+        var intradayRuntimeStore = new MarketDataIntradayRuntimeStore();
+        var service = new MarketDataBootstrapService(dbContext, demandReader, new StubHistoricalBarProvider(), new MarketDataBootstrapStateStore(), hydrationService, runtimeStore, new IntradayMarketDataHydrationService(dbContext, demandReader, intradayRuntimeStore, clock), intradayRuntimeStore, clock);
 
         await hydrationService.RebuildAsync(cancellationToken: CancellationToken.None);
         var readiness = await service.GetDailyReadinessAsync("AAPL", CancellationToken.None);
@@ -186,6 +193,38 @@ public sealed class MarketDataBootstrapServiceTests
     }
 
     [Fact]
+    public async Task GetIntradayReadinessAsync_ShouldReturnReady_WhenExecutionHistoryExists()
+    {
+        await using var dbContext = CreateDbContext();
+        var dailyRuntimeStore = new MarketDataDailyRuntimeStore();
+        var intradayRuntimeStore = new MarketDataIntradayRuntimeStore();
+        var demandReader = new StubDemandReader(["AAPL"], ["AAPL"]);
+        var clock = new FakeClock(Instant.FromUtc(2026, 3, 12, 13, 0));
+
+        SeedIntradayBars(dbContext, "AAPL", 390, clock.GetCurrentInstant());
+        await dbContext.SaveChangesAsync();
+
+        var service = new MarketDataBootstrapService(
+            dbContext,
+            demandReader,
+            new StubHistoricalBarProvider(),
+            new MarketDataBootstrapStateStore(),
+            new DailyMarketDataHydrationService(dbContext, demandReader, dailyRuntimeStore, clock),
+            dailyRuntimeStore,
+            new IntradayMarketDataHydrationService(dbContext, demandReader, intradayRuntimeStore, clock),
+            intradayRuntimeStore,
+            clock);
+
+        await service.GetStatusAsync(CancellationToken.None);
+        var readiness = await service.GetIntradayReadinessAsync("AAPL", CancellationToken.None);
+
+        readiness.ShouldNotBeNull();
+        readiness.ReadinessState.ShouldBe("ready");
+        readiness.HasRequiredIndicatorState.ShouldBeTrue();
+        readiness.AvailableBarCount.ShouldBeGreaterThanOrEqualTo(IntradayMarketDataHydrationService.IntradayRequiredBarCount);
+    }
+
+    [Fact]
     public async Task RunWarmupAsync_ShouldBackfillOlderHistory_WhenPersistedBarsAreInsufficient()
     {
         await using var dbContext = CreateDbContext();
@@ -197,6 +236,7 @@ public sealed class MarketDataBootstrapServiceTests
         await dbContext.SaveChangesAsync();
 
         var provider = new BackfillHistoricalBarProvider();
+        var intradayRuntimeStore = new MarketDataIntradayRuntimeStore();
         var service = new MarketDataBootstrapService(
             dbContext,
             demandReader,
@@ -204,6 +244,8 @@ public sealed class MarketDataBootstrapServiceTests
             new MarketDataBootstrapStateStore(),
             new DailyMarketDataHydrationService(dbContext, demandReader, runtimeStore, clock),
             runtimeStore,
+            new IntradayMarketDataHydrationService(dbContext, demandReader, intradayRuntimeStore, clock),
+            intradayRuntimeStore,
             clock);
 
         var status = await service.RunWarmupAsync(CancellationToken.None);
@@ -216,10 +258,13 @@ public sealed class MarketDataBootstrapServiceTests
         readiness.AvailableBarCount.ShouldBeGreaterThanOrEqualTo(DailyMarketDataHydrationService.DailyCoreRequiredBarCount);
     }
 
-    private sealed class StubDemandReader(IReadOnlyList<string> symbols) : IMarketDataSymbolDemandReader
+    private sealed class StubDemandReader(IReadOnlyList<string> symbols, IReadOnlyList<string>? intradaySymbols = null) : IMarketDataSymbolDemandReader
     {
         public Task<IReadOnlyList<DailySymbolDemand>> GetDailyDemandAsync(CancellationToken cancellationToken) =>
             Task.FromResult<IReadOnlyList<DailySymbolDemand>>(symbols.Select(x => new DailySymbolDemand(x, "watchlist_symbol", [DailyMarketDataHydrationService.DailyCoreProfileKey])).ToArray());
+
+        public Task<IReadOnlyList<IntradaySymbolDemand>> GetIntradayDemandAsync(CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<IntradaySymbolDemand>>((intradaySymbols ?? []).Select(x => new IntradaySymbolDemand(x, IntradayMarketDataHydrationService.IntradayInterval, "execution_symbol", [IntradayMarketDataHydrationService.IntradayCoreProfileKey])).ToArray());
     }
 
     private sealed class StubHistoricalBarProvider : IHistoricalBarProvider
@@ -235,6 +280,19 @@ public sealed class MarketDataBootstrapServiceTests
                 .ToArray();
 
             return Task.FromResult(HistoricalBarBatchResult.Success(request.Symbol, "1day", bars, "fake", "iex"));
+        }
+
+        public Task<HistoricalBarBatchResult> GetIntradayBarsAsync(IntradayBarRequest request, CancellationToken cancellationToken)
+        {
+            var bars = Enumerable.Range(0, 390)
+                .Select(index =>
+                {
+                    var barTime = Instant.FromUtc(2026, 3, 12, 14, 0) + Duration.FromMinutes(index);
+                    return new HistoricalBarRecord(request.Symbol, request.Interval, barTime, 100 + index / 10m, 101 + index / 10m, 99 + index / 10m, 100 + index / 10m, 1000 + index, "regular", barTime.InUtc().Date, "reconciled", true);
+                })
+                .ToArray();
+
+            return Task.FromResult(HistoricalBarBatchResult.Success(request.Symbol, request.Interval, bars, "fake", "iex"));
         }
     }
 
@@ -260,12 +318,28 @@ public sealed class MarketDataBootstrapServiceTests
 
             return Task.FromResult(HistoricalBarBatchResult.Success(request.Symbol, "1day", bars, "fake", "iex"));
         }
+
+        public Task<HistoricalBarBatchResult> GetIntradayBarsAsync(IntradayBarRequest request, CancellationToken cancellationToken)
+        {
+            var bars = Enumerable.Range(0, 390)
+                .Select(index =>
+                {
+                    var barTime = Instant.FromUtc(2026, 3, 12, 14, 0) + Duration.FromMinutes(index);
+                    return new HistoricalBarRecord(request.Symbol, request.Interval, barTime, 100 + index / 10m, 101 + index / 10m, 99 + index / 10m, 100 + index / 10m, 1000 + index, "regular", barTime.InUtc().Date, "reconciled", true);
+                })
+                .ToArray();
+
+            return Task.FromResult(HistoricalBarBatchResult.Success(request.Symbol, request.Interval, bars, "fake", "iex"));
+        }
     }
 
     private sealed class FailingHistoricalBarProvider : IHistoricalBarProvider
     {
         public Task<HistoricalBarBatchResult> GetDailyBarsAsync(HistoricalBarRequest request, CancellationToken cancellationToken) =>
             Task.FromResult(HistoricalBarBatchResult.Failure(request.Symbol, "1day", "fake", "iex", "historical_data_unavailable", "boom"));
+
+        public Task<HistoricalBarBatchResult> GetIntradayBarsAsync(IntradayBarRequest request, CancellationToken cancellationToken) =>
+            Task.FromResult(HistoricalBarBatchResult.Failure(request.Symbol, request.Interval, "fake", "iex", "historical_data_unavailable", "boom"));
     }
 
     private sealed class FakeClock(Instant now) : IClock
@@ -289,6 +363,34 @@ public sealed class MarketDataBootstrapServiceTests
                 Low = 99 + index,
                 Close = 100 + index,
                 Volume = 1000 + index,
+                SessionType = "regular",
+                MarketDate = barTime.InUtc().Date,
+                ProviderName = "fake",
+                ProviderFeed = "iex",
+                RuntimeState = "reconciled",
+                IsReconciled = true,
+                CreatedUtc = createdUtc,
+                UpdatedUtc = createdUtc
+            });
+        }
+    }
+
+    private static void SeedIntradayBars(MarketDataDbContext dbContext, string symbol, int count, Instant createdUtc)
+    {
+        for (var index = 0; index < count; index++)
+        {
+            var barTime = Instant.FromUtc(2026, 3, 12, 14, 0) + Duration.FromMinutes(index);
+            dbContext.Bars.Add(new Aegis.MarketData.Domain.Entities.MarketDataBar
+            {
+                BarId = Guid.NewGuid(),
+                Symbol = symbol,
+                Interval = IntradayMarketDataHydrationService.IntradayInterval,
+                BarTimeUtc = barTime,
+                Open = 100 + index / 10m,
+                High = 101 + index / 10m,
+                Low = 99 + index / 10m,
+                Close = 100 + index / 10m,
+                Volume = 1_000 + index,
                 SessionType = "regular",
                 MarketDate = barTime.InUtc().Date,
                 ProviderName = "fake",

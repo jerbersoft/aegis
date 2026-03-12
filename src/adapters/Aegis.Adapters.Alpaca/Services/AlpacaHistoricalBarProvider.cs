@@ -16,38 +16,52 @@ public sealed class AlpacaHistoricalBarProvider(HttpClient httpClient, AlpacaHis
     };
 
     public async Task<HistoricalBarBatchResult> GetDailyBarsAsync(HistoricalBarRequest request, CancellationToken cancellationToken)
+        => await GetBarsAsync(request.Symbol, "1day", "1Day", request.FromUtc, request.ToUtc, request.Limit, request.Feed, cancellationToken);
+
+    public async Task<HistoricalBarBatchResult> GetIntradayBarsAsync(IntradayBarRequest request, CancellationToken cancellationToken)
+        => await GetBarsAsync(request.Symbol, request.Interval, "1Min", request.FromUtc, request.ToUtc, request.Limit, request.Feed, cancellationToken);
+
+    private async Task<HistoricalBarBatchResult> GetBarsAsync(
+        string symbol,
+        string interval,
+        string timeframe,
+        Instant? fromUtc,
+        Instant? toUtc,
+        int? limit,
+        string? feed,
+        CancellationToken cancellationToken)
     {
-        var normalizedSymbol = request.Symbol.Trim().ToUpperInvariant();
+        var normalizedSymbol = symbol.Trim().ToUpperInvariant();
         if (string.IsNullOrWhiteSpace(normalizedSymbol))
         {
-            return HistoricalBarBatchResult.Failure(normalizedSymbol, "1day", "alpaca", options.Feed, "invalid_symbol", "A symbol is required.");
+            return HistoricalBarBatchResult.Failure(normalizedSymbol, interval, "alpaca", options.Feed, "invalid_symbol", "A symbol is required.");
         }
 
         if (string.IsNullOrWhiteSpace(options.ApiKey) || string.IsNullOrWhiteSpace(options.ApiSecret))
         {
-            return HistoricalBarBatchResult.Failure(normalizedSymbol, "1day", "alpaca", options.Feed, "historical_data_unavailable", "Historical data credentials are unavailable.");
+            return HistoricalBarBatchResult.Failure(normalizedSymbol, interval, "alpaca", options.Feed, "historical_data_unavailable", "Historical data credentials are unavailable.");
         }
 
         var queryParts = new List<string>
         {
-            "timeframe=1Day",
+            $"timeframe={timeframe}",
             "adjustment=raw",
-            $"feed={Uri.EscapeDataString(request.Feed ?? options.Feed)}"
+            $"feed={Uri.EscapeDataString(feed ?? options.Feed)}"
         };
 
-        if (request.Limit is { } limit && limit > 0)
+        if (limit is { } requestedLimit && requestedLimit > 0)
         {
-            queryParts.Add($"limit={limit}");
+            queryParts.Add($"limit={requestedLimit}");
         }
 
-        if (request.FromUtc is { } fromUtc)
+        if (fromUtc is { } requestFromUtc)
         {
-            queryParts.Add($"start={Uri.EscapeDataString(InstantPattern.ExtendedIso.Format(fromUtc))}");
+            queryParts.Add($"start={Uri.EscapeDataString(InstantPattern.ExtendedIso.Format(requestFromUtc))}");
         }
 
-        if (request.ToUtc is { } toUtc)
+        if (toUtc is { } requestToUtc)
         {
-            queryParts.Add($"end={Uri.EscapeDataString(InstantPattern.ExtendedIso.Format(toUtc))}");
+            queryParts.Add($"end={Uri.EscapeDataString(InstantPattern.ExtendedIso.Format(requestToUtc))}");
         }
 
         using var httpRequest = new HttpRequestMessage(HttpMethod.Get, $"v2/stocks/{Uri.EscapeDataString(normalizedSymbol)}/bars?{string.Join("&", queryParts)}");
@@ -57,7 +71,7 @@ public sealed class AlpacaHistoricalBarProvider(HttpClient httpClient, AlpacaHis
         using var response = await SendRequestAsync(httpRequest, cancellationToken);
         if (response is null)
         {
-            return HistoricalBarBatchResult.Failure(normalizedSymbol, "1day", "alpaca", options.Feed, "historical_data_unavailable", "Historical data is currently unavailable.");
+            return HistoricalBarBatchResult.Failure(normalizedSymbol, interval, "alpaca", options.Feed, "historical_data_unavailable", "Historical data is currently unavailable.");
         }
 
         // Collapse auth, throttling, and server-side outages into one availability signal for the MarketData module.
@@ -65,12 +79,12 @@ public sealed class AlpacaHistoricalBarProvider(HttpClient httpClient, AlpacaHis
             (int)response.StatusCode == 429 ||
             (int)response.StatusCode >= 500)
         {
-            return HistoricalBarBatchResult.Failure(normalizedSymbol, "1day", "alpaca", options.Feed, "historical_data_unavailable", "Historical data is currently unavailable.");
+            return HistoricalBarBatchResult.Failure(normalizedSymbol, interval, "alpaca", options.Feed, "historical_data_unavailable", "Historical data is currently unavailable.");
         }
 
         if (!response.IsSuccessStatusCode)
         {
-            return HistoricalBarBatchResult.Failure(normalizedSymbol, "1day", "alpaca", options.Feed, "historical_data_unavailable", "Historical data request failed.");
+            return HistoricalBarBatchResult.Failure(normalizedSymbol, interval, "alpaca", options.Feed, "historical_data_unavailable", "Historical data request failed.");
         }
 
         AlpacaHistoricalBarsResponse? payload;
@@ -81,7 +95,7 @@ public sealed class AlpacaHistoricalBarProvider(HttpClient httpClient, AlpacaHis
         }
         catch (JsonException)
         {
-            return HistoricalBarBatchResult.Failure(normalizedSymbol, "1day", "alpaca", options.Feed, "historical_data_unavailable", "Historical data response was invalid.");
+            return HistoricalBarBatchResult.Failure(normalizedSymbol, interval, "alpaca", options.Feed, "historical_data_unavailable", "Historical data response was invalid.");
         }
 
         var bars = (payload?.Bars ?? [])
@@ -93,14 +107,14 @@ public sealed class AlpacaHistoricalBarProvider(HttpClient httpClient, AlpacaHis
 
                 return new HistoricalBarRecord(
                     normalizedSymbol,
-                    "1day",
+                    interval,
                     barTimeUtc,
                     bar.Open,
                     bar.High,
                     bar.Low,
                     bar.Close,
                     bar.Volume,
-                    "regular",
+                    interval == "1day" ? "regular" : "regular",
                     marketDate,
                     "reconciled",
                     true);
@@ -108,7 +122,7 @@ public sealed class AlpacaHistoricalBarProvider(HttpClient httpClient, AlpacaHis
             .OrderBy(x => x.BarTimeUtc)
             .ToArray();
 
-        return HistoricalBarBatchResult.Success(normalizedSymbol, "1day", bars, "alpaca", request.Feed ?? options.Feed);
+        return HistoricalBarBatchResult.Success(normalizedSymbol, interval, bars, "alpaca", feed ?? options.Feed);
     }
 
     private async Task<HttpResponseMessage?> SendRequestAsync(HttpRequestMessage request, CancellationToken cancellationToken)

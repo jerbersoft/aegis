@@ -1295,3 +1295,27 @@ Minimum validation expected from the implementer:
 - `npm run lint` in `src/Aegis.Web`
 - `npm run build` in `src/Aegis.Web`
 - browser verification under `Aegis.AppHost`, followed by process cleanup after verification
+
+### Task 12.4 — Build the first `1-min` intraday runtime foundation
+
+Status:
+
+- implemented
+
+#### Goal
+
+Extend `MarketData` beyond daily-only runtime/readiness by delivering the first narrow intraday slice for finalized `1-min` bars.
+
+#### Current note
+
+- `MarketData` now derives `1-min` intraday demand from `Execution` watchlist membership under the `intraday_core` profile
+- bootstrap now performs DB-first intraday backfill for required `Execution` symbols using finalized historical `1-min` bars only
+- `MarketData` now maintains an in-memory intraday runtime/readiness snapshot for required `1-min` symbols
+- the current intraday indicator-state slice computes `ema_30`, `ema_100`, and `vwap`
+- intraday readiness is now exposed through `GET /api/market-data/intraday/readiness` and `GET /api/market-data/intraday/readiness/{symbol}`
+- the Home widget now shows a minimal `Intraday Readiness` section for active `1-min` demand
+- `volume_buzz_percent` remains deferred because it requires additional historical reference-curve state
+
+#### Recommended next slice
+
+- add `volume_buzz_percent` with cumulative session-offset reference curves, then deepen intraday gap/readiness semantics

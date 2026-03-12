@@ -42,6 +42,31 @@ public sealed record DailyUniverseReadinessView(
     int NotReadySymbolCount,
     IReadOnlyList<DailySymbolReadinessView> Symbols);
 
+public sealed record IntradaySymbolReadinessView(
+    string Symbol,
+    string Interval,
+    string ProfileKey,
+    Instant AsOfUtc,
+    string ReadinessState,
+    string ReasonCode,
+    bool HasRequiredIntradayBars,
+    bool HasRequiredIndicatorState,
+    int RequiredBarCount,
+    int AvailableBarCount,
+    Instant? LastFinalizedBarUtc,
+    Instant LastStateChangedUtc);
+
+public sealed record IntradayUniverseReadinessView(
+    string Interval,
+    string ProfileKey,
+    Instant AsOfUtc,
+    string ReadinessState,
+    string ReasonCode,
+    int TotalSymbolCount,
+    int ReadySymbolCount,
+    int NotReadySymbolCount,
+    IReadOnlyList<IntradaySymbolReadinessView> Symbols);
+
 public sealed record DailyBarView(
     string Symbol,
     string Interval,

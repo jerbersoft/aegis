@@ -181,6 +181,9 @@ public sealed class UniverseApiTests : IClassFixture<WebApplicationFactory<Progr
 
             return Task.FromResult(HistoricalBarBatchResult.Success(request.Symbol, "1day", bars, "fake", "iex"));
         }
+
+        public Task<HistoricalBarBatchResult> GetIntradayBarsAsync(IntradayBarRequest request, CancellationToken cancellationToken) =>
+            Task.FromResult(HistoricalBarBatchResult.Success(request.Symbol, request.Interval, [], "fake", "iex"));
     }
 
     private sealed class UnavailableSymbolReferenceProvider : ISymbolReferenceProvider

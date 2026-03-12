@@ -15,12 +15,16 @@ public sealed class MarketDataBootstrapService(
     MarketDataBootstrapStateStore stateStore,
     DailyMarketDataHydrationService hydrationService,
     MarketDataDailyRuntimeStore runtimeStore,
+    IntradayMarketDataHydrationService intradayHydrationService,
+    MarketDataIntradayRuntimeStore intradayRuntimeStore,
     IClock clock)
 {
     private const string DailyInterval = "1day";
+    private const string IntradayInterval = IntradayMarketDataHydrationService.IntradayInterval;
     private const string HistoricalFeed = "iex";
     private const int MissingBarSafetyBuffer = 60;
     private static readonly Duration DefaultLookbackWindow = Duration.FromDays(450);
+    private static readonly Duration DefaultIntradayLookbackWindow = Duration.FromDays(3);
 
     public async Task<MarketDataBootstrapStatusView> RunWarmupAsync(CancellationToken cancellationToken)
     {
@@ -48,6 +52,13 @@ public sealed class MarketDataBootstrapService(
             "warming_up",
             "warmup_in_progress",
             runtimeStore.GetSnapshot().Symbols));
+        intradayRuntimeStore.SetSnapshot(new IntradayUniverseRuntimeSnapshot(
+            IntradayInterval,
+            IntradayMarketDataHydrationService.IntradayCoreProfileKey,
+            startedAt,
+            "warming_up",
+            "warmup_in_progress",
+            intradayRuntimeStore.GetSnapshot().Symbols));
 
         var failedSymbols = new List<string>();
 
@@ -71,9 +82,37 @@ public sealed class MarketDataBootstrapService(
             await UpsertBarsAsync(batch, startedAt, cancellationToken);
         }
 
+        var intradayDemand = await demandReader.GetIntradayDemandAsync(cancellationToken);
+        var intradaySymbols = intradayDemand
+            .Where(x => string.Equals(x.Interval, IntradayInterval, StringComparison.OrdinalIgnoreCase))
+            .Select(x => x.Symbol.Trim().ToUpperInvariant())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(x => x, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        foreach (var symbol in intradaySymbols)
+        {
+            var coverage = await GetIntradayCoverageAsync(symbol, cancellationToken);
+            if (!coverage.NeedsBackfill)
+            {
+                continue;
+            }
+
+            var request = BuildIntradayHistoricalRequest(coverage, startedAt);
+            var batch = await historicalBarProvider.GetIntradayBarsAsync(request, cancellationToken);
+            if (!batch.Succeeded)
+            {
+                failedSymbols.Add(symbol);
+                continue;
+            }
+
+            await UpsertBarsAsync(batch, startedAt, cancellationToken);
+        }
+
         await dbContext.SaveChangesAsync(cancellationToken);
 
         var snapshot = await hydrationService.RebuildAsync(cancellationToken: cancellationToken);
+        await intradayHydrationService.RebuildAsync(cancellationToken: cancellationToken);
         if (failedSymbols.Count > 0 && snapshot.ReadinessState == "ready")
         {
             snapshot = snapshot with
@@ -93,6 +132,7 @@ public sealed class MarketDataBootstrapService(
     {
         var current = stateStore.GetStatus();
         var snapshot = await hydrationService.RebuildAsync(cancellationToken: cancellationToken);
+        await intradayHydrationService.RebuildAsync(cancellationToken: cancellationToken);
         var status = await BuildStatusAsync(snapshot, current.FailedSymbols, snapshot.Symbols.Select(x => x.Symbol).ToArray(), current.LastWarmupUtc, cancellationToken);
         stateStore.SetStatus(status);
         return status;
@@ -110,6 +150,21 @@ public sealed class MarketDataBootstrapService(
         }
 
         var snapshot = runtimeStore.GetSnapshot();
+        return Task.FromResult(snapshot.Symbols.FirstOrDefault(x => x.Symbol == normalizedSymbol)?.ToView(snapshot.AsOfUtc));
+    }
+
+    public Task<IntradayUniverseReadinessView> GetIntradayReadinessAsync(CancellationToken cancellationToken) =>
+        Task.FromResult(intradayRuntimeStore.GetSnapshot().ToView());
+
+    public Task<IntradaySymbolReadinessView?> GetIntradayReadinessAsync(string symbol, CancellationToken cancellationToken)
+    {
+        var normalizedSymbol = symbol.Trim().ToUpperInvariant();
+        if (string.IsNullOrWhiteSpace(normalizedSymbol))
+        {
+            return Task.FromResult<IntradaySymbolReadinessView?>(null);
+        }
+
+        var snapshot = intradayRuntimeStore.GetSnapshot();
         return Task.FromResult(snapshot.Symbols.FirstOrDefault(x => x.Symbol == normalizedSymbol)?.ToView(snapshot.AsOfUtc));
     }
 
@@ -163,6 +218,23 @@ public sealed class MarketDataBootstrapService(
         return new DailyHistoryCoverage(symbol, persistedCount, earliestBarUtc == default ? null : earliestBarUtc, latestBarUtc == default ? null : latestBarUtc, missingBarCount);
     }
 
+    private async Task<IntradayHistoryCoverage> GetIntradayCoverageAsync(string symbol, CancellationToken cancellationToken)
+    {
+        var items = await dbContext.Bars
+            .AsNoTracking()
+            .Where(x => x.Symbol == symbol && x.Interval == IntradayInterval)
+            .OrderBy(x => x.BarTimeUtc)
+            .Select(x => x.BarTimeUtc)
+            .ToListAsync(cancellationToken);
+
+        var persistedCount = items.Count;
+        var earliestBarUtc = items.FirstOrDefault();
+        var latestBarUtc = items.LastOrDefault();
+        var missingBarCount = Math.Max(0, IntradayMarketDataHydrationService.IntradayRequiredBarCount - persistedCount);
+
+        return new IntradayHistoryCoverage(symbol, persistedCount, earliestBarUtc == default ? null : earliestBarUtc, latestBarUtc == default ? null : latestBarUtc, missingBarCount);
+    }
+
     private static HistoricalBarRequest BuildHistoricalRequest(DailyHistoryCoverage coverage, Instant now)
     {
         var limit = Math.Max(DailyMarketDataHydrationService.DailyCoreRequiredBarCount + MissingBarSafetyBuffer, coverage.MissingBarCount + MissingBarSafetyBuffer);
@@ -176,6 +248,19 @@ public sealed class MarketDataBootstrapService(
         }
 
         return new HistoricalBarRequest(coverage.Symbol, now - DefaultLookbackWindow, now, limit, HistoricalFeed);
+    }
+
+    private static IntradayBarRequest BuildIntradayHistoricalRequest(IntradayHistoryCoverage coverage, Instant now)
+    {
+        var limit = Math.Max(IntradayMarketDataHydrationService.IntradayRequiredBarCount + 120, coverage.MissingBarCount + 120);
+        if (coverage.EarliestBarUtc is { } earliestBarUtc)
+        {
+            var toUtc = earliestBarUtc;
+            var fromUtc = toUtc - Duration.FromDays(2);
+            return new IntradayBarRequest(coverage.Symbol, IntradayInterval, fromUtc, toUtc, limit, HistoricalFeed);
+        }
+
+        return new IntradayBarRequest(coverage.Symbol, IntradayInterval, now - DefaultIntradayLookbackWindow, now, limit, HistoricalFeed);
     }
 
     private async Task UpsertBarsAsync(HistoricalBarBatchResult batch, Instant now, CancellationToken cancellationToken)
@@ -263,5 +348,15 @@ public sealed class MarketDataBootstrapService(
         int MissingBarCount)
     {
         public bool NeedsBackfill => PersistedCount < DailyMarketDataHydrationService.DailyCoreRequiredBarCount;
+    }
+
+    private sealed record IntradayHistoryCoverage(
+        string Symbol,
+        int PersistedCount,
+        Instant? EarliestBarUtc,
+        Instant? LatestBarUtc,
+        int MissingBarCount)
+    {
+        public bool NeedsBackfill => PersistedCount < IntradayMarketDataHydrationService.IntradayRequiredBarCount;
     }
 }

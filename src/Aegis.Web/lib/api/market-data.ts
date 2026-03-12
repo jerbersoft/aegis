@@ -1,5 +1,5 @@
 import { apiRequest } from "./client";
-import { DailyBarsView, DailySymbolReadinessView, DailyUniverseReadinessView, MarketDataBootstrapStatusView } from "../types/market-data";
+import { DailyBarsView, DailySymbolReadinessView, DailyUniverseReadinessView, IntradaySymbolReadinessView, IntradayUniverseReadinessView, MarketDataBootstrapStatusView } from "../types/market-data";
 
 const baseUrl = "/api/market-data";
 
@@ -23,4 +23,12 @@ export async function getDailyReadiness(): Promise<DailyUniverseReadinessView> {
 
 export async function getDailySymbolReadiness(symbol: string): Promise<DailySymbolReadinessView> {
   return apiRequest<DailySymbolReadinessView>(`${baseUrl}/daily/readiness/${encodeURIComponent(symbol)}`);
+}
+
+export async function getIntradayReadiness(): Promise<IntradayUniverseReadinessView> {
+  return apiRequest<IntradayUniverseReadinessView>(`${baseUrl}/intraday/readiness`);
+}
+
+export async function getIntradaySymbolReadiness(symbol: string): Promise<IntradaySymbolReadinessView> {
+  return apiRequest<IntradaySymbolReadinessView>(`${baseUrl}/intraday/readiness/${encodeURIComponent(symbol)}`);
 }

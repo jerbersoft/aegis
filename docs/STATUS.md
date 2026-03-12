@@ -17,8 +17,11 @@ Implemented projects:
 - `src/Aegis.Backend`
 - `src/Aegis.Shared`
 - `src/modules/Aegis.Universe`
+- `src/modules/Aegis.MarketData`
 - `src/adapters/Aegis.Adapters.Alpaca`
 - `src/Aegis.Web`
+- `tests/Aegis.MarketData.UnitTests`
+- `tests/Aegis.MarketData.IntegrationTests`
 - `tests/Aegis.Universe.UnitTests`
 - `tests/Aegis.Universe.IntegrationTests`
 
@@ -29,7 +32,7 @@ Local development/runtime composition currently uses `.NET Aspire`.
 - `Aegis.AppHost` orchestrates PostgreSQL, pgAdmin, backend, and web
 - `Aegis.Backend` is the backend composition root
 - `Aegis.Web` runs as a Next.js npm app under Aspire
-- PostgreSQL backs the `Universe` relational store
+- PostgreSQL backs the `Universe` and `MarketData` relational stores
 - pgAdmin is exposed for local inspection
 
 Current local defaults captured in implementation:
@@ -111,6 +114,10 @@ Implemented now:
 - MarketData now computes `daily_core` indicator-state during daily hydration, including `sma_200`, `atr_14_percent`, and benchmark-aware `rs_50`
 - per-symbol readiness now surfaces whether required daily indicator state is available
 - MarketData now computes a broader `daily_core` daily indicator set including `sma_50`, `sma_21`, `sma_10`, volume SMAs, relative volume, `dcr_percent`, `atr_14_value`, `adr_14_value`, and `adr_14_percent`
+- MarketData now derives first `1-min` intraday demand from `Execution` watchlist membership using the `intraday_core` profile
+- MarketData now hydrates an in-memory `1-min` intraday runtime/readiness snapshot from finalized persisted bars only
+- MarketData now computes first intraday indicator-state for `ema_30`, `ema_100`, and `vwap`
+- MarketData now exposes intraday rollup readiness and per-symbol intraday readiness endpoints
 - current domain/backend/shared date-time handling has been refactored to `NodaTime` for auth, Universe contracts, MarketData contracts, MarketData persistence, and Alpaca historical bar mapping
 
 ### Web/backend connectivity under Aspire
@@ -159,6 +166,7 @@ Implemented UI behaviors:
 - dashboard MarketData widget now shows daily ready/not-ready counts, reason code, and daily readiness detail
 - dashboard MarketData detail rows now surface benchmark dependency state for benchmark-aware symbols
 - dashboard MarketData detail rows now surface whether daily indicator state is ready or pending
+- dashboard MarketData widget now shows a minimal intraday readiness section for active `1-min` demand
 
 ## 6) Current bootstrap-only compromises
 
@@ -204,11 +212,13 @@ Additional verification performed for MarketData bootstrap work:
 - MarketData unit and integration tests covering benchmark-aware daily readiness behavior
 - MarketData unit and integration tests covering daily indicator-state hydration and readiness availability behavior
 - MarketData unit and integration tests covering broader daily indicator coverage while keeping readiness/API behavior stable
+- MarketData unit and integration tests covering first `1-min` intraday readiness from `Execution` demand
 - browser-level verification under Aspire, with `Aegis.AppHost` running first, confirming add-symbol -> dashboard refresh -> ready MarketData status with persisted daily bars
 - browser-level verification under Aspire, with `Aegis.AppHost` running first, confirming invalid-symbol error display in Add Symbol and clean dialog state after close/reopen
 - NodaTime refactor verification via unit tests, integration tests, web lint/build, and browser regression coverage under Aspire of login, watchlist creation, symbol add, MarketData refresh, and invalid-symbol dialog reset
 - browser-level verification under Aspire, with `Aegis.AppHost` running first, confirming the Home widget shows daily ready/not-ready counts, reason code, and per-symbol readiness detail after refresh
 - browser-level verification under Aspire, with `Aegis.AppHost` running first, confirming a newly added symbol is backfilled to `ready` with 200+ daily bars after refresh
+- browser-level verification under Aspire, with `Aegis.AppHost` running first, confirming an `Execution` symbol becomes intraday-ready and the Home widget shows `Intraday Readiness` with `AAPL: ready (390/100) • indicators ready`
 
 Browser-level verification was also performed during implementation using Playwright against the Aspire-hosted web app, with `Aegis.AppHost` started first.
 
@@ -242,8 +252,8 @@ Operational/debugging context already learned:
 
 Recommended dependency-ordered next work:
 
-1. continue `MarketData` beyond the current benchmark-aware daily runtime/readiness foundation
-   - immediate recommended slice: broader daily indicator coverage and then the next step toward intraday/runtime expansion
+1. continue `MarketData` beyond the current first `1-min` intraday runtime/readiness foundation
+   - immediate recommended slice: add full-session `volume_buzz_percent` using reference-curve state and then deepen intraday/runtime semantics
 2. decide and document the `SignalR` path for market-data-driven UI updates
 3. bootstrap `Strategies` contracts and assignment/runtime ownership
 4. bootstrap `Orders` contracts and open-order ownership

@@ -35,6 +35,9 @@ Implemented bootstrap pieces now include:
 - benchmark-aware daily readiness for `daily_core`, including `SPY` dependency expansion and benchmark-caused not-ready state
 - runtime-only `daily_core` indicator-state hydration for `sma_200`, `atr_14_percent`, and benchmark-aware `rs_50`
 - broader runtime-only `daily_core` indicator-state hydration now also covers the shorter SMAs, volume SMAs, relative-volume metrics, `dcr_percent`, `atr_14_value`, and ADR metrics
+- first `1-min` intraday runtime/readiness foundation for `Execution` demand under the `intraday_core` profile
+- runtime-only `1-min` indicator-state hydration for `ema_30`, `ema_100`, and `vwap`
+- intraday rollup and per-symbol readiness REST reads
 
 Current local-runtime note:
 
@@ -43,7 +46,7 @@ Current local-runtime note:
 
 Recommended immediate next implementation slice:
 
-- after the benchmark-aware daily readiness layer, continue with the next `MarketData` slice for deeper readiness semantics and eventual intraday/runtime expansion
+- after the first `1-min` intraday runtime/readiness foundation, add `volume_buzz_percent` with its required reference-curve state
 
 This document should therefore be read as target design layered on top of the now-implemented daily bootstrap foundation.
 
@@ -185,6 +188,7 @@ Intraday indicator definitions:
 ### `1-min` intraday runtime state
 
 - `1-min` runtime state exists only for symbols with active intraday demand.
+- The current implemented slice sources that demand from `Execution` watchlist membership only.
 - `1-min` runtime state contains:
   - raw closed `1-min` bar working set
   - latest closed-bar metadata and bar runtime state
@@ -197,6 +201,7 @@ Intraday indicator definitions:
 ### Intraday raw-window policy
 
 - v1 raw in-memory `1-min` bar window is `current session + prior session`.
+- The current implemented slice already follows that `current session + prior session` retention rule.
 - Deeper intraday rebuild and repair ranges must reload from persisted history when needed.
 - v1 does not keep the full retained intraday history in memory.
 

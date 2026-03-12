@@ -5,10 +5,20 @@ namespace Aegis.Shared.Ports.MarketData;
 public interface IHistoricalBarProvider
 {
     Task<HistoricalBarBatchResult> GetDailyBarsAsync(HistoricalBarRequest request, CancellationToken cancellationToken);
+
+    Task<HistoricalBarBatchResult> GetIntradayBarsAsync(IntradayBarRequest request, CancellationToken cancellationToken);
 }
 
 public sealed record HistoricalBarRequest(
     string Symbol,
+    Instant? FromUtc = null,
+    Instant? ToUtc = null,
+    int? Limit = null,
+    string? Feed = null);
+
+public sealed record IntradayBarRequest(
+    string Symbol,
+    string Interval,
     Instant? FromUtc = null,
     Instant? ToUtc = null,
     int? Limit = null,

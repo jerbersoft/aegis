@@ -92,8 +92,10 @@ builder.Services.AddSingleton(alpacaHistoricalDataOptions);
 builder.Services.AddSingleton<IClock>(SystemClock.Instance);
 builder.Services.AddSingleton<MarketDataBootstrapStateStore>();
 builder.Services.AddSingleton<MarketDataDailyRuntimeStore>();
+builder.Services.AddSingleton<MarketDataIntradayRuntimeStore>();
 builder.Services.AddScoped<IMarketDataSymbolDemandReader, UniverseMarketDataDemandReader>();
 builder.Services.AddScoped<DailyMarketDataHydrationService>();
+builder.Services.AddScoped<IntradayMarketDataHydrationService>();
 builder.Services.AddScoped<MarketDataBootstrapService>();
 builder.Services.AddScoped<UniverseService>();
 if (alpacaSymbolReferenceOptions.UseFakeProvider)

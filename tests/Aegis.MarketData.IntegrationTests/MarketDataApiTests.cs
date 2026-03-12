@@ -232,6 +232,30 @@ public sealed class MarketDataApiTests : IClassFixture<WebApplicationFactory<Pro
         symbolReadiness.BenchmarkReadinessState.ShouldBe("not_ready");
     }
 
+    [Fact]
+    public async Task IntradayReadiness_ShouldBeReady_WhenExecutionSymbolHasFinalizedOneMinuteHistory()
+    {
+        await ResetStateAsync(_readyFactory);
+        using var client = await CreateAuthenticatedClientAsync(_readyFactory);
+
+        var watchlists = await client.GetAegisJsonAsync<List<WatchlistSummaryView>>("/api/universe/watchlists");
+        watchlists.ShouldNotBeNull();
+        var execution = watchlists.Single(x => x.IsExecution);
+
+        var addSymbol = await client.PostAsJsonAsync($"/api/universe/watchlists/{execution.WatchlistId}/symbols", new AddSymbolToWatchlistRequest("AMD"));
+        addSymbol.StatusCode.ShouldBe(HttpStatusCode.Created);
+
+        var bootstrapResponse = await client.PostAsync("/api/market-data/bootstrap/run", null);
+        bootstrapResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        var intradayReadiness = await client.GetAegisJsonAsync<IntradaySymbolReadinessView>("/api/market-data/intraday/readiness/AMD");
+        intradayReadiness.ShouldNotBeNull();
+        intradayReadiness.ReadinessState.ShouldBe("ready");
+        intradayReadiness.HasRequiredIntradayBars.ShouldBeTrue();
+        intradayReadiness.HasRequiredIndicatorState.ShouldBeTrue();
+        intradayReadiness.AvailableBarCount.ShouldBeGreaterThanOrEqualTo(IntradayMarketDataHydrationService.IntradayRequiredBarCount);
+    }
+
     private async Task<HttpClient> CreateAuthenticatedClientAsync(WebApplicationFactory<Program>? factory = null)
     {
         var client = (factory ?? _factory).CreateClient(new WebApplicationFactoryClientOptions
@@ -253,6 +277,7 @@ public sealed class MarketDataApiTests : IClassFixture<WebApplicationFactory<Pro
 
         await marketDataDbContext.Database.ExecuteSqlRawAsync("TRUNCATE TABLE bar RESTART IDENTITY CASCADE;");
         await universeDbContext.Database.ExecuteSqlRawAsync("TRUNCATE TABLE watchlist_item, watchlist, symbol RESTART IDENTITY CASCADE;");
+        await UniverseDbInitializer.EnsureInitializedAsync(universeDbContext, CancellationToken.None);
     }
 
     private sealed class TestHistoricalBarProvider : IHistoricalBarProvider
@@ -267,6 +292,9 @@ public sealed class MarketDataApiTests : IClassFixture<WebApplicationFactory<Pro
 
             return Task.FromResult(HistoricalBarBatchResult.Success(request.Symbol, "1day", bars, "fake", "iex"));
         }
+
+        public Task<HistoricalBarBatchResult> GetIntradayBarsAsync(IntradayBarRequest request, CancellationToken cancellationToken) =>
+            Task.FromResult(HistoricalBarBatchResult.Success(request.Symbol, request.Interval, BuildIntradayBars(request.Symbol, request.Interval), "fake", "iex"));
     }
 
     private sealed class DailyHistoryHistoricalBarProvider : IHistoricalBarProvider
@@ -285,6 +313,9 @@ public sealed class MarketDataApiTests : IClassFixture<WebApplicationFactory<Pro
 
             return Task.FromResult(HistoricalBarBatchResult.Success(request.Symbol, "1day", bars, "fake", "iex"));
         }
+
+        public Task<HistoricalBarBatchResult> GetIntradayBarsAsync(IntradayBarRequest request, CancellationToken cancellationToken) =>
+            Task.FromResult(HistoricalBarBatchResult.Success(request.Symbol, request.Interval, BuildIntradayBars(request.Symbol, request.Interval), "fake", "iex"));
     }
 
     private sealed class BackfillHistoricalBarProvider : IHistoricalBarProvider
@@ -301,6 +332,9 @@ public sealed class MarketDataApiTests : IClassFixture<WebApplicationFactory<Pro
 
             return Task.FromResult(HistoricalBarBatchResult.Success(request.Symbol, "1day", bars, "fake", "iex"));
         }
+
+        public Task<HistoricalBarBatchResult> GetIntradayBarsAsync(IntradayBarRequest request, CancellationToken cancellationToken) =>
+            Task.FromResult(HistoricalBarBatchResult.Success(request.Symbol, request.Interval, BuildIntradayBars(request.Symbol, request.Interval), "fake", "iex"));
     }
 
     private sealed class BenchmarkBlockedHistoricalBarProvider : IHistoricalBarProvider
@@ -318,7 +352,19 @@ public sealed class MarketDataApiTests : IClassFixture<WebApplicationFactory<Pro
 
             return Task.FromResult(HistoricalBarBatchResult.Success(request.Symbol, "1day", bars, "fake", "iex"));
         }
+
+        public Task<HistoricalBarBatchResult> GetIntradayBarsAsync(IntradayBarRequest request, CancellationToken cancellationToken) =>
+            Task.FromResult(HistoricalBarBatchResult.Success(request.Symbol, request.Interval, BuildIntradayBars(request.Symbol, request.Interval), "fake", "iex"));
     }
+
+    private static HistoricalBarRecord[] BuildIntradayBars(string symbol, string interval) =>
+        Enumerable.Range(0, 390)
+            .Select(index =>
+            {
+                var barTime = Instant.FromUtc(2026, 3, 12, 14, 0) + Duration.FromMinutes(index);
+                return new HistoricalBarRecord(symbol, interval, barTime, 100 + index / 10m, 101 + index / 10m, 99 + index / 10m, 100 + index / 10m, 10_000 + index, "regular", barTime.InUtc().Date, "reconciled", true);
+            })
+            .ToArray();
 }
 
 public sealed class PostgresTestContainer : IAsyncLifetime

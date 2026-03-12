@@ -41,6 +41,33 @@ export type DailyUniverseReadinessView = {
   symbols: DailySymbolReadinessView[];
 };
 
+export type IntradaySymbolReadinessView = {
+  symbol: string;
+  interval: string;
+  profileKey: string;
+  asOfUtc: string;
+  readinessState: string;
+  reasonCode: string;
+  hasRequiredIntradayBars: boolean;
+  hasRequiredIndicatorState: boolean;
+  requiredBarCount: number;
+  availableBarCount: number;
+  lastFinalizedBarUtc?: string | null;
+  lastStateChangedUtc: string;
+};
+
+export type IntradayUniverseReadinessView = {
+  interval: string;
+  profileKey: string;
+  asOfUtc: string;
+  readinessState: string;
+  reasonCode: string;
+  totalSymbolCount: number;
+  readySymbolCount: number;
+  notReadySymbolCount: number;
+  symbols: IntradaySymbolReadinessView[];
+};
+
 export type DailyBarView = {
   symbol: string;
   interval: string;

@@ -26,6 +26,17 @@ public static class MarketDataEndpoints
                 : Results.Ok(result);
         });
 
+        group.MapGet("/intraday/readiness", async (MarketDataBootstrapService service, CancellationToken cancellationToken) =>
+            Results.Ok(await service.GetIntradayReadinessAsync(cancellationToken)));
+
+        group.MapGet("/intraday/readiness/{symbol}", async (string symbol, MarketDataBootstrapService service, CancellationToken cancellationToken) =>
+        {
+            var result = await service.GetIntradayReadinessAsync(symbol, cancellationToken);
+            return result is null
+                ? Results.NotFound(new ApiErrorResponse("intraday_readiness_not_found", "No intraday readiness was found for the requested symbol."))
+                : Results.Ok(result);
+        });
+
         group.MapGet("/daily-bars/{symbol}", async (string symbol, MarketDataBootstrapService service, CancellationToken cancellationToken) =>
         {
             var result = await service.GetDailyBarsAsync(symbol, cancellationToken);
