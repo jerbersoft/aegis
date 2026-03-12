@@ -125,7 +125,7 @@ export default function WatchlistsPage() {
       </div>
 
       <CreateWatchlistDialog open={createOpen} onClose={() => setCreateOpen(false)} onCreated={handleRefreshAll} />
-      <RenameWatchlistDialog open={!!renameTarget} watchlist={renameTarget} onClose={() => setRenameTarget(null)} onRenamed={handleRefreshAll} />
+      <RenameWatchlistDialog key={renameTarget?.watchlistId ?? "rename-watchlist"} open={!!renameTarget} watchlist={renameTarget} onClose={() => setRenameTarget(null)} onRenamed={handleRefreshAll} />
       <DeleteWatchlistDialog open={!!deleteTarget} watchlist={deleteTarget} onClose={() => setDeleteTarget(null)} onDeleted={handleRefreshAll} />
       <AddSymbolDialog watchlistId={effectiveWatchlistId} open={addSymbolOpen} onClose={() => setAddSymbolOpen(false)} onAdded={handleRefreshAll} />
       <ExecutionRemovalBlockersDialog open={!!blockerState.blockers} blockers={blockerState.blockers} onClose={blockerState.clear} />

@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useState } from "react";
 import { renameWatchlist } from "@/lib/api/universe";
 import { WatchlistSummaryView } from "@/lib/types/universe";
 import { Button } from "@/components/ui/button";
@@ -15,8 +15,7 @@ type Props = {
 };
 
 export function RenameWatchlistDialog({ watchlist, open, onClose, onRenamed }: Props) {
-  const initialName = useMemo(() => watchlist?.name ?? "", [watchlist]);
-  const [name, setName] = useState(initialName);
+  const [name, setName] = useState(watchlist?.name ?? "");
   const [error, setError] = useState<string | null>(null);
 
   async function handleSubmit(event: FormEvent) {
@@ -36,9 +35,9 @@ export function RenameWatchlistDialog({ watchlist, open, onClose, onRenamed }: P
   }
 
   return (
-    <Modal key={watchlist?.watchlistId ?? "rename-watchlist"} open={open} title="Rename Watchlist" onClose={onClose}>
+    <Modal open={open} title="Rename Watchlist" onClose={onClose}>
       <form className="space-y-4" onSubmit={handleSubmit}>
-        <Input placeholder="Watchlist name" value={name} onChange={(event) => setName(event.target.value)} />
+        <Input autoFocus placeholder="Watchlist name" value={name} onChange={(event) => setName(event.target.value)} />
         {error ? <p className="text-sm text-red-600">{error}</p> : null}
         <div className="flex justify-end">
           <Button type="submit">Save</Button>
