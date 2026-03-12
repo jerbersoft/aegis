@@ -158,8 +158,8 @@ Detailed provider contract semantics live in `docs/modules/MARKET_DATA.md` and `
 
 Current bootstrap adapter reality:
 
-- `Aegis.Adapters.Alpaca` currently supplies a fake `ISymbolReferenceProvider` implementation for `Universe` symbol validation bootstrap.
-- A real provider-backed symbol-reference implementation remains future work.
+- `Aegis.Adapters.Alpaca` now supplies the default real `ISymbolReferenceProvider` implementation used for first-time `Universe` symbol introduction.
+- a fake symbol-reference provider still exists only as an explicit fallback/testing path.
 
 ## 8) Ownership Rules
 

@@ -8,7 +8,8 @@ This is a research and planning document, not an implementation contract.
 
 Current status note:
 
-- The repository currently contains `src/adapters/Aegis.Adapters.Alpaca`, but that project is only being used for a fake `ISymbolReferenceProvider` bootstrap implementation.
+- The repository currently contains `src/adapters/Aegis.Adapters.Alpaca`, and that project now includes the implemented real `ISymbolReferenceProvider` used by `Universe` for first-time symbol introduction.
+- A fake symbol-reference provider still exists only as an explicit fallback/testing path.
 - This document should not be read as evidence that the full Alpaca market-data adapter has been implemented.
 
 ## 2) Sources reviewed

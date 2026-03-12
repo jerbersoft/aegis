@@ -33,7 +33,7 @@ Implemented now:
 
 Bootstrap-only implementations currently in use:
 
-- fake symbol reference provider behind `ISymbolReferenceProvider`
+- fake symbol reference provider behind `ISymbolReferenceProvider` only as an explicit fallback/testing path
 - fake execution removal guard service behind `IExecutionRemovalGuardService`
 
 Not yet implemented:

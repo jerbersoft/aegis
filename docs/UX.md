@@ -26,6 +26,7 @@ This document is UX-focused. Detailed module behavior, backend ownership, and co
 - The user first lands on a very simple login page.
 - For v1, any username/password combination is accepted.
 - Successful login routes the user to the main dashboard.
+- Under Aspire, the frontend should use the injected backend base URL rather than hardcoded local backend URLs.
 
 ### Post-login shell
 

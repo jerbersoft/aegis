@@ -92,6 +92,14 @@ Implemented now:
 - provider result mapping normalizes invalid symbol, unsupported asset class, and unavailable-provider outcomes into shared reason codes
 - a fake fallback switch still exists for controlled test/bootstrap scenarios
 
+### Web/backend connectivity under Aspire
+
+Implemented now:
+
+- the frontend API layer uses the injected `NEXT_PUBLIC_BACKEND_URL` instead of hardcoded backend URLs
+- the backend avoids HTTPS redirection in Development so the local Aspire/browser HTTP flow works cleanly
+- browser login and downstream watchlist symbol workflows now work under Aspire with the current local setup
+
 ## 5) Implemented frontend behavior
 
 Implemented in `src/Aegis.Web/`.
@@ -174,6 +182,8 @@ Operational/debugging context already learned:
 
 - browser auth required CORS fixes in addition to backend auth endpoints
 - the web app needed a stable local port under Aspire to avoid origin drift
+- the frontend must use the injected backend base URL under Aspire rather than hardcoded local backend URLs
+- backend HTTPS redirection interfered with the browser/Aspire local HTTP flow until it was limited to non-Development environments
 - pgAdmin must use a valid email format for default credentials
 - a custom pgAdmin server-mount attempt conflicted with container startup and was removed
 - malformed build artifact paths were observed and `.gitignore` was adjusted accordingly during implementation work
@@ -182,20 +192,19 @@ Operational/debugging context already learned:
 
 Recommended dependency-ordered next work:
 
-1. replace fake symbol validation with a real provider-backed `ISymbolReferenceProvider`
-2. begin `MarketData` bootstrap from the documented design
-3. decide and document the `SignalR` path for market-data-driven UI updates
-4. bootstrap `Strategies` contracts and assignment/runtime ownership
-5. bootstrap `Orders` contracts and open-order ownership
-6. bootstrap `Portfolio` contracts and open-position ownership
-7. replace fake `Execution` removal guard behavior with real cross-module integration
-8. bootstrap the `IBKR` adapter for order and portfolio state integration
-9. bootstrap `Infrastructure` for connectivity health, pause/resume, alerts, and audit
-10. replace dashboard placeholders and deepen positions/orders UI once the backing modules exist
+1. begin `MarketData` bootstrap from the documented design
+2. decide and document the `SignalR` path for market-data-driven UI updates
+3. bootstrap `Strategies` contracts and assignment/runtime ownership
+4. bootstrap `Orders` contracts and open-order ownership
+5. bootstrap `Portfolio` contracts and open-position ownership
+6. replace fake `Execution` removal guard behavior with real cross-module integration
+7. bootstrap the `IBKR` adapter for order and portfolio state integration
+8. bootstrap `Infrastructure` for connectivity health, pause/resume, alerts, and audit
+9. replace dashboard placeholders and deepen positions/orders UI once the backing modules exist
 
 Why this order:
 
-- `MarketData` and real provider integration are the earliest reusable technical foundations.
+- `MarketData` is now the earliest remaining reusable technical foundation.
 - `Strategies`, `Orders`, and `Portfolio` establish the ownership boundaries that the real `Execution` guard depends on.
 - `IBKR` and `Infrastructure` should follow the relevant module boundaries rather than precede them.
 - richer realtime UI work should follow the backend/runtime foundations that supply the data.
