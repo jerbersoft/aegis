@@ -1228,6 +1228,7 @@ Extend the current daily runtime/readiness slice so `MarketData` computes the fi
 
 - `MarketData` now computes runtime-only `daily_core` indicator state during daily hydration
 - the current implemented daily indicator-state slice includes `sma_200`, `atr_14_percent`, and benchmark-aware `rs_50`
+- the current implemented daily indicator-state slice now also includes `sma_50`, `sma_21`, `sma_10`, `sma_5_high`, `sma_5_low`, `sma_50_volume`, `sma_21_volume`, `rel_volume_21`, `rel_volume_50`, `dcr_percent`, `atr_14_value`, `adr_14_value`, and `adr_14_percent`
 - per-symbol readiness now exposes `has_required_indicator_state`
 - a symbol can now remain `not_ready` because indicator state is still unavailable even when bars and benchmark state are otherwise present
 - the Home widget now surfaces whether indicator state is ready or pending in each displayed readiness detail row

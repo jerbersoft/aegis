@@ -34,6 +34,7 @@ Implemented bootstrap pieces now include:
 - bootstrap-driven missing-history backfill for required daily symbols before final readiness is reported
 - benchmark-aware daily readiness for `daily_core`, including `SPY` dependency expansion and benchmark-caused not-ready state
 - runtime-only `daily_core` indicator-state hydration for `sma_200`, `atr_14_percent`, and benchmark-aware `rs_50`
+- broader runtime-only `daily_core` indicator-state hydration now also covers the shorter SMAs, volume SMAs, relative-volume metrics, `dcr_percent`, `atr_14_value`, and ADR metrics
 
 Current local-runtime note:
 
@@ -178,7 +179,7 @@ Intraday indicator definitions:
 ### Daily runtime state
 
 - Daily runtime state retains up to `300` daily bars in memory per required symbol.
-- Daily indicator snapshots are attached to daily runtime state; the currently implemented slice includes `sma_200`, `atr_14_percent`, and `rs_50`.
+- Daily indicator snapshots are attached to daily runtime state; the currently implemented slice includes `sma_200`, `sma_50`, `sma_21`, `sma_10`, `sma_5_high`, `sma_5_low`, `sma_50_volume`, `sma_21_volume`, `rel_volume_21`, `rel_volume_50`, `dcr_percent`, `atr_14_value`, `atr_14_percent`, `adr_14_value`, `adr_14_percent`, and `rs_50`.
 - Benchmark dependency state is attached to daily runtime state when needed.
 
 ### `1-min` intraday runtime state

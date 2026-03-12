@@ -170,7 +170,18 @@ public sealed class MarketDataBootstrapServiceTests
         snapshot.ShouldNotBeNull();
         snapshot.IndicatorState.HasRequiredIndicatorState.ShouldBeTrue();
         snapshot.IndicatorState.Sma200.ShouldNotBeNull();
+        snapshot.IndicatorState.Sma50.ShouldNotBeNull();
+        snapshot.IndicatorState.Sma21.ShouldNotBeNull();
+        snapshot.IndicatorState.Sma10.ShouldNotBeNull();
+        snapshot.IndicatorState.Sma50Volume.ShouldNotBeNull();
+        snapshot.IndicatorState.Sma21Volume.ShouldNotBeNull();
+        snapshot.IndicatorState.RelVolume21.ShouldNotBeNull();
+        snapshot.IndicatorState.RelVolume50.ShouldNotBeNull();
+        snapshot.IndicatorState.DcrPercent.ShouldNotBeNull();
+        snapshot.IndicatorState.Atr14Value.ShouldNotBeNull();
         snapshot.IndicatorState.Atr14Percent.ShouldNotBeNull();
+        snapshot.IndicatorState.Adr14Value.ShouldNotBeNull();
+        snapshot.IndicatorState.Adr14Percent.ShouldNotBeNull();
         snapshot.IndicatorState.Rs50.ShouldNotBeNull();
     }
 

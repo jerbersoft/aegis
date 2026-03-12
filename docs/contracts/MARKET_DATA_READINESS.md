@@ -21,6 +21,7 @@ Current status note:
 - The currently implemented slice covers daily rollup readiness and per-symbol daily readiness for the `daily_core` profile.
 - The currently implemented slice now includes benchmark-aware daily readiness metadata for `daily_core`, including explicit benchmark dependency state in per-symbol readiness payloads.
 - The currently implemented slice now also exposes whether required daily indicator state is available for `daily_core` readiness.
+- The current runtime-only `daily_core` indicator slice now covers a broader daily indicator set while preserving the same readiness contract shape.
 
 ## 2) Naming Conventions
 

@@ -185,12 +185,53 @@ public sealed class DailyMarketDataHydrationService(
     private static DailyComputedIndicatorState BuildIndicatorState(IReadOnlyList<DailyBarView> symbolBars, IReadOnlyList<DailyBarView>? benchmarkBars, bool requiresBenchmark)
     {
         var sma200 = CalculateSma(symbolBars, 200, bar => bar.Close);
+        var sma50 = CalculateSma(symbolBars, 50, bar => bar.Close);
+        var sma21 = CalculateSma(symbolBars, 21, bar => bar.Close);
+        var sma10 = CalculateSma(symbolBars, 10, bar => bar.Close);
+        var sma5High = CalculateSma(symbolBars, 5, bar => bar.High);
+        var sma5Low = CalculateSma(symbolBars, 5, bar => bar.Low);
+        var sma50Volume = CalculateSma(symbolBars, 50, bar => bar.Volume);
+        var sma21Volume = CalculateSma(symbolBars, 21, bar => bar.Volume);
+        var relVolume21 = CalculateRelativeVolume(symbolBars, sma21Volume);
+        var relVolume50 = CalculateRelativeVolume(symbolBars, sma50Volume);
+        var dcrPercent = CalculateDcrPercent(symbolBars);
+        var atr14Value = CalculateAtr14Value(symbolBars);
         var atr14Percent = CalculateAtr14Percent(symbolBars);
+        var adr14Value = CalculateAdr14Value(symbolBars);
+        var adr14Percent = CalculateAdr14Percent(symbolBars, adr14Value);
         // rs_50 is the first benchmark-relative signal in the runtime, so it is only required for benchmark-aware symbols.
         var rs50 = requiresBenchmark ? CalculateRs50(symbolBars, benchmarkBars, atr14Percent) : null;
-        var hasRequiredIndicatorState = sma200.HasValue && atr14Percent.HasValue && (!requiresBenchmark || rs50.HasValue);
+        var pocketPivot = CalculatePocketPivot(symbolBars, dcrPercent);
+        var hasRequiredIndicatorState = sma200.HasValue
+                                        && sma50.HasValue
+                                        && sma21.HasValue
+                                        && sma10.HasValue
+                                        && dcrPercent.HasValue
+                                        && atr14Value.HasValue
+                                        && atr14Percent.HasValue
+                                        && adr14Value.HasValue
+                                        && adr14Percent.HasValue
+                                        && (!requiresBenchmark || rs50.HasValue);
 
-        return new DailyComputedIndicatorState(sma200, atr14Percent, rs50, hasRequiredIndicatorState);
+        return new DailyComputedIndicatorState(
+            sma200,
+            sma50,
+            sma21,
+            sma10,
+            sma5High,
+            sma5Low,
+            sma50Volume,
+            sma21Volume,
+            relVolume21,
+            relVolume50,
+            dcrPercent,
+            atr14Value,
+            atr14Percent,
+            adr14Value,
+            adr14Percent,
+            rs50,
+            pocketPivot,
+            hasRequiredIndicatorState);
     }
 
     private static decimal? CalculateSma(IReadOnlyList<DailyBarView> bars, int period, Func<DailyBarView, decimal> selector)
@@ -203,7 +244,34 @@ public sealed class DailyMarketDataHydrationService(
         return bars.TakeLast(period).Average(selector);
     }
 
-    private static decimal? CalculateAtr14Percent(IReadOnlyList<DailyBarView> bars)
+    private static decimal? CalculateRelativeVolume(IReadOnlyList<DailyBarView> bars, decimal? averageVolume)
+    {
+        if (!averageVolume.HasValue || averageVolume.Value == 0 || bars.Count == 0)
+        {
+            return null;
+        }
+
+        return bars[^1].Volume / averageVolume.Value;
+    }
+
+    private static decimal? CalculateDcrPercent(IReadOnlyList<DailyBarView> bars)
+    {
+        if (bars.Count == 0)
+        {
+            return null;
+        }
+
+        var current = bars[^1];
+        var range = current.High - current.Low;
+        if (range == 0)
+        {
+            return null;
+        }
+
+        return ((current.Close - current.Low) / range) * 100m;
+    }
+
+    private static decimal? CalculateAtr14Value(IReadOnlyList<DailyBarView> bars)
     {
         if (bars.Count < 15)
         {
@@ -223,14 +291,38 @@ public sealed class DailyMarketDataHydrationService(
             trueRanges[index - 1] = Math.Max(highLow, Math.Max(highPriorClose, lowPriorClose));
         }
 
-        var atr14 = trueRanges.Average();
-        var currentClose = workingBars[^1].Close;
-        if (currentClose == 0)
+        return trueRanges.Average();
+    }
+
+    private static decimal? CalculateAtr14Percent(IReadOnlyList<DailyBarView> bars)
+    {
+        var atr14Value = CalculateAtr14Value(bars);
+        if (!atr14Value.HasValue || bars.Count == 0 || bars[^1].Close == 0)
         {
             return null;
         }
 
-        return (atr14 / currentClose) * 100m;
+        return (atr14Value.Value / bars[^1].Close) * 100m;
+    }
+
+    private static decimal? CalculateAdr14Value(IReadOnlyList<DailyBarView> bars)
+    {
+        if (bars.Count < 14)
+        {
+            return null;
+        }
+
+        return bars.TakeLast(14).Average(bar => bar.High - bar.Low);
+    }
+
+    private static decimal? CalculateAdr14Percent(IReadOnlyList<DailyBarView> bars, decimal? adr14Value)
+    {
+        if (!adr14Value.HasValue || bars.Count == 0 || bars[^1].Close == 0)
+        {
+            return null;
+        }
+
+        return (adr14Value.Value / bars[^1].Close) * 100m;
     }
 
     private static decimal? CalculateRs50(IReadOnlyList<DailyBarView> symbolBars, IReadOnlyList<DailyBarView>? benchmarkBars, decimal? atr14Percent)
@@ -256,5 +348,32 @@ public sealed class DailyMarketDataHydrationService(
         var benchmarkReturnPct = ((benchmarkClose / benchmarkPriorClose) - 1m) * 100m;
         var relativeReturnPct = symbolReturnPct - benchmarkReturnPct;
         return relativeReturnPct / atr14Percent.Value;
+    }
+
+    private static bool? CalculatePocketPivot(IReadOnlyList<DailyBarView> bars, decimal? dcrPercent)
+    {
+        if (bars.Count < 12 || !dcrPercent.HasValue || dcrPercent.Value <= 50m)
+        {
+            return null;
+        }
+
+        var current = bars[^1];
+        var priorBars = bars.TakeLast(11).Take(10).ToArray();
+        var priorRedVolumes = new List<long>();
+
+        for (var index = 1; index < priorBars.Length; index++)
+        {
+            if (priorBars[index].Close < priorBars[index - 1].Close)
+            {
+                priorRedVolumes.Add(priorBars[index].Volume);
+            }
+        }
+
+        if (priorRedVolumes.Count == 0)
+        {
+            return false;
+        }
+
+        return current.Volume > priorRedVolumes.Max();
     }
 }
