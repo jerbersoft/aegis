@@ -131,6 +131,8 @@ Each task folder should contain:
 - Is the only agent allowed to decide which agent or subagent is called next.
 - Requires feature and task tracking to be complete before task execution begins.
 - For new planning work, routing to `Architect` happens before the execution loop starts, not inside it.
+- When beginning work on a feature, creates a feature branch from `master`.
+- The feature branch name must exactly match the feature folder name.
 - Asks `planner` for the next task that should be worked on.
 - Routes the selected task through `developer` -> `tester` -> `reviewer`.
 - After each completed task cycle, asks `planner` whether another task is ready.
@@ -197,6 +199,8 @@ Each task folder should contain:
 - The feature objective, scope, and task index are established.
 - If tasks are already known, they should be listed in `feature.md` before execution begins.
 - Task execution must not begin until the required feature and task tracking artifacts exist.
+- Before task execution begins, `orchestrator` creates or checks out a feature branch from `master`.
+- The feature branch name must exactly match the feature folder name, for example `feature-001-market_data_implementation`.
 
 ### 2. Task selection
 
