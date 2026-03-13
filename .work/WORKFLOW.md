@@ -110,7 +110,7 @@ Each task folder should contain:
 
 - `TASK.md`
   - canonical task metadata and workflow state file
-  - owned primarily by `Orchestrator` for status transitions and by `planner` for initial task setup
+  - owned primarily by `Architect` for initial setup and by `Orchestrator` for workflow-state transitions
 - `developer_handoff.md`
   - written by `planner`
 - `implementation_summary.md`
@@ -128,6 +128,7 @@ Each task folder should contain:
 
 - Selects the feature, or uses the feature specified by the user.
 - Owns the workflow loop, not implementation.
+- Is the only agent allowed to decide which agent or subagent is called next.
 - For new planning work, routes to `Architect` to create the feature and task tracking structure before execution begins.
 - Asks `planner` for the next task that should be worked on.
 - Routes the selected task through `developer` -> `tester` -> `reviewer`.
@@ -143,6 +144,7 @@ Each task folder should contain:
 - Updates feature and task planning metadata as needed.
 - Does not create brand-new features or brand-new tasks.
 - Does not implement code, testing, or review.
+- Does not call other agents or subagents.
 
 ### Developer
 
@@ -150,6 +152,7 @@ Each task folder should contain:
 - Implements code and unit tests.
 - Writes task-level `implementation_summary.md`.
 - Does not write integration tests or UI-automated tests.
+- Does not call other agents or subagents.
 
 ### Tester
 
@@ -158,6 +161,7 @@ Each task folder should contain:
 - Writes and runs Playwright tests when UI automation is needed and practical.
 - May use manual UI verification only when automation is not yet practical.
 - Writes task-level `testing_results.md`.
+- Does not call other agents or subagents.
 
 ### Reviewer
 
@@ -165,6 +169,7 @@ Each task folder should contain:
 - Reviews implementation and testing activity.
 - Confirms constitution alignment, coding standards, and testing sufficiency.
 - Writes task-level `review_results.md`.
+- Does not call other agents or subagents.
 
 ### Architect
 
@@ -174,6 +179,7 @@ Each task folder should contain:
 - Produces final user-facing acceptance guidance after the task loop is complete.
 - Does not take over implementation, testing, or review execution.
 - Does not own task execution artifacts such as `developer_handoff.md`, `implementation_summary.md`, `testing_results.md`, or `review_results.md`.
+- Does not call other agents or subagents when acting inside the workflow loop.
 
 ## Workflow loop
 
@@ -260,6 +266,7 @@ Rules:
 - Use `task_id` and `task_folder` for task-scoped work; use `null` only when the outcome is feature-level, such as `no_more_tasks` or `acceptance_ready`.
 - `artifact` is the primary file created or updated by the agent, or `none` when no artifact changed.
 - Detailed evidence belongs in the artifact document, not in the JSON.
+- `next_agent` is a recommendation only; only `Orchestrator` decides actual routing.
 
 Agent-specific outcomes:
 
@@ -296,22 +303,22 @@ Suggested `reason_code` values:
 
 Expected routing:
 
-- `planner` + `task_ready` -> `developer`
-- `planner` + `no_more_tasks` -> `architect`
-- `planner` + `needs_clarification` -> `orchestrator` or `user`
-- `planner` + `blocked` -> `orchestrator`
-- `developer` + `implementation_ready` -> `tester`
-- `developer` + `implementation_partial` -> `orchestrator`
-- `developer` + `blocked` -> `orchestrator`
-- `tester` + `pass` -> `reviewer`
-- `tester` + `fail` -> `developer` or `orchestrator`
-- `tester` + `blocked` -> `orchestrator`
-- `reviewer` + `approved` -> `orchestrator`
-- `reviewer` + `changes_requested` -> `developer`, `tester`, or `orchestrator`
-- `reviewer` + `blocked` -> `orchestrator`
-- `architect` + `feature_tracking_ready` -> `planner` or `orchestrator`
-- `architect` + `acceptance_ready` -> `orchestrator`
-- `architect` + `blocked` -> `orchestrator`
+- `planner` + `task_ready` -> `Orchestrator` decides whether to call `developer`
+- `planner` + `no_more_tasks` -> `Orchestrator` decides whether to call `Architect`
+- `planner` + `needs_clarification` -> `Orchestrator` decides whether clarification is needed from the user
+- `planner` + `blocked` -> `Orchestrator` decides the next action
+- `developer` + `implementation_ready` -> `Orchestrator` decides whether to call `tester`
+- `developer` + `implementation_partial` -> `Orchestrator` decides the next action
+- `developer` + `blocked` -> `Orchestrator` decides the next action
+- `tester` + `pass` -> `Orchestrator` decides whether to call `reviewer`
+- `tester` + `fail` -> `Orchestrator` decides whether to route back to `developer` or handle another action
+- `tester` + `blocked` -> `Orchestrator` decides the next action
+- `reviewer` + `approved` -> `Orchestrator` decides the next action
+- `reviewer` + `changes_requested` -> `Orchestrator` decides whether to route to `developer` or `tester`
+- `reviewer` + `blocked` -> `Orchestrator` decides the next action
+- `architect` + `feature_tracking_ready` -> `Orchestrator` decides the next action
+- `architect` + `acceptance_ready` -> `Orchestrator` closes covered tasks and the feature when appropriate
+- `architect` + `blocked` -> `Orchestrator` decides the next action
 
 ## Status model
 
@@ -360,9 +367,24 @@ Recommended meaning:
 - `in_review`: `reviewer` is assessing the task
 - `rework_required`: the task needs more implementation or testing
 - `ready`: the task has passed the execution loop and is waiting to be represented in `ACCEPTANCE.md`
-- `ready`: the task has passed the execution loop and is waiting to be represented in `ACCEPTANCE.md`
 - `blocked`: the task cannot proceed
 - `closed`: the task is represented in `ACCEPTANCE.md` and no further workflow work is expected
+
+### Task acceptance status
+
+Task acceptance status is tracked in `TASK.md` and represents whether the task has been incorporated into feature-level acceptance guidance.
+
+Allowed acceptance-status values:
+
+- `not_covered`
+- `covered_in_acceptance`
+- `not_applicable`
+
+Recommended meaning:
+
+- `not_covered`: the task is not yet represented in `ACCEPTANCE.md`
+- `covered_in_acceptance`: the task is represented in `ACCEPTANCE.md`
+- `not_applicable`: the task does not need acceptance-guide coverage
 
 ## Feature rollup expectations
 

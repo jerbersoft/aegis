@@ -18,6 +18,7 @@ Date: {{date}}
 
 ## 2. Tasks Covered
 
+- Repeat this pattern for as many covered tasks as needed.
 - {{task_1_id}} - {{task_1_title}}
 - {{task_2_id}} - {{task_2_title}}
 

@@ -12,6 +12,8 @@ Acceptance Status: {{acceptance_status}}
 Created Date: {{created_date}}
 Last Updated: {{last_updated}}
 
+Allowed Acceptance Status Values: `not_covered | covered_in_acceptance | not_applicable`
+
 ## Objective
 {{objective}}
 
