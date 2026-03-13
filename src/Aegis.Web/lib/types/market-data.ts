@@ -50,6 +50,10 @@ export type IntradaySymbolReadinessView = {
   reasonCode: string;
   hasRequiredIntradayBars: boolean;
   hasRequiredIndicatorState: boolean;
+  volumeBuzzPercent?: number | null;
+  hasRequiredVolumeBuzzReferenceHistory: boolean;
+  requiredVolumeBuzzReferenceSessionCount: number;
+  availableVolumeBuzzReferenceSessionCount: number;
   requiredBarCount: number;
   availableBarCount: number;
   lastFinalizedBarUtc?: string | null;

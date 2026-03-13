@@ -1314,8 +1314,8 @@ Extend `MarketData` beyond daily-only runtime/readiness by delivering the first 
 - the current intraday indicator-state slice computes `ema_30`, `ema_100`, and `vwap`
 - intraday readiness is now exposed through `GET /api/market-data/intraday/readiness` and `GET /api/market-data/intraday/readiness/{symbol}`
 - the Home widget now shows a minimal `Intraday Readiness` section for active `1-min` demand
-- `volume_buzz_percent` remains deferred because it requires additional historical reference-curve state
+- `volume_buzz_percent` is now implemented using cumulative historical reference-curve state over the prior `10` sessions
 
 #### Recommended next slice
 
-- add `volume_buzz_percent` with cumulative session-offset reference curves, then deepen intraday gap/readiness semantics
+- deepen intraday gap/readiness semantics now that `volume_buzz_percent` reference-curve support is in place

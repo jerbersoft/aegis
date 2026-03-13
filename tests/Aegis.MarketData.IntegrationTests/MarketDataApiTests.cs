@@ -253,6 +253,9 @@ public sealed class MarketDataApiTests : IClassFixture<WebApplicationFactory<Pro
         intradayReadiness.ReadinessState.ShouldBe("ready");
         intradayReadiness.HasRequiredIntradayBars.ShouldBeTrue();
         intradayReadiness.HasRequiredIndicatorState.ShouldBeTrue();
+        intradayReadiness.HasRequiredVolumeBuzzReferenceHistory.ShouldBeTrue();
+        intradayReadiness.AvailableVolumeBuzzReferenceSessionCount.ShouldBe(IntradayMarketDataHydrationService.VolumeBuzzReferenceSessionCount);
+        intradayReadiness.VolumeBuzzPercent.ShouldNotBeNull();
         intradayReadiness.AvailableBarCount.ShouldBeGreaterThanOrEqualTo(IntradayMarketDataHydrationService.IntradayRequiredBarCount);
     }
 
@@ -358,12 +361,14 @@ public sealed class MarketDataApiTests : IClassFixture<WebApplicationFactory<Pro
     }
 
     private static HistoricalBarRecord[] BuildIntradayBars(string symbol, string interval) =>
-        Enumerable.Range(0, 390)
+        Enumerable.Range(0, 11)
+            .SelectMany(sessionIndex => Enumerable.Range(0, 390)
             .Select(index =>
             {
-                var barTime = Instant.FromUtc(2026, 3, 12, 14, 0) + Duration.FromMinutes(index);
-                return new HistoricalBarRecord(symbol, interval, barTime, 100 + index / 10m, 101 + index / 10m, 99 + index / 10m, 100 + index / 10m, 10_000 + index, "regular", barTime.InUtc().Date, "reconciled", true);
-            })
+                var marketDate = new LocalDate(2026, 3, 2).PlusDays(sessionIndex);
+                var barTime = Instant.FromUtc(marketDate.Year, marketDate.Month, marketDate.Day, 14, 30) + Duration.FromMinutes(index);
+                return new HistoricalBarRecord(symbol, interval, barTime, 100 + sessionIndex + index / 10m, 101 + sessionIndex + index / 10m, 99 + sessionIndex + index / 10m, 100 + sessionIndex + index / 10m, 10_000 + (sessionIndex * 100) + index, "regular", marketDate, "reconciled", true);
+            }))
             .ToArray();
 }
 

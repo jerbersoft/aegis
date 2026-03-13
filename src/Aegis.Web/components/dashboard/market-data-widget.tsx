@@ -77,6 +77,9 @@ export function MarketDataWidget() {
                   <p key={`${symbol.symbol}-${symbol.interval}`}>
                     <span className="font-semibold text-slate-100">{symbol.symbol}</span>: {symbol.readinessState} ({symbol.availableBarCount}/{symbol.requiredBarCount})
                     {symbol.hasRequiredIndicatorState ? " • indicators ready" : " • indicators pending"}
+                    {typeof symbol.volumeBuzzPercent === "number"
+                      ? ` • buzz ${symbol.volumeBuzzPercent.toFixed(1)}%`
+                      : ` • buzz ref ${symbol.availableVolumeBuzzReferenceSessionCount}/${symbol.requiredVolumeBuzzReferenceSessionCount}`}
                   </p>
                 ))}
               </div>

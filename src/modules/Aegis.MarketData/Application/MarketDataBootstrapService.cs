@@ -24,7 +24,7 @@ public sealed class MarketDataBootstrapService(
     private const string HistoricalFeed = "iex";
     private const int MissingBarSafetyBuffer = 60;
     private static readonly Duration DefaultLookbackWindow = Duration.FromDays(450);
-    private static readonly Duration DefaultIntradayLookbackWindow = Duration.FromDays(3);
+    private static readonly Duration DefaultIntradayLookbackWindow = Duration.FromDays(20);
 
     public async Task<MarketDataBootstrapStatusView> RunWarmupAsync(CancellationToken cancellationToken)
     {
@@ -231,8 +231,20 @@ public sealed class MarketDataBootstrapService(
         var earliestBarUtc = items.FirstOrDefault();
         var latestBarUtc = items.LastOrDefault();
         var missingBarCount = Math.Max(0, IntradayMarketDataHydrationService.IntradayRequiredBarCount - persistedCount);
+        var persistedSessionCount = await dbContext.Bars
+            .AsNoTracking()
+            .Where(x => x.Symbol == symbol && x.Interval == IntradayInterval)
+            .Select(x => x.MarketDate)
+            .Distinct()
+            .CountAsync(cancellationToken);
 
-        return new IntradayHistoryCoverage(symbol, persistedCount, earliestBarUtc == default ? null : earliestBarUtc, latestBarUtc == default ? null : latestBarUtc, missingBarCount);
+        return new IntradayHistoryCoverage(
+            symbol,
+            persistedCount,
+            persistedSessionCount,
+            earliestBarUtc == default ? null : earliestBarUtc,
+            latestBarUtc == default ? null : latestBarUtc,
+            missingBarCount);
     }
 
     private static HistoricalBarRequest BuildHistoricalRequest(DailyHistoryCoverage coverage, Instant now)
@@ -252,11 +264,15 @@ public sealed class MarketDataBootstrapService(
 
     private static IntradayBarRequest BuildIntradayHistoricalRequest(IntradayHistoryCoverage coverage, Instant now)
     {
-        var limit = Math.Max(IntradayMarketDataHydrationService.IntradayRequiredBarCount + 120, coverage.MissingBarCount + 120);
+        var missingSessionCount = Math.Max(0, (IntradayMarketDataHydrationService.VolumeBuzzReferenceSessionCount + 1) - coverage.PersistedSessionCount);
+        var limit = Math.Max(
+            IntradayMarketDataHydrationService.IntradayRequiredBarCount + 120,
+            Math.Max(coverage.MissingBarCount + 120, (missingSessionCount + 2) * 390));
+
         if (coverage.EarliestBarUtc is { } earliestBarUtc)
         {
             var toUtc = earliestBarUtc;
-            var fromUtc = toUtc - Duration.FromDays(2);
+            var fromUtc = toUtc - Duration.FromDays(Math.Max(2, missingSessionCount + 2));
             return new IntradayBarRequest(coverage.Symbol, IntradayInterval, fromUtc, toUtc, limit, HistoricalFeed);
         }
 
@@ -353,10 +369,12 @@ public sealed class MarketDataBootstrapService(
     private sealed record IntradayHistoryCoverage(
         string Symbol,
         int PersistedCount,
+        int PersistedSessionCount,
         Instant? EarliestBarUtc,
         Instant? LatestBarUtc,
         int MissingBarCount)
     {
-        public bool NeedsBackfill => PersistedCount < IntradayMarketDataHydrationService.IntradayRequiredBarCount;
+        public bool NeedsBackfill => PersistedCount < IntradayMarketDataHydrationService.IntradayRequiredBarCount
+                                     || PersistedSessionCount < (IntradayMarketDataHydrationService.VolumeBuzzReferenceSessionCount + 1);
     }
 }

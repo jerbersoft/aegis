@@ -201,7 +201,7 @@ public sealed class MarketDataBootstrapServiceTests
         var demandReader = new StubDemandReader(["AAPL"], ["AAPL"]);
         var clock = new FakeClock(Instant.FromUtc(2026, 3, 12, 13, 0));
 
-        SeedIntradayBars(dbContext, "AAPL", 390, clock.GetCurrentInstant());
+        SeedIntradayBars(dbContext, "AAPL", 11, 390, clock.GetCurrentInstant());
         await dbContext.SaveChangesAsync();
 
         var service = new MarketDataBootstrapService(
@@ -221,7 +221,89 @@ public sealed class MarketDataBootstrapServiceTests
         readiness.ShouldNotBeNull();
         readiness.ReadinessState.ShouldBe("ready");
         readiness.HasRequiredIndicatorState.ShouldBeTrue();
+        readiness.HasRequiredVolumeBuzzReferenceHistory.ShouldBeTrue();
+        readiness.AvailableVolumeBuzzReferenceSessionCount.ShouldBe(IntradayMarketDataHydrationService.VolumeBuzzReferenceSessionCount);
+        readiness.VolumeBuzzPercent.ShouldNotBeNull();
         readiness.AvailableBarCount.ShouldBeGreaterThanOrEqualTo(IntradayMarketDataHydrationService.IntradayRequiredBarCount);
+    }
+
+    [Fact]
+    public async Task GetIntradayReadinessAsync_ShouldReturnNotReady_WhenVolumeBuzzReferenceHistoryIsInsufficient()
+    {
+        await using var dbContext = CreateDbContext();
+        var dailyRuntimeStore = new MarketDataDailyRuntimeStore();
+        var intradayRuntimeStore = new MarketDataIntradayRuntimeStore();
+        var demandReader = new StubDemandReader(["AAPL"], ["AAPL"]);
+        var clock = new FakeClock(Instant.FromUtc(2026, 3, 12, 13, 0));
+
+        SeedIntradayBars(dbContext, "AAPL", 2, 390, clock.GetCurrentInstant());
+        await dbContext.SaveChangesAsync();
+
+        var service = new MarketDataBootstrapService(
+            dbContext,
+            demandReader,
+            new StubHistoricalBarProvider(),
+            new MarketDataBootstrapStateStore(),
+            new DailyMarketDataHydrationService(dbContext, demandReader, dailyRuntimeStore, clock),
+            dailyRuntimeStore,
+            new IntradayMarketDataHydrationService(dbContext, demandReader, intradayRuntimeStore, clock),
+            intradayRuntimeStore,
+            clock);
+
+        await service.GetStatusAsync(CancellationToken.None);
+        var readiness = await service.GetIntradayReadinessAsync("AAPL", CancellationToken.None);
+
+        readiness.ShouldNotBeNull();
+        readiness.ReadinessState.ShouldBe("not_ready");
+        readiness.ReasonCode.ShouldBe("insufficient_volume_buzz_reference_history");
+        readiness.HasRequiredIntradayBars.ShouldBeTrue();
+        readiness.HasRequiredIndicatorState.ShouldBeFalse();
+        readiness.HasRequiredVolumeBuzzReferenceHistory.ShouldBeFalse();
+        readiness.AvailableVolumeBuzzReferenceSessionCount.ShouldBe(1);
+        readiness.VolumeBuzzPercent.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task GetIntradayReadinessAsync_ShouldComputeVolumeBuzzPercent_UsingSessionOffsetMatchedReferenceCurves()
+    {
+        await using var dbContext = CreateDbContext();
+        var dailyRuntimeStore = new MarketDataDailyRuntimeStore();
+        var intradayRuntimeStore = new MarketDataIntradayRuntimeStore();
+        var demandReader = new StubDemandReader(["AAPL"], ["AAPL"]);
+        var clock = new FakeClock(Instant.FromUtc(2026, 3, 12, 13, 0));
+
+        SeedIntradayBarsWithSessionOffsetVolumes(
+            dbContext,
+            "AAPL",
+            referenceSessionCount: IntradayMarketDataHydrationService.VolumeBuzzReferenceSessionCount,
+            barsPerReferenceSession: 3,
+            currentSessionVolumes: [100L, 200L, 300L],
+            referenceSessionVolumes: [
+                [10L, 20L, 30L], [10L, 20L, 30L], [10L, 20L, 30L], [10L, 20L, 30L], [10L, 20L, 30L],
+                [10L, 20L, 30L], [10L, 20L, 30L], [10L, 20L, 30L], [10L, 20L, 30L], [10L, 20L, 30L]
+            ],
+            createdUtc: clock.GetCurrentInstant());
+        await dbContext.SaveChangesAsync();
+
+        var service = new MarketDataBootstrapService(
+            dbContext,
+            demandReader,
+            new StubHistoricalBarProvider(),
+            new MarketDataBootstrapStateStore(),
+            new DailyMarketDataHydrationService(dbContext, demandReader, dailyRuntimeStore, clock),
+            dailyRuntimeStore,
+            new IntradayMarketDataHydrationService(dbContext, demandReader, intradayRuntimeStore, clock),
+            intradayRuntimeStore,
+            clock);
+
+        await service.GetStatusAsync(CancellationToken.None);
+        var readiness = await service.GetIntradayReadinessAsync("AAPL", CancellationToken.None);
+
+        readiness.ShouldNotBeNull();
+        readiness.ReadinessState.ShouldBe("not_ready");
+        readiness.HasRequiredVolumeBuzzReferenceHistory.ShouldBeTrue();
+        readiness.AvailableVolumeBuzzReferenceSessionCount.ShouldBe(IntradayMarketDataHydrationService.VolumeBuzzReferenceSessionCount);
+        readiness.VolumeBuzzPercent.ShouldBe(1000m);
     }
 
     [Fact]
@@ -284,13 +366,7 @@ public sealed class MarketDataBootstrapServiceTests
 
         public Task<HistoricalBarBatchResult> GetIntradayBarsAsync(IntradayBarRequest request, CancellationToken cancellationToken)
         {
-            var bars = Enumerable.Range(0, 390)
-                .Select(index =>
-                {
-                    var barTime = Instant.FromUtc(2026, 3, 12, 14, 0) + Duration.FromMinutes(index);
-                    return new HistoricalBarRecord(request.Symbol, request.Interval, barTime, 100 + index / 10m, 101 + index / 10m, 99 + index / 10m, 100 + index / 10m, 1000 + index, "regular", barTime.InUtc().Date, "reconciled", true);
-                })
-                .ToArray();
+            var bars = BuildIntradayBars(request.Symbol, request.Interval, 11, 390);
 
             return Task.FromResult(HistoricalBarBatchResult.Success(request.Symbol, request.Interval, bars, "fake", "iex"));
         }
@@ -321,13 +397,7 @@ public sealed class MarketDataBootstrapServiceTests
 
         public Task<HistoricalBarBatchResult> GetIntradayBarsAsync(IntradayBarRequest request, CancellationToken cancellationToken)
         {
-            var bars = Enumerable.Range(0, 390)
-                .Select(index =>
-                {
-                    var barTime = Instant.FromUtc(2026, 3, 12, 14, 0) + Duration.FromMinutes(index);
-                    return new HistoricalBarRecord(request.Symbol, request.Interval, barTime, 100 + index / 10m, 101 + index / 10m, 99 + index / 10m, 100 + index / 10m, 1000 + index, "regular", barTime.InUtc().Date, "reconciled", true);
-                })
-                .ToArray();
+            var bars = BuildIntradayBars(request.Symbol, request.Interval, 11, 390);
 
             return Task.FromResult(HistoricalBarBatchResult.Success(request.Symbol, request.Interval, bars, "fake", "iex"));
         }
@@ -375,24 +445,72 @@ public sealed class MarketDataBootstrapServiceTests
         }
     }
 
-    private static void SeedIntradayBars(MarketDataDbContext dbContext, string symbol, int count, Instant createdUtc)
+    private static void SeedIntradayBars(MarketDataDbContext dbContext, string symbol, int sessionCount, int barsPerSession, Instant createdUtc)
     {
-        for (var index = 0; index < count; index++)
+        foreach (var bar in BuildIntradayBars(symbol, IntradayMarketDataHydrationService.IntradayInterval, sessionCount, barsPerSession))
         {
-            var barTime = Instant.FromUtc(2026, 3, 12, 14, 0) + Duration.FromMinutes(index);
+            dbContext.Bars.Add(new Aegis.MarketData.Domain.Entities.MarketDataBar
+            {
+                BarId = Guid.NewGuid(),
+                Symbol = symbol,
+                Interval = IntradayMarketDataHydrationService.IntradayInterval,
+                BarTimeUtc = bar.BarTimeUtc,
+                Open = bar.Open,
+                High = bar.High,
+                Low = bar.Low,
+                Close = bar.Close,
+                Volume = bar.Volume,
+                SessionType = bar.SessionType,
+                MarketDate = bar.MarketDate,
+                ProviderName = bar.Symbol == symbol ? "fake" : "unexpected",
+                ProviderFeed = "iex",
+                RuntimeState = bar.RuntimeState,
+                IsReconciled = bar.IsReconciled,
+                CreatedUtc = createdUtc,
+                UpdatedUtc = createdUtc
+            });
+        }
+    }
+
+    private static void SeedIntradayBarsWithSessionOffsetVolumes(
+        MarketDataDbContext dbContext,
+        string symbol,
+        int referenceSessionCount,
+        int barsPerReferenceSession,
+        IReadOnlyList<long> currentSessionVolumes,
+        IReadOnlyList<IReadOnlyList<long>> referenceSessionVolumes,
+        Instant createdUtc)
+    {
+        var startDate = new LocalDate(2026, 3, 1);
+
+        for (var sessionIndex = 0; sessionIndex < referenceSessionCount; sessionIndex++)
+        {
+            AddIntradaySession(dbContext, symbol, startDate.PlusDays(sessionIndex), referenceSessionVolumes[sessionIndex], createdUtc, sessionIndex);
+        }
+
+        AddIntradaySession(dbContext, symbol, startDate.PlusDays(referenceSessionCount), currentSessionVolumes, createdUtc, referenceSessionCount);
+    }
+
+    private static void AddIntradaySession(MarketDataDbContext dbContext, string symbol, LocalDate marketDate, IReadOnlyList<long> volumes, Instant createdUtc, int sessionIndex)
+    {
+        var sessionOpen = Instant.FromUtc(marketDate.Year, marketDate.Month, marketDate.Day, 14, 30);
+        for (var minuteIndex = 0; minuteIndex < volumes.Count; minuteIndex++)
+        {
+            var barTime = sessionOpen + Duration.FromMinutes(minuteIndex);
+            var price = 100m + sessionIndex + (minuteIndex / 10m);
             dbContext.Bars.Add(new Aegis.MarketData.Domain.Entities.MarketDataBar
             {
                 BarId = Guid.NewGuid(),
                 Symbol = symbol,
                 Interval = IntradayMarketDataHydrationService.IntradayInterval,
                 BarTimeUtc = barTime,
-                Open = 100 + index / 10m,
-                High = 101 + index / 10m,
-                Low = 99 + index / 10m,
-                Close = 100 + index / 10m,
-                Volume = 1_000 + index,
+                Open = price,
+                High = price + 1m,
+                Low = price - 1m,
+                Close = price + 0.25m,
+                Volume = volumes[minuteIndex],
                 SessionType = "regular",
-                MarketDate = barTime.InUtc().Date,
+                MarketDate = marketDate,
                 ProviderName = "fake",
                 ProviderFeed = "iex",
                 RuntimeState = "reconciled",
@@ -401,5 +519,24 @@ public sealed class MarketDataBootstrapServiceTests
                 UpdatedUtc = createdUtc
             });
         }
+    }
+
+    private static HistoricalBarRecord[] BuildIntradayBars(string symbol, string interval, int sessionCount, int barsPerSession)
+    {
+        var startDate = new LocalDate(2026, 3, 2);
+        return Enumerable.Range(0, sessionCount)
+            .SelectMany(sessionIndex =>
+            {
+                var marketDate = startDate.PlusDays(sessionIndex);
+                var sessionOpen = Instant.FromUtc(marketDate.Year, marketDate.Month, marketDate.Day, 14, 30);
+
+                return Enumerable.Range(0, barsPerSession).Select(minuteIndex =>
+                {
+                    var barTime = sessionOpen + Duration.FromMinutes(minuteIndex);
+                    var price = 100m + sessionIndex + (minuteIndex / 100m);
+                    return new HistoricalBarRecord(symbol, interval, barTime, price, price + 1m, price - 1m, price + 0.25m, 1_000 + (sessionIndex * 100) + minuteIndex, "regular", marketDate, "reconciled", true);
+                });
+            })
+            .ToArray();
     }
 }

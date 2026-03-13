@@ -37,6 +37,7 @@ Implemented bootstrap pieces now include:
 - broader runtime-only `daily_core` indicator-state hydration now also covers the shorter SMAs, volume SMAs, relative-volume metrics, `dcr_percent`, `atr_14_value`, and ADR metrics
 - first `1-min` intraday runtime/readiness foundation for `Execution` demand under the `intraday_core` profile
 - runtime-only `1-min` indicator-state hydration for `ema_30`, `ema_100`, and `vwap`
+- runtime-only `1-min` indicator-state hydration now also covers `volume_buzz_percent` using cumulative session-offset reference curves
 - intraday rollup and per-symbol readiness REST reads
 
 Current local-runtime note:
@@ -47,6 +48,7 @@ Current local-runtime note:
 Recommended immediate next implementation slice:
 
 - after the first `1-min` intraday runtime/readiness foundation, add `volume_buzz_percent` with its required reference-curve state
+- after the now-implemented `volume_buzz_percent` reference-curve slice, deepen intraday gap/readiness/runtime semantics
 
 This document should therefore be read as target design layered on top of the now-implemented daily and first `1-min` intraday foundations.
 
@@ -200,8 +202,8 @@ Intraday indicator definitions:
 
 Current implementation note:
 
-- the currently implemented intraday slice computes `ema_30`, `ema_100`, and `vwap`
-- `volume_buzz_percent` remains deferred until the reference-curve state described below is implemented
+- the currently implemented intraday slice computes `ema_30`, `ema_100`, `volume_buzz_percent`, and `vwap`
+- `volume_buzz_percent` now uses cumulative historical reference curves from the prior `10` sessions and remains `not_ready` when that reference history is insufficient
 
 ### Intraday raw-window policy
 

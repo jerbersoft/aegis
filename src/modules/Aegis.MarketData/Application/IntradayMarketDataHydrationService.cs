@@ -15,6 +15,7 @@ public sealed class IntradayMarketDataHydrationService(
     public const string IntradayCoreProfileKey = "intraday_core";
     public const string IntradayInterval = "1min";
     public const int IntradayRequiredBarCount = 100;
+    public const int VolumeBuzzReferenceSessionCount = 10;
 
     public async Task<IntradayUniverseRuntimeSnapshot> RebuildAsync(string? overrideReadinessState = null, string? overrideReasonCode = null, CancellationToken cancellationToken = default)
     {
@@ -57,7 +58,7 @@ public sealed class IntradayMarketDataHydrationService(
 
         var grouped = rows
             .GroupBy(x => x.Symbol, StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(x => x.Key, x => FilterToCurrentAndPriorSession(x.ToArray()), StringComparer.OrdinalIgnoreCase);
+            .ToDictionary(x => x.Key, x => (IReadOnlyList<DailyBarView>)x.ToArray(), StringComparer.OrdinalIgnoreCase);
 
         var snapshots = symbols
             .Select(symbol => BuildSnapshot(symbol, grouped.TryGetValue(symbol, out var bars) ? bars : [], asOfUtc))
@@ -76,13 +77,18 @@ public sealed class IntradayMarketDataHydrationService(
         return bars.Where(x => marketDates.Contains(x.MarketDate)).ToArray();
     }
 
-    private static IntradaySymbolRuntimeSnapshot BuildSnapshot(string symbol, IReadOnlyList<DailyBarView> bars, Instant asOfUtc)
+    private static IntradaySymbolRuntimeSnapshot BuildSnapshot(string symbol, IReadOnlyList<DailyBarView> allBars, Instant asOfUtc)
     {
-        var indicatorState = BuildIndicatorState(bars);
-        var availableBarCount = bars.Count;
+        var runtimeBars = FilterToCurrentAndPriorSession(allBars);
+        var indicatorState = BuildIndicatorState(allBars);
+        var availableBarCount = runtimeBars.Count;
         var hasRequiredBars = availableBarCount >= IntradayRequiredBarCount;
         var readinessState = hasRequiredBars && indicatorState.HasRequiredIndicatorState ? "ready" : "not_ready";
-        var reasonCode = !hasRequiredBars ? "missing_required_intraday_bars" : indicatorState.HasRequiredIndicatorState ? "none" : "awaiting_recompute";
+        var reasonCode = !hasRequiredBars
+            ? "missing_required_intraday_bars"
+            : indicatorState.VolumeBuzzReferenceState.HasRequiredReferenceHistory
+                ? indicatorState.HasRequiredIndicatorState ? "none" : "awaiting_recompute"
+                : "insufficient_volume_buzz_reference_history";
 
         return new IntradaySymbolRuntimeSnapshot(
             symbol,
@@ -90,20 +96,102 @@ public sealed class IntradayMarketDataHydrationService(
             IntradayCoreProfileKey,
             IntradayRequiredBarCount,
             availableBarCount,
-            bars.LastOrDefault()?.BarTimeUtc,
+            runtimeBars.LastOrDefault()?.BarTimeUtc,
             readinessState,
             reasonCode,
             asOfUtc,
             indicatorState,
-            bars);
+            runtimeBars);
     }
 
-    private static IntradayComputedIndicatorState BuildIndicatorState(IReadOnlyList<DailyBarView> bars)
+    private static IntradayComputedIndicatorState BuildIndicatorState(IReadOnlyList<DailyBarView> allBars)
     {
-        var ema30 = CalculateEma(bars, 30);
-        var ema100 = CalculateEma(bars, 100);
-        var vwap = CalculateVwap(bars);
-        return new IntradayComputedIndicatorState(ema30, ema100, vwap, ema30.HasValue && ema100.HasValue && vwap.HasValue);
+        var runtimeBars = FilterToCurrentAndPriorSession(allBars);
+        var ema30 = CalculateEma(runtimeBars, 30);
+        var ema100 = CalculateEma(runtimeBars, 100);
+        var volumeBuzzReferenceState = BuildVolumeBuzzReferenceState(allBars);
+        var vwap = CalculateVwap(runtimeBars);
+        var hasRequiredIndicatorState = ema30.HasValue
+                                        && ema100.HasValue
+                                        && volumeBuzzReferenceState.HasRequiredReferenceHistory
+                                        && vwap.HasValue;
+
+        return new IntradayComputedIndicatorState(ema30, ema100, volumeBuzzReferenceState.HasRequiredReferenceHistory ? CalculateVolumeBuzzPercent(volumeBuzzReferenceState) : null, vwap, hasRequiredIndicatorState, volumeBuzzReferenceState);
+    }
+
+    private static IntradayVolumeBuzzReferenceState BuildVolumeBuzzReferenceState(IReadOnlyList<DailyBarView> bars)
+    {
+        if (bars.Count == 0)
+        {
+            return new IntradayVolumeBuzzReferenceState(VolumeBuzzReferenceSessionCount, 0, null, null, null, []);
+        }
+
+        var orderedSessions = bars
+            .GroupBy(x => x.MarketDate)
+            .OrderBy(x => x.Key)
+            .Select(group => group.OrderBy(x => x.BarTimeUtc).ToArray())
+            .ToArray();
+
+        if (orderedSessions.Length == 0)
+        {
+            return new IntradayVolumeBuzzReferenceState(VolumeBuzzReferenceSessionCount, 0, null, null, null, []);
+        }
+
+        var currentSession = orderedSessions[^1];
+        var currentSessionOffset = currentSession.Length - 1;
+        if (currentSessionOffset < 0)
+        {
+            return new IntradayVolumeBuzzReferenceState(VolumeBuzzReferenceSessionCount, 0, null, null, null, []);
+        }
+
+        var currentSessionCumulativeVolume = currentSession.Sum(x => x.Volume);
+        // Volume buzz compares cumulative volume at the current session offset, so each reference session only contributes when it has reached the same closed-bar offset.
+        var historicalCurves = orderedSessions
+            .Take(Math.Max(0, orderedSessions.Length - 1))
+            .Reverse()
+            .Select(BuildCumulativeCurve)
+            .Where(curve => curve.Count > currentSessionOffset)
+            .Take(VolumeBuzzReferenceSessionCount)
+            .Select(curve => (IReadOnlyList<long>)curve)
+            .ToArray();
+
+        decimal? historicalAverage = historicalCurves.Length == 0
+            ? null
+            : historicalCurves.Average(curve => (decimal)curve[currentSessionOffset]);
+
+        return new IntradayVolumeBuzzReferenceState(
+            VolumeBuzzReferenceSessionCount,
+            historicalCurves.Length,
+            currentSessionOffset,
+            currentSessionCumulativeVolume,
+            historicalAverage,
+            historicalCurves);
+    }
+
+    private static decimal? CalculateVolumeBuzzPercent(IntradayVolumeBuzzReferenceState referenceState)
+    {
+        if (!referenceState.CurrentSessionCumulativeVolume.HasValue
+            || !referenceState.HistoricalAverageCumulativeVolumeAtOffset.HasValue
+            || referenceState.HistoricalAverageCumulativeVolumeAtOffset.Value == 0)
+        {
+            return null;
+        }
+
+        return (referenceState.CurrentSessionCumulativeVolume.Value / referenceState.HistoricalAverageCumulativeVolumeAtOffset.Value) * 100m;
+    }
+
+    private static IReadOnlyList<long> BuildCumulativeCurve(IReadOnlyList<DailyBarView> bars)
+    {
+        var cumulativeCurve = new long[bars.Count];
+        long runningVolume = 0;
+
+        for (var index = 0; index < bars.Count; index++)
+        {
+            runningVolume += bars[index].Volume;
+            cumulativeCurve[index] = runningVolume;
+        }
+
+        return cumulativeCurve;
     }
 
     private static decimal? CalculateEma(IReadOnlyList<DailyBarView> bars, int period)
