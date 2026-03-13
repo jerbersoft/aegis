@@ -9,6 +9,7 @@ Title: {{task_title}}
 Status: {{task_status}}
 Current Owner: {{current_owner}}
 Acceptance Status: {{acceptance_status}}
+Acceptance Document: {{acceptance_document_reference}}
 Created Date: {{created_date}}
 Last Updated: {{last_updated}}
 
@@ -36,6 +37,7 @@ Allowed Acceptance Status Values: `not_covered | covered_in_acceptance | not_app
 - `implementation_summary.md`
 - `testing_results.md`
 - `review_results.md`
+- `../ACCEPTANCE.md`
 
 ## Notes
 {{notes}}

@@ -42,6 +42,7 @@ Execution workflow:
 2. Read the active feature folder, including `feature.md` and the completed task artifacts that should be reflected in acceptance.
 3. Create or update `ACCEPTANCE.md` in the active feature folder.
 4. Ensure the document covers how to run the app, what to test, expected outcomes, and the tasks covered by the guide.
+5. Make covered task IDs explicit so `Orchestrator` can link each task to `ACCEPTANCE.md` and close it.
 
 Workflow response contract:
 - Return a single machine-readable JSON object using this schema:
@@ -55,13 +56,12 @@ Workflow response contract:
   "agent_status": "complete | partial | blocked | failed",
   "artifact": "ACCEPTANCE.md | none",
   "result": "acceptance_ready | blocked",
-  "next_agent": "orchestrator | none",
   "reason_code": "acceptance_incomplete | missing_dependency | environment_blocked | artifact_missing | null"
 }
 ```
 
 Routing constraint:
-- `next_agent` is advisory only. Do not call other agents or subagents yourself.
+- Do not call other agents or subagents yourself.
 
 General response contract:
 - Be concise and documentation-focused.

@@ -63,10 +63,9 @@ Response contract:
   "agent_status": "complete | partial | blocked | failed",
   "artifact": "review_results.md",
   "result": "approved | changes_requested | blocked",
-  "next_agent": "developer | tester | orchestrator | none",
   "reason_code": "missing_dependency | environment_blocked | code_gap | test_gap | missing_evidence | standards_gap | artifact_missing | null"
 }
 ```
 
 Routing constraint:
-- `next_agent` is advisory only. Do not call other agents or subagents yourself.
+- Do not call other agents or subagents yourself.

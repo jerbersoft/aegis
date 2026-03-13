@@ -129,7 +129,8 @@ Each task folder should contain:
 - Selects the feature, or uses the feature specified by the user.
 - Owns the workflow loop, not implementation.
 - Is the only agent allowed to decide which agent or subagent is called next.
-- For new planning work, routes to `Architect` to create the feature and task tracking structure before execution begins.
+- Requires feature and task tracking to be complete before task execution begins.
+- For new planning work, routing to `Architect` happens before the execution loop starts, not inside it.
 - Asks `planner` for the next task that should be worked on.
 - Routes the selected task through `developer` -> `tester` -> `reviewer`.
 - After each completed task cycle, asks `planner` whether another task is ready.
@@ -141,7 +142,7 @@ Each task folder should contain:
 - Owns task selection and sequencing within a feature.
 - Decides which task is ready based on task status, dependencies, and blockers.
 - Creates or updates task-level `developer_handoff.md`.
-- Updates feature and task planning metadata as needed.
+- Updates planning metadata as needed, but does not own execution-state transitions.
 - Does not create brand-new features or brand-new tasks.
 - Does not implement code, testing, or review.
 - Does not call other agents or subagents.
@@ -177,6 +178,7 @@ Each task folder should contain:
 - During planning phase, creates new feature folders, task folders, `feature.md`, and `TASK.md` records for newly defined tracked work.
 - Does not take over implementation, testing, or review execution.
 - Does not own task execution artifacts such as `developer_handoff.md`, `implementation_summary.md`, `testing_results.md`, or `review_results.md`.
+- Outside the bounded feature execution loop, `Architect` may delegate planning, research, or documentation work when that improves quality or speed.
 
 ### Acceptance
 
@@ -189,10 +191,11 @@ Each task folder should contain:
 
 ### 1. Feature intake
 
-- `orchestrator` selects the feature folder, or routes to `Architect` to create it during planning.
+- `orchestrator` selects the feature folder, or routes to `Architect` to create it during planning before execution begins.
 - `Architect` creates `feature.md` and task folders for new tracked work.
 - The feature objective, scope, and task index are established.
 - If tasks are already known, they should be listed in `feature.md` before execution begins.
+- Task execution must not begin until the required feature and task tracking artifacts exist.
 
 ### 2. Task selection
 
@@ -202,7 +205,7 @@ Each task folder should contain:
   - selects the next ready task and prepares its `developer_handoff.md`, or
   - reports that no more tasks are ready, or
   - reports a blocker that prevents progress.
-- If the selected task is missing a task folder or `TASK.md`, that is a planning-setup gap and should route back to `Architect` through `orchestrator`.
+- If the selected task is missing a task folder or `TASK.md`, that is a workflow blocker. Do not repair tracking artifacts inside the execution loop.
 
 ### 3. Development
 
@@ -231,6 +234,7 @@ Each task folder should contain:
 - `Orchestrator` owns feature-level status transitions and normally owns task status transitions as well.
 - A task remains `ready` until it is factored into the feature-level `ACCEPTANCE.md`.
 - A task moves from `ready` to `closed` only after `Orchestrator` confirms it is represented in `ACCEPTANCE.md`.
+- Missing tracking artifacts during execution are blockers, not repair paths.
 
 ### 7. Acceptance document
 
@@ -260,7 +264,6 @@ Shared envelope:
   "agent_status": "complete | partial | blocked | failed",
   "artifact": "string",
   "result": "string",
-  "next_agent": "planner | developer | tester | reviewer | architect | acceptance | orchestrator | user | none",
   "reason_code": "string | null"
 }
 ```
@@ -270,7 +273,7 @@ Rules:
 - Use `task_id` and `task_folder` for task-scoped work; use `null` only when the outcome is feature-level, such as `no_more_tasks`, `feature_tracking_ready`, or `acceptance_ready`.
 - `artifact` is the primary file created or updated by the agent, or `none` when no artifact changed.
 - Detailed evidence belongs in the artifact document, not in the JSON.
-- `next_agent` is a recommendation only; only `Orchestrator` decides actual routing.
+- Only `Orchestrator` decides actual routing; subagents do not return routing instructions.
 
 Agent-specific outcomes:
 
@@ -432,6 +435,7 @@ Should capture at least:
 - blockers
 - current owner
 - acceptance status
+- acceptance document reference
 - next action
 - linked task artifacts
 

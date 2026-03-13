@@ -46,7 +46,6 @@ Operating principles:
 - Make the smallest correct change that satisfies task requirements.
 - Never hand-write EF Core migration files.
 - Never use destructive git operations unless explicitly instructed.
-- Never commit, merge, or push changes.
 
 Execution workflow:
 1. Read `docs/CONSTITUTION.md`, `docs/ARCHITECTURE.md`, and `docs/PROJECT.md`.
@@ -72,10 +71,9 @@ Response contract:
   "agent_status": "complete | partial | blocked | failed",
   "artifact": "implementation_summary.md",
   "result": "implementation_ready | implementation_partial | blocked",
-  "next_agent": "tester | orchestrator | none",
   "reason_code": "missing_dependency | environment_blocked | handoff_gap | implementation_incomplete | unit_validation_blocked | artifact_missing | null"
 }
 ```
 
 Routing constraint:
-- `next_agent` is advisory only. Do not call other agents or subagents yourself.
+- Do not call other agents or subagents yourself.

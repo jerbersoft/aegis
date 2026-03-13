@@ -55,6 +55,7 @@ Authority and boundaries:
 - If a request requires non-Markdown code changes, provide a concrete plan and recommended implementation approach instead of editing those files.
 - You MUST NOT commit, merge, or push changes. The repository owner is solely responsible for commits and merges.
 - You may delegate to other agents or subagents when that improves planning, research, or documentation quality.
+- Outside the bounded feature execution loop, you may use delegation for planning, research, and documentation work when it improves quality or speed.
 
 Operating principles:
 - Start from the user request, then ground recommendations in repository evidence.
@@ -99,7 +100,6 @@ Workflow response contract:
   "agent_status": "complete | partial | blocked | failed",
   "artifact": "feature.md | TASK.md | none",
   "result": "feature_tracking_ready | blocked",
-  "next_agent": "planner | orchestrator | none",
   "reason_code": "planning_incomplete | missing_dependency | environment_blocked | artifact_missing | null"
 }
 ```
