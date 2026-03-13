@@ -110,6 +110,7 @@ Each task folder should contain:
 
 - `TASK.md`
   - canonical task metadata and workflow state file
+  - owned primarily by `Orchestrator` for status transitions and by `planner` for initial task setup
 - `developer_handoff.md`
   - written by `planner`
 - `implementation_summary.md`
@@ -127,6 +128,7 @@ Each task folder should contain:
 
 - Selects the feature, or uses the feature specified by the user.
 - Owns the workflow loop, not implementation.
+- For new planning work, routes to `Architect` to create the feature and task tracking structure before execution begins.
 - Asks `planner` for the next task that should be worked on.
 - Routes the selected task through `developer` -> `tester` -> `reviewer`.
 - After each completed task cycle, asks `planner` whether another task is ready.
@@ -139,6 +141,7 @@ Each task folder should contain:
 - Decides which task is ready based on task status, dependencies, and blockers.
 - Creates or updates task-level `developer_handoff.md`.
 - Updates feature and task planning metadata as needed.
+- Does not create brand-new features or brand-new tasks.
 - Does not implement code, testing, or review.
 
 ### Developer
@@ -166,17 +169,20 @@ Each task folder should contain:
 ### Architect
 
 - Owns Markdown workflow and planning documents under `.work/`.
+- During planning phase, creates new feature folders, task folders, `feature.md`, and `TASK.md` records for newly defined tracked work.
 - Owns feature-level `ACCEPTANCE.md`.
 - Produces final user-facing acceptance guidance after the task loop is complete.
 - Does not take over implementation, testing, or review execution.
+- Does not own task execution artifacts such as `developer_handoff.md`, `implementation_summary.md`, `testing_results.md`, or `review_results.md`.
 
 ## Workflow loop
 
 ### 1. Feature intake
 
-- `orchestrator` creates or selects the feature folder.
-- `feature.md` is created or updated.
+- `orchestrator` selects the feature folder, or routes to `Architect` to create it during planning.
+- `Architect` creates `feature.md` and task folders for new tracked work.
 - The feature objective, scope, and task index are established.
+- If tasks are already known, they should be listed in `feature.md` before execution begins.
 
 ### 2. Task selection
 
@@ -186,6 +192,7 @@ Each task folder should contain:
   - selects the next ready task and prepares its `developer_handoff.md`, or
   - reports that no more tasks are ready, or
   - reports a blocker that prevents progress.
+- If the selected task is missing a task folder or `TASK.md`, that is a planning-setup gap and should route back to `Architect` through `orchestrator`.
 
 ### 3. Development
 
@@ -211,16 +218,100 @@ Each task folder should contain:
 - If rework is needed, the task stays active and the loop routes back appropriately.
 - If the task is ready, `planner` is asked for the next task.
 - The loop repeats until there are no more required tasks ready to implement.
+- `Orchestrator` owns feature-level status transitions and normally owns task status transitions as well.
+- A task remains `ready` until it is factored into the feature-level `ACCEPTANCE.md`.
+- A task moves from `ready` to `closed` only after `Orchestrator` confirms it is represented in `ACCEPTANCE.md`.
 
 ### 7. Acceptance document
 
 - When `planner` reports that no more required tasks remain, `orchestrator` asks `Architect` to create or update feature-level `ACCEPTANCE.md`.
+- `Architect` does not need a separate user confirmation when this work is explicitly delegated by `Orchestrator` as part of the internal workflow.
+- `ACCEPTANCE.md` should explicitly cover the tasks that are being accepted so `Orchestrator` can close them.
 - `ACCEPTANCE.md` should tell the user:
   - how to run the app
   - what prerequisites are required
   - what to test manually
   - what outcomes to expect
   - any known limitations or caveats
+
+## Machine-readable agent result contracts
+
+Task execution and acceptance agents should return a single compact JSON object for orchestration decisions.
+
+Shared envelope:
+
+```json
+{
+  "feature_id": "string",
+  "feature_folder": "string",
+  "task_id": "string | null",
+  "task_folder": "string | null",
+  "agent": "planner | developer | tester | reviewer | architect",
+  "agent_status": "complete | partial | blocked | failed",
+  "artifact": "string",
+  "result": "string",
+  "next_agent": "planner | developer | tester | reviewer | architect | orchestrator | user | none",
+  "reason_code": "string | null"
+}
+```
+
+Rules:
+
+- Use `task_id` and `task_folder` for task-scoped work; use `null` only when the outcome is feature-level, such as `no_more_tasks` or `acceptance_ready`.
+- `artifact` is the primary file created or updated by the agent, or `none` when no artifact changed.
+- Detailed evidence belongs in the artifact document, not in the JSON.
+
+Agent-specific outcomes:
+
+- `planner`
+  - `complete + task_ready`
+  - `complete + no_more_tasks`
+  - `partial + needs_clarification`
+  - `blocked + blocked`
+- `developer`
+  - `complete + implementation_ready`
+  - `partial + implementation_partial`
+  - `blocked + blocked`
+- `tester`
+  - `complete + pass`
+  - `complete + fail`
+  - `blocked + blocked`
+- `reviewer`
+  - `complete + approved`
+  - `complete + changes_requested`
+  - `blocked + blocked`
+- `architect`
+  - `complete + feature_tracking_ready`
+  - `complete + acceptance_ready`
+  - `blocked + blocked`
+
+Suggested `reason_code` values:
+
+- Shared: `missing_decision`, `missing_dependency`, `environment_blocked`, `artifact_missing`
+- `planner`: `task_tracking_missing`, `dependency_blocked`, `task_not_ready`
+- `developer`: `handoff_gap`, `implementation_incomplete`, `unit_validation_blocked`
+- `tester`: `defect_found`, `verification_gap`, `test_env_blocked`
+- `reviewer`: `code_gap`, `test_gap`, `missing_evidence`, `standards_gap`
+- `architect`: `planning_incomplete`, `acceptance_incomplete`
+
+Expected routing:
+
+- `planner` + `task_ready` -> `developer`
+- `planner` + `no_more_tasks` -> `architect`
+- `planner` + `needs_clarification` -> `orchestrator` or `user`
+- `planner` + `blocked` -> `orchestrator`
+- `developer` + `implementation_ready` -> `tester`
+- `developer` + `implementation_partial` -> `orchestrator`
+- `developer` + `blocked` -> `orchestrator`
+- `tester` + `pass` -> `reviewer`
+- `tester` + `fail` -> `developer` or `orchestrator`
+- `tester` + `blocked` -> `orchestrator`
+- `reviewer` + `approved` -> `orchestrator`
+- `reviewer` + `changes_requested` -> `developer`, `tester`, or `orchestrator`
+- `reviewer` + `blocked` -> `orchestrator`
+- `architect` + `feature_tracking_ready` -> `planner` or `orchestrator`
+- `architect` + `acceptance_ready` -> `orchestrator`
+- `architect` + `blocked` -> `orchestrator`
 
 ## Status model
 
@@ -268,9 +359,10 @@ Recommended meaning:
 - `in_testing`: `tester` is validating the task
 - `in_review`: `reviewer` is assessing the task
 - `rework_required`: the task needs more implementation or testing
-- `ready`: the task has passed the execution loop and is done from a workflow perspective
+- `ready`: the task has passed the execution loop and is waiting to be represented in `ACCEPTANCE.md`
+- `ready`: the task has passed the execution loop and is waiting to be represented in `ACCEPTANCE.md`
 - `blocked`: the task cannot proceed
-- `closed`: the task is fully complete and no further work is expected
+- `closed`: the task is represented in `ACCEPTANCE.md` and no further workflow work is expected
 
 ## Feature rollup expectations
 
@@ -278,6 +370,7 @@ Recommended meaning:
 - `feature.md` should identify the current active task when one exists.
 - Feature status should usually be derived from its tasks.
 - A feature can move to `ready_for_acceptance` when all required tasks are `ready` or `closed` and no mandatory task is blocked.
+- The task index shown in `feature.md` is repeatable; add as many task rows as the feature requires.
 
 ## Minimum template expectations
 
@@ -308,6 +401,7 @@ Should capture at least:
 - dependencies
 - blockers
 - current owner
+- acceptance status
 - next action
 - linked task artifacts
 
@@ -361,6 +455,7 @@ Should capture at least:
 Should capture at least:
 
 - feature summary
+- tasks covered by this acceptance guide
 - prerequisites
 - how to run the app
 - what to test

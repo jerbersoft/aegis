@@ -8,6 +8,7 @@ Task Folder: {{task_folder}}
 Title: {{task_title}}
 Status: {{task_status}}
 Current Owner: {{current_owner}}
+Acceptance Status: {{acceptance_status}}
 Created Date: {{created_date}}
 Last Updated: {{last_updated}}
 

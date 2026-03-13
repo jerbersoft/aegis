@@ -16,14 +16,21 @@ Date: {{date}}
 
 ---
 
-## 2. Prerequisites
+## 2. Tasks Covered
+
+- {{task_1_id}} - {{task_1_title}}
+- {{task_2_id}} - {{task_2_title}}
+
+---
+
+## 3. Prerequisites
 
 - {{prerequisite_1}}
 - {{prerequisite_2}}
 
 ---
 
-## 3. How To Run The App
+## 4. How To Run The App
 
 ```text
 {{run_command_1}}
@@ -32,21 +39,21 @@ Date: {{date}}
 
 ---
 
-## 4. What To Test
+## 5. What To Test
 
 - {{test_step_1}}
 - {{test_step_2}}
 
 ---
 
-## 5. Expected Outcomes
+## 6. Expected Outcomes
 
 - {{expected_outcome_1}}
 - {{expected_outcome_2}}
 
 ---
 
-## 6. Known Limitations Or Caveats
+## 7. Known Limitations Or Caveats
 
 - {{limitation_1_or_none}}
 - {{limitation_2_or_none}}

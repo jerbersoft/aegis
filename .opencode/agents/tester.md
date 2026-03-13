@@ -56,3 +56,18 @@ Response contract:
 - Be concise and verification-focused.
 - State what was tested, what passed or failed, and whether rework is needed.
 - Confirm that `testing_results.md` was created or updated.
+- Return a single machine-readable JSON object using this schema:
+```json
+{
+  "feature_id": "string",
+  "feature_folder": "string",
+  "task_id": "string",
+  "task_folder": "string",
+  "agent": "tester",
+  "agent_status": "complete | partial | blocked | failed",
+  "artifact": "testing_results.md",
+  "result": "pass | fail | blocked",
+  "next_agent": "reviewer | developer | orchestrator | none",
+  "reason_code": "missing_dependency | environment_blocked | defect_found | verification_gap | test_env_blocked | artifact_missing | null"
+}
+```

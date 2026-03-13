@@ -60,3 +60,18 @@ Response contract:
 - Be concise and implementation-focused.
 - State what changed, how it was validated, and what remains for `tester`.
 - Confirm that `implementation_summary.md` was created or updated.
+- Return a single machine-readable JSON object using this schema:
+```json
+{
+  "feature_id": "string",
+  "feature_folder": "string",
+  "task_id": "string",
+  "task_folder": "string",
+  "agent": "developer",
+  "agent_status": "complete | partial | blocked | failed",
+  "artifact": "implementation_summary.md",
+  "result": "implementation_ready | implementation_partial | blocked",
+  "next_agent": "tester | orchestrator | none",
+  "reason_code": "missing_dependency | environment_blocked | handoff_gap | implementation_incomplete | unit_validation_blocked | artifact_missing | null"
+}
+```
