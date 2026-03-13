@@ -14,7 +14,9 @@ public sealed record IntradaySymbolRuntimeSnapshot(
     string ReasonCode,
     Instant LastStateChangedUtc,
     IntradayComputedIndicatorState IndicatorState,
-    IReadOnlyList<DailyBarView> Bars)
+    IReadOnlyList<DailyBarView> Bars,
+    string? ActiveGapType,
+    Instant? ActiveGapStartUtc)
 {
     public IntradaySymbolReadinessView ToView(Instant asOfUtc) =>
         new(
@@ -33,5 +35,7 @@ public sealed record IntradaySymbolRuntimeSnapshot(
             RequiredBarCount,
             AvailableBarCount,
             LastFinalizedBarUtc,
-            LastStateChangedUtc);
+            LastStateChangedUtc,
+            ActiveGapType,
+            ActiveGapStartUtc);
 }

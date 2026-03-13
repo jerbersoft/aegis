@@ -257,6 +257,35 @@ public sealed class MarketDataApiTests : IClassFixture<WebApplicationFactory<Pro
         intradayReadiness.AvailableVolumeBuzzReferenceSessionCount.ShouldBe(IntradayMarketDataHydrationService.VolumeBuzzReferenceSessionCount);
         intradayReadiness.VolumeBuzzPercent.ShouldNotBeNull();
         intradayReadiness.AvailableBarCount.ShouldBeGreaterThanOrEqualTo(IntradayMarketDataHydrationService.IntradayRequiredBarCount);
+        intradayReadiness.ActiveGapType.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task IntradayReadiness_ShouldExposeGapReason_WhenPersistedExecutionHistoryHasInternalGap()
+    {
+        await ResetStateAsync(_readyFactory);
+        using var client = await CreateAuthenticatedClientAsync(_readyFactory);
+
+        var watchlists = await client.GetAegisJsonAsync<List<WatchlistSummaryView>>("/api/universe/watchlists");
+        watchlists.ShouldNotBeNull();
+        var execution = watchlists.Single(x => x.IsExecution);
+
+        var addSymbol = await client.PostAsJsonAsync($"/api/universe/watchlists/{execution.WatchlistId}/symbols", new AddSymbolToWatchlistRequest("AMD"));
+        addSymbol.StatusCode.ShouldBe(HttpStatusCode.Created);
+
+        var bootstrapResponse = await client.PostAsync("/api/market-data/bootstrap/run", null);
+        bootstrapResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        await RemoveIntradayBarAsync(_readyFactory, "AMD", Instant.FromUtc(2026, 3, 12, 15, 0));
+        var statusRefresh = await client.GetAsync("/api/market-data/bootstrap/status");
+        statusRefresh.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        var intradayReadiness = await client.GetAegisJsonAsync<IntradaySymbolReadinessView>("/api/market-data/intraday/readiness/AMD");
+        intradayReadiness.ShouldNotBeNull();
+        intradayReadiness.ReadinessState.ShouldBe("not_ready");
+        intradayReadiness.ReasonCode.ShouldBe("gap_internal");
+        intradayReadiness.ActiveGapType.ShouldBe("internal");
+        intradayReadiness.ActiveGapStartUtc.ShouldBe(Instant.FromUtc(2026, 3, 12, 15, 0));
     }
 
     private async Task<HttpClient> CreateAuthenticatedClientAsync(WebApplicationFactory<Program>? factory = null)
@@ -281,6 +310,15 @@ public sealed class MarketDataApiTests : IClassFixture<WebApplicationFactory<Pro
         await marketDataDbContext.Database.ExecuteSqlRawAsync("TRUNCATE TABLE bar RESTART IDENTITY CASCADE;");
         await universeDbContext.Database.ExecuteSqlRawAsync("TRUNCATE TABLE watchlist_item, watchlist, symbol RESTART IDENTITY CASCADE;");
         await UniverseDbInitializer.EnsureInitializedAsync(universeDbContext, CancellationToken.None);
+    }
+
+    private static async Task RemoveIntradayBarAsync(WebApplicationFactory<Program> factory, string symbol, Instant barTimeUtc)
+    {
+        using var scope = factory.Services.CreateScope();
+        var marketDataDbContext = scope.ServiceProvider.GetRequiredService<MarketDataDbContext>();
+        var row = await marketDataDbContext.Bars.SingleAsync(x => x.Symbol == symbol && x.Interval == IntradayMarketDataHydrationService.IntradayInterval && x.BarTimeUtc == barTimeUtc);
+        marketDataDbContext.Bars.Remove(row);
+        await marketDataDbContext.SaveChangesAsync();
     }
 
     private sealed class TestHistoricalBarProvider : IHistoricalBarProvider

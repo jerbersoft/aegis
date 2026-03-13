@@ -220,11 +220,122 @@ public sealed class MarketDataBootstrapServiceTests
 
         readiness.ShouldNotBeNull();
         readiness.ReadinessState.ShouldBe("ready");
+        readiness.ReasonCode.ShouldBe("none");
         readiness.HasRequiredIndicatorState.ShouldBeTrue();
         readiness.HasRequiredVolumeBuzzReferenceHistory.ShouldBeTrue();
         readiness.AvailableVolumeBuzzReferenceSessionCount.ShouldBe(IntradayMarketDataHydrationService.VolumeBuzzReferenceSessionCount);
         readiness.VolumeBuzzPercent.ShouldNotBeNull();
         readiness.AvailableBarCount.ShouldBeGreaterThanOrEqualTo(IntradayMarketDataHydrationService.IntradayRequiredBarCount);
+        readiness.ActiveGapType.ShouldBeNull();
+        readiness.ActiveGapStartUtc.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task GetIntradayReadinessAsync_ShouldReturnGapTrailing_WhenRecentExpectedBarsAreMissing()
+    {
+        await using var dbContext = CreateDbContext();
+        var dailyRuntimeStore = new MarketDataDailyRuntimeStore();
+        var intradayRuntimeStore = new MarketDataIntradayRuntimeStore();
+        var demandReader = new StubDemandReader(["AAPL"], ["AAPL"]);
+        var clock = new FakeClock(Instant.FromUtc(2026, 3, 12, 16, 0));
+
+        SeedIntradayBars(
+            dbContext,
+            "AAPL",
+            11,
+            390,
+            clock.GetCurrentInstant(),
+            skippedBars: Enumerable.Range(89, 390 - 89).Select(minuteIndex => new IntradaySkippedBar(10, minuteIndex)).ToArray());
+        await dbContext.SaveChangesAsync();
+
+        var service = new MarketDataBootstrapService(
+            dbContext,
+            demandReader,
+            new StubHistoricalBarProvider(),
+            new MarketDataBootstrapStateStore(),
+            new DailyMarketDataHydrationService(dbContext, demandReader, dailyRuntimeStore, clock),
+            dailyRuntimeStore,
+            new IntradayMarketDataHydrationService(dbContext, demandReader, intradayRuntimeStore, clock),
+            intradayRuntimeStore,
+            clock);
+
+        await service.GetStatusAsync(CancellationToken.None);
+        var readiness = await service.GetIntradayReadinessAsync("AAPL", CancellationToken.None);
+
+        readiness.ShouldNotBeNull();
+        readiness.ReadinessState.ShouldBe("not_ready");
+        readiness.ReasonCode.ShouldBe("gap_trailing");
+        readiness.HasRequiredIntradayBars.ShouldBeTrue();
+        readiness.HasRequiredIndicatorState.ShouldBeFalse();
+        readiness.ActiveGapType.ShouldBe("trailing");
+        readiness.ActiveGapStartUtc.ShouldBe(Instant.FromUtc(2026, 3, 12, 15, 59));
+    }
+
+    [Fact]
+    public async Task GetIntradayReadinessAsync_ShouldReturnGapInternal_WhenInternalExpectedBarIsMissing()
+    {
+        await using var dbContext = CreateDbContext();
+        var dailyRuntimeStore = new MarketDataDailyRuntimeStore();
+        var intradayRuntimeStore = new MarketDataIntradayRuntimeStore();
+        var demandReader = new StubDemandReader(["AAPL"], ["AAPL"]);
+        var clock = new FakeClock(Instant.FromUtc(2026, 3, 12, 15, 0));
+
+        SeedIntradayBars(dbContext, "AAPL", 11, 390, clock.GetCurrentInstant(), skippedBars: [new IntradaySkippedBar(10, 10)]);
+        await dbContext.SaveChangesAsync();
+
+        var service = new MarketDataBootstrapService(
+            dbContext,
+            demandReader,
+            new StubHistoricalBarProvider(),
+            new MarketDataBootstrapStateStore(),
+            new DailyMarketDataHydrationService(dbContext, demandReader, dailyRuntimeStore, clock),
+            dailyRuntimeStore,
+            new IntradayMarketDataHydrationService(dbContext, demandReader, intradayRuntimeStore, clock),
+            intradayRuntimeStore,
+            clock);
+
+        await service.GetStatusAsync(CancellationToken.None);
+        var readiness = await service.GetIntradayReadinessAsync("AAPL", CancellationToken.None);
+
+        readiness.ShouldNotBeNull();
+        readiness.ReadinessState.ShouldBe("not_ready");
+        readiness.ReasonCode.ShouldBe("gap_internal");
+        readiness.HasRequiredIntradayBars.ShouldBeTrue();
+        readiness.HasRequiredIndicatorState.ShouldBeFalse();
+        readiness.ActiveGapType.ShouldBe("internal");
+        readiness.ActiveGapStartUtc.ShouldBe(Instant.FromUtc(2026, 3, 12, 14, 40));
+    }
+
+    [Fact]
+    public async Task GetIntradayReadinessAsync_ShouldPreferMissingRequiredBars_WhenBaseIntradayCountIsInsufficient()
+    {
+        await using var dbContext = CreateDbContext();
+        var dailyRuntimeStore = new MarketDataDailyRuntimeStore();
+        var intradayRuntimeStore = new MarketDataIntradayRuntimeStore();
+        var demandReader = new StubDemandReader(["AAPL"], ["AAPL"]);
+        var clock = new FakeClock(Instant.FromUtc(2026, 3, 12, 15, 0));
+
+        SeedIntradayBars(dbContext, "AAPL", 1, 90, clock.GetCurrentInstant());
+        await dbContext.SaveChangesAsync();
+
+        var service = new MarketDataBootstrapService(
+            dbContext,
+            demandReader,
+            new StubHistoricalBarProvider(),
+            new MarketDataBootstrapStateStore(),
+            new DailyMarketDataHydrationService(dbContext, demandReader, dailyRuntimeStore, clock),
+            dailyRuntimeStore,
+            new IntradayMarketDataHydrationService(dbContext, demandReader, intradayRuntimeStore, clock),
+            intradayRuntimeStore,
+            clock);
+
+        await service.GetStatusAsync(CancellationToken.None);
+        var readiness = await service.GetIntradayReadinessAsync("AAPL", CancellationToken.None);
+
+        readiness.ShouldNotBeNull();
+        readiness.ReadinessState.ShouldBe("not_ready");
+        readiness.ReasonCode.ShouldBe("missing_required_intraday_bars");
+        readiness.HasRequiredIntradayBars.ShouldBeFalse();
     }
 
     [Fact]
@@ -445,9 +556,9 @@ public sealed class MarketDataBootstrapServiceTests
         }
     }
 
-    private static void SeedIntradayBars(MarketDataDbContext dbContext, string symbol, int sessionCount, int barsPerSession, Instant createdUtc)
+    private static void SeedIntradayBars(MarketDataDbContext dbContext, string symbol, int sessionCount, int barsPerSession, Instant createdUtc, IReadOnlyList<IntradaySkippedBar>? skippedBars = null)
     {
-        foreach (var bar in BuildIntradayBars(symbol, IntradayMarketDataHydrationService.IntradayInterval, sessionCount, barsPerSession))
+        foreach (var bar in BuildIntradayBars(symbol, IntradayMarketDataHydrationService.IntradayInterval, sessionCount, barsPerSession, skippedBars))
         {
             dbContext.Bars.Add(new Aegis.MarketData.Domain.Entities.MarketDataBar
             {
@@ -521,16 +632,19 @@ public sealed class MarketDataBootstrapServiceTests
         }
     }
 
-    private static HistoricalBarRecord[] BuildIntradayBars(string symbol, string interval, int sessionCount, int barsPerSession)
+    private static HistoricalBarRecord[] BuildIntradayBars(string symbol, string interval, int sessionCount, int barsPerSession, IReadOnlyList<IntradaySkippedBar>? skippedBars = null)
     {
         var startDate = new LocalDate(2026, 3, 2);
+        var skippedLookup = (skippedBars ?? []).ToHashSet();
         return Enumerable.Range(0, sessionCount)
             .SelectMany(sessionIndex =>
             {
                 var marketDate = startDate.PlusDays(sessionIndex);
                 var sessionOpen = Instant.FromUtc(marketDate.Year, marketDate.Month, marketDate.Day, 14, 30);
 
-                return Enumerable.Range(0, barsPerSession).Select(minuteIndex =>
+                return Enumerable.Range(0, barsPerSession)
+                    .Where(minuteIndex => !skippedLookup.Contains(new IntradaySkippedBar(sessionIndex, minuteIndex)))
+                    .Select(minuteIndex =>
                 {
                     var barTime = sessionOpen + Duration.FromMinutes(minuteIndex);
                     var price = 100m + sessionIndex + (minuteIndex / 100m);
@@ -539,4 +653,6 @@ public sealed class MarketDataBootstrapServiceTests
             })
             .ToArray();
     }
+
+    private sealed record IntradaySkippedBar(int SessionIndex, int MinuteIndex);
 }

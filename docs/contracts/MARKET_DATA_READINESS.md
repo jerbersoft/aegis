@@ -24,6 +24,7 @@ Current status note:
 - The current runtime-only `daily_core` indicator slice now covers a broader daily indicator set while preserving the same readiness contract shape.
 - The currently implemented slice now also exposes first `1-min` intraday readiness payloads for `intraday_core`, including `has_required_intraday_bars` and `has_required_indicator_state`.
 - The currently implemented intraday slice now also exposes `volume_buzz_percent` and whether sufficient historical reference-curve sessions are available.
+- The currently implemented intraday slice now also exposes active finalized-gap metadata and distinguishes `gap_trailing` from `gap_internal`.
 
 ## 2) Naming Conventions
 
@@ -72,6 +73,7 @@ All payloads use singular, snake_case field names.
 - `awaiting_recompute`
 - `configuration_missing`
 - `insufficient_volume_buzz_reference_history`
+- `missing_required_intraday_bars`
 
 ### `bar_runtime_state`
 

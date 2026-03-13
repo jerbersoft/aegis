@@ -76,10 +76,11 @@ export function MarketDataWidget() {
                 {intradayReadiness.symbols.slice(0, 3).map((symbol) => (
                   <p key={`${symbol.symbol}-${symbol.interval}`}>
                     <span className="font-semibold text-slate-100">{symbol.symbol}</span>: {symbol.readinessState} ({symbol.availableBarCount}/{symbol.requiredBarCount})
-                    {symbol.hasRequiredIndicatorState ? " • indicators ready" : " • indicators pending"}
+                    {symbol.hasRequiredIndicatorState ? " • indicators ready" : ` • ${symbol.reasonCode}`}
                     {typeof symbol.volumeBuzzPercent === "number"
                       ? ` • buzz ${symbol.volumeBuzzPercent.toFixed(1)}%`
                       : ` • buzz ref ${symbol.availableVolumeBuzzReferenceSessionCount}/${symbol.requiredVolumeBuzzReferenceSessionCount}`}
+                    {symbol.activeGapType ? ` • gap ${symbol.activeGapType}` : ""}
                   </p>
                 ))}
               </div>

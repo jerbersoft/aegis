@@ -1319,3 +1319,27 @@ Extend `MarketData` beyond daily-only runtime/readiness by delivering the first 
 #### Recommended next slice
 
 - deepen intraday gap/readiness semantics now that `volume_buzz_percent` reference-curve support is in place
+
+### Task 12.5 — Deepen `1-min` intraday gap/readiness semantics
+
+Status:
+
+- implemented
+
+#### Goal
+
+Deepen the current finalized-only `1-min` intraday runtime/readiness slice so required `Execution` symbols become explicitly gap-aware rather than treating all not-ready intraday cases as simple missing-history or indicator-state outcomes.
+
+#### Current note
+
+- intraday hydration now inspects the retained `current session + prior session` finalized `1-min` bar window for expected timestamp continuity
+- contiguous required symbols remain `ready`
+- symbols with insufficient retained finalized bars still report `missing_required_intraday_bars`
+- symbols with missing recent expected bars now report `gap_trailing`
+- symbols with missing internal expected bars now report `gap_internal`
+- intraday readiness payloads now expose `active_gap_type` and `active_gap_start_utc`
+- the Home widget intraday detail rows now surface degraded reason text and active gap type while preserving existing `volume_buzz_percent` display behavior
+
+#### Recommended next slice
+
+- add explicit repair/recompute progression semantics on top of the current gap-aware finalized-history readiness layer

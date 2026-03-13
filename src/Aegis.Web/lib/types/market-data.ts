@@ -58,6 +58,8 @@ export type IntradaySymbolReadinessView = {
   availableBarCount: number;
   lastFinalizedBarUtc?: string | null;
   lastStateChangedUtc: string;
+  activeGapType?: string | null;
+  activeGapStartUtc?: string | null;
 };
 
 export type IntradayUniverseReadinessView = {

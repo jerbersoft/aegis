@@ -118,6 +118,8 @@ Implemented now:
 - MarketData now hydrates an in-memory `1-min` intraday runtime/readiness snapshot from finalized persisted bars only
 - MarketData now computes first intraday indicator-state for `ema_30`, `ema_100`, and `vwap`
 - MarketData intraday hydration now also computes `volume_buzz_percent` using cumulative historical session-offset reference curves over the prior `10` sessions
+- MarketData intraday readiness now detects finalized `1-min` sequence gaps across the retained runtime window and classifies `gap_trailing` versus `gap_internal`
+- intraday readiness payloads now expose active gap metadata for degraded required symbols
 - MarketData now exposes intraday rollup readiness and per-symbol intraday readiness endpoints
 - current domain/backend/shared date-time handling has been refactored to `NodaTime` for auth, Universe contracts, MarketData contracts, MarketData persistence, and Alpaca historical bar mapping
 
@@ -168,6 +170,7 @@ Implemented UI behaviors:
 - dashboard MarketData detail rows now surface benchmark dependency state for benchmark-aware symbols
 - dashboard MarketData detail rows now surface whether daily indicator state is ready or pending
 - dashboard MarketData widget now shows a minimal intraday readiness section for active `1-min` demand
+- dashboard MarketData intraday detail rows now surface richer degraded reason text and active gap type when present
 
 ## 6) Current bootstrap-only compromises
 
@@ -221,6 +224,7 @@ Additional verification performed for MarketData bootstrap work:
 - browser-level verification under Aspire, with `Aegis.AppHost` running first, confirming a newly added symbol is backfilled to `ready` with 200+ daily bars after refresh
 - browser-level verification under Aspire, with `Aegis.AppHost` running first, confirming an `Execution` symbol becomes intraday-ready and the Home widget shows `Intraday Readiness` with `AAPL: ready (390/100) • indicators ready`
 - intraday unit and integration coverage now includes `volume_buzz_percent` happy-path, insufficient-reference-history, and session-offset correctness behavior
+- intraday unit and integration coverage now also includes contiguous-sequence ready, `gap_trailing`, `gap_internal`, and insufficient-required-bar readiness behavior
 
 Browser-level verification was also performed during implementation using Playwright against the Aspire-hosted web app, with `Aegis.AppHost` started first.
 
@@ -255,7 +259,7 @@ Operational/debugging context already learned:
 Recommended dependency-ordered next work:
 
 1. continue `MarketData` beyond the current first `1-min` intraday runtime/readiness foundation
-   - immediate recommended slice: deepen intraday gap/readiness/runtime semantics on top of the now-implemented `volume_buzz_percent` reference-curve foundation
+   - immediate recommended slice: build the next intraday repair/recompute layer on top of the now-implemented gap-aware readiness semantics
 2. decide and document the `SignalR` path for market-data-driven UI updates
 3. bootstrap `Strategies` contracts and assignment/runtime ownership
 4. bootstrap `Orders` contracts and open-order ownership

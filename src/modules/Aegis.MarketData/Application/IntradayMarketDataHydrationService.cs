@@ -12,9 +12,11 @@ public sealed class IntradayMarketDataHydrationService(
     MarketDataIntradayRuntimeStore runtimeStore,
     IClock clock)
 {
+    private static readonly DateTimeZone MarketTimeZone = DateTimeZoneProviders.Tzdb["America/New_York"];
     public const string IntradayCoreProfileKey = "intraday_core";
     public const string IntradayInterval = "1min";
     public const int IntradayRequiredBarCount = 100;
+    public const int IntradaySessionBarCount = 390;
     public const int VolumeBuzzReferenceSessionCount = 10;
 
     public async Task<IntradayUniverseRuntimeSnapshot> RebuildAsync(string? overrideReadinessState = null, string? overrideReasonCode = null, CancellationToken cancellationToken = default)
@@ -80,12 +82,15 @@ public sealed class IntradayMarketDataHydrationService(
     private static IntradaySymbolRuntimeSnapshot BuildSnapshot(string symbol, IReadOnlyList<DailyBarView> allBars, Instant asOfUtc)
     {
         var runtimeBars = FilterToCurrentAndPriorSession(allBars);
-        var indicatorState = BuildIndicatorState(allBars);
+        var gapState = BuildGapState(runtimeBars, asOfUtc);
+        var indicatorState = BuildIndicatorState(allBars, gapState);
         var availableBarCount = runtimeBars.Count;
         var hasRequiredBars = availableBarCount >= IntradayRequiredBarCount;
-        var readinessState = hasRequiredBars && indicatorState.HasRequiredIndicatorState ? "ready" : "not_ready";
+        var readinessState = hasRequiredBars && !gapState.HasGap && indicatorState.HasRequiredIndicatorState ? "ready" : "not_ready";
         var reasonCode = !hasRequiredBars
             ? "missing_required_intraday_bars"
+            : gapState.ReasonCode is not null
+                ? gapState.ReasonCode
             : indicatorState.VolumeBuzzReferenceState.HasRequiredReferenceHistory
                 ? indicatorState.HasRequiredIndicatorState ? "none" : "awaiting_recompute"
                 : "insufficient_volume_buzz_reference_history";
@@ -101,23 +106,132 @@ public sealed class IntradayMarketDataHydrationService(
             reasonCode,
             asOfUtc,
             indicatorState,
-            runtimeBars);
+            runtimeBars,
+            gapState.ActiveGapType,
+            gapState.ActiveGapStartUtc);
     }
 
-    private static IntradayComputedIndicatorState BuildIndicatorState(IReadOnlyList<DailyBarView> allBars)
+    private static IntradayComputedIndicatorState BuildIndicatorState(IReadOnlyList<DailyBarView> allBars, IntradayGapState gapState)
     {
         var runtimeBars = FilterToCurrentAndPriorSession(allBars);
         var ema30 = CalculateEma(runtimeBars, 30);
         var ema100 = CalculateEma(runtimeBars, 100);
         var volumeBuzzReferenceState = BuildVolumeBuzzReferenceState(allBars);
         var vwap = CalculateVwap(runtimeBars);
-        var hasRequiredIndicatorState = ema30.HasValue
-                                        && ema100.HasValue
-                                        && volumeBuzzReferenceState.HasRequiredReferenceHistory
-                                        && vwap.HasValue;
+        var hasRequiredIndicatorState = !gapState.HasGap
+                                        && ema30.HasValue
+                                         && ema100.HasValue
+                                         && volumeBuzzReferenceState.HasRequiredReferenceHistory
+                                         && vwap.HasValue;
 
         return new IntradayComputedIndicatorState(ema30, ema100, volumeBuzzReferenceState.HasRequiredReferenceHistory ? CalculateVolumeBuzzPercent(volumeBuzzReferenceState) : null, vwap, hasRequiredIndicatorState, volumeBuzzReferenceState);
     }
+
+    private static IntradayGapState BuildGapState(IReadOnlyList<DailyBarView> runtimeBars, Instant asOfUtc)
+    {
+        if (runtimeBars.Count == 0)
+        {
+            return IntradayGapState.None;
+        }
+
+        var retainedSessions = runtimeBars
+            .GroupBy(x => x.MarketDate)
+            .OrderBy(x => x.Key)
+            .Select(group => group.OrderBy(x => x.BarTimeUtc).ToArray())
+            .ToArray();
+
+        if (retainedSessions.Length == 0)
+        {
+            return IntradayGapState.None;
+        }
+
+        var latestRetainedDate = retainedSessions[^1][0].MarketDate;
+        var expectedBarTimes = retainedSessions
+            .SelectMany(sessionBars => BuildExpectedBarTimes(sessionBars, latestRetainedDate, asOfUtc))
+            .OrderBy(x => x)
+            .ToArray();
+
+        if (expectedBarTimes.Length == 0)
+        {
+            return IntradayGapState.None;
+        }
+
+        var actualBarTimes = runtimeBars
+            .Select(x => x.BarTimeUtc)
+            .ToHashSet();
+
+        var missingBarTimes = expectedBarTimes
+            .Where(barTime => !actualBarTimes.Contains(barTime))
+            .ToArray();
+
+        if (missingBarTimes.Length == 0)
+        {
+            return IntradayGapState.None;
+        }
+
+        var firstMissingIndex = Array.FindIndex(expectedBarTimes, barTime => !actualBarTimes.Contains(barTime));
+        var trailingGap = firstMissingIndex >= 0
+                          && expectedBarTimes
+                              .Skip(firstMissingIndex)
+                              .All(barTime => !actualBarTimes.Contains(barTime));
+
+        return new IntradayGapState(
+            trailingGap ? "trailing" : "internal",
+            trailingGap ? "gap_trailing" : "gap_internal",
+            missingBarTimes[0]);
+    }
+
+    private static IReadOnlyList<Instant> BuildExpectedBarTimes(IReadOnlyList<DailyBarView> sessionBars, LocalDate latestRetainedDate, Instant asOfUtc)
+    {
+        if (sessionBars.Count == 0)
+        {
+            return [];
+        }
+
+        var marketDate = sessionBars[0].MarketDate;
+        var sessionOpenUtc = sessionBars[0].BarTimeUtc;
+        var sessionCloseUtc = sessionOpenUtc + Duration.FromMinutes(IntradaySessionBarCount);
+        var expectedEndExclusiveUtc = marketDate == latestRetainedDate
+            ? DetermineCurrentSessionEndExclusive(sessionBars, marketDate, sessionCloseUtc, asOfUtc)
+            : sessionCloseUtc;
+
+        if (expectedEndExclusiveUtc <= sessionOpenUtc)
+        {
+            return [];
+        }
+
+        var expectedBarCount = (int)((expectedEndExclusiveUtc - sessionOpenUtc).TotalMinutes);
+        return Enumerable.Range(0, expectedBarCount)
+            .Select(offset => sessionOpenUtc + Duration.FromMinutes(offset))
+            .ToArray();
+    }
+
+    private static Instant DetermineCurrentSessionEndExclusive(IReadOnlyList<DailyBarView> sessionBars, LocalDate marketDate, Instant sessionCloseUtc, Instant asOfUtc)
+    {
+        var currentMarketDate = asOfUtc.InZone(MarketTimeZone).Date;
+        if (marketDate < currentMarketDate)
+        {
+            return sessionCloseUtc;
+        }
+
+        var lastObservedBarUtc = sessionBars[^1].BarTimeUtc + Duration.FromMinutes(1);
+        if (asOfUtc >= sessionCloseUtc)
+        {
+            return sessionCloseUtc;
+        }
+
+        return MinInstant(sessionCloseUtc, MaxInstant(lastObservedBarUtc, FloorToMinute(asOfUtc)));
+    }
+
+    private static Instant FloorToMinute(Instant instant)
+    {
+        var secondsSinceEpoch = instant.ToUnixTimeSeconds();
+        return Instant.FromUnixTimeSeconds(secondsSinceEpoch - (secondsSinceEpoch % 60));
+    }
+
+    private static Instant MinInstant(Instant left, Instant right) => left <= right ? left : right;
+
+    private static Instant MaxInstant(Instant left, Instant right) => left >= right ? left : right;
 
     private static IntradayVolumeBuzzReferenceState BuildVolumeBuzzReferenceState(IReadOnlyList<DailyBarView> bars)
     {

@@ -58,7 +58,9 @@ public sealed record IntradaySymbolReadinessView(
     int RequiredBarCount,
     int AvailableBarCount,
     Instant? LastFinalizedBarUtc,
-    Instant LastStateChangedUtc);
+    Instant LastStateChangedUtc,
+    string? ActiveGapType,
+    Instant? ActiveGapStartUtc);
 
 public sealed record IntradayUniverseReadinessView(
     string Interval,
