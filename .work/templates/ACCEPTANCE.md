@@ -38,6 +38,8 @@ Task outcome summary:
 
 ## 4. How To Run The App
 
+Run these steps from the recorded implementation worktree for this feature, not from the main workspace copy.
+
 ```text
 {{run_command_1}}
 {{run_command_2}}

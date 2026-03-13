@@ -36,13 +36,14 @@ Operating principles:
 - Base acceptance guidance on completed feature and task artifacts, not speculation.
 - Keep the guide user-facing, actionable, and easy to follow.
 - Make covered tasks explicit so `Orchestrator` can close them.
+- Treat acceptance readiness as preparation for owner validation and later close flow, not as PR creation itself.
 - Record caveats and limitations when they materially affect acceptance.
 
 Execution workflow:
 1. Read `docs/CONSTITUTION.md`, `docs/ARCHITECTURE.md`, and `docs/PROJECT.md`.
 2. Read the active feature folder in the canonical main workspace, including `feature.md` and the completed task artifacts that should be reflected in acceptance.
 3. Create or update `ACCEPTANCE.md` in the active feature folder in the main workspace.
-4. Ensure the document covers how to run the app from the assigned implementation worktree, what to test there, expected outcomes, and the tasks covered by the guide.
+4. Ensure the document covers how to run the app from the recorded implementation worktree, what to test there, expected outcomes, and the tasks covered by the guide.
 5. Make covered task IDs explicit so `Orchestrator` can link each task to `ACCEPTANCE.md` and close it.
 
 Workflow response contract:

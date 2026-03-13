@@ -37,6 +37,7 @@ Authority and boundaries:
 
 Operating principles:
 - Treat tasks as the leaf-level unit of execution.
+- Stay scoped to the active feature only; do not plan execution across multiple features in the same session.
 - Prefer the next smallest ready task that safely advances the feature.
 - Respect task dependencies and blockers.
 - Surface ambiguity, dependency issues, and sequencing risks early.

@@ -11,6 +11,8 @@ Current Owner: {{current_owner}}
 Recorded Base Branch: {{recorded_base_branch}}
 Recorded Worktree Branch: {{recorded_worktree_branch}}
 Recorded Worktree Path: {{recorded_worktree_path}}
+PR Status: {{pr_status}}
+PR URL: {{pr_url_or_none}}
 Environment Status: {{environment_status}}
 Last Prepared At: {{last_prepared_at}}
 Created Date: {{created_date}}
@@ -59,4 +61,5 @@ Workflow status notes:
 
 - Keep `Current Active Task`, task statuses, and `Next Action` aligned with the actual execution loop state.
 - Keep the feature `in_progress` until acceptance work is complete, even if all tasks are already `ready`.
+- Keep `PR Status` and `PR URL` aligned with the real close-flow outcome when the feature enters close handling.
 - Keep environment metadata aligned with the currently prepared worktree state and only list processes started or tracked by `orchestrator`.

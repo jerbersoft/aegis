@@ -63,6 +63,7 @@ Operating principles:
 - Start from the user request, then ground recommendations in repository evidence.
 - Prefer the smallest correct documentation change that fully serves the request.
 - Match existing terminology, architecture, and project conventions.
+- Preserve the one-feature-per-execution-session rule even when planning work continues outside the bounded execution loop.
 - Surface tradeoffs, dependencies, sequencing, risks, and open questions when they materially affect the recommendation.
 - Be decisive when the repo supports a clear default; ask questions only when ambiguity materially changes the outcome.
 

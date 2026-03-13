@@ -25,6 +25,13 @@ This repository uses `.work/` as the source of truth for internal feature tracki
 - `orchestrator`, `Architect`, `planner`, and `acceptance` operate from the main workspace.
 - The `.work` copy in the main workspace is canonical and must be treated as the single source of truth.
 
+## Session guardrails
+
+- One orchestrated execution session is limited to one active feature.
+- Do not mix implementation, testing, review, acceptance preparation, or close-flow execution for multiple features in the same session.
+- The owner may continue planning with `Architect` in the main workspace while implementation is active elsewhere, but that planning does not change the one-feature execution rule.
+- Starting implementation work for another feature requires a separate session.
+
 ### Implementation worktrees
 
 - Implementation worktrees are separate sibling checkouts outside the repository folder.
@@ -66,6 +73,7 @@ Examples:
 - Code, tests, runtime verification, and review inspection happen in the assigned worktree.
 - Acceptance and final summaries are written in the main workspace.
 - `orchestrator` must record the full hidden worktree path in feature metadata so acceptance preparation, cleanup, and PR creation operate on the correct worktree.
+- `orchestrator` must also use the recorded worktree branch and recorded base branch from `feature.md` for close-flow PR creation rather than whatever branch happens to be checked out later.
 
 ### Environment and process tracking
 
@@ -73,6 +81,7 @@ Examples:
 - This metadata is used for acceptance preparation, cleanup, and close-feature PR creation.
 - `orchestrator` must only stop processes that it started or explicitly tracked for that feature.
 - Owner-started or unrelated processes must not be terminated by workflow automation.
+- `orchestrator` should also record PR state in `feature.md` when close-flow activity begins or completes.
 
 Minimum environment/process metadata:
 
@@ -80,8 +89,17 @@ Minimum environment/process metadata:
 - `recorded_base_branch`
 - `recorded_worktree_branch`
 - `recorded_worktree_path`
+- `pr_status`
+- `pr_url`
 - `started_processes`
 - `last_prepared_at`
+
+Suggested `pr_status` values:
+
+- `not_requested`
+- `ready_to_create`
+- `blocked`
+- `created`
 
 Suggested `environment_status` values:
 
@@ -365,6 +383,82 @@ Each task folder should contain:
 - `ACCEPTANCE.md` should also summarize feature-level outcomes task by task so users can see what was delivered, what was directly browser-verified, and what remains as a documented non-blocking follow-up.
 - When helpful for final reporting, `orchestrator` may also ask `acceptance` to create `FEATURE_SUMMARY.md` with a concise implementation-oriented summary suitable for user updates or PR drafting.
 
+### 8. Close feature
+
+- After owner validation, the owner may later say `close this feature`.
+- `orchestrator` resolves the feature from the active session context; no environment-variable-based feature identity is required.
+- `orchestrator` must stop only the processes it started or explicitly tracked for that feature.
+- `orchestrator` must use the recorded `recorded_worktree_path`, `recorded_worktree_branch`, and `recorded_base_branch` from `feature.md`.
+- The currently checked-out branch in the main workspace at close time must not be used to infer PR source or target.
+- `orchestrator` may create the PR but must not merge it.
+- Because no agent may push, the recorded worktree branch must already exist on the remote before PR creation.
+- If the branch has not been pushed by the owner, close becomes blocked until the owner pushes it.
+- `orchestrator` must verify these close prerequisites before attempting PR creation:
+  - active feature context exists
+  - recorded worktree path exists on disk
+  - recorded worktree branch is present in `feature.md`
+  - recorded base branch is present in `feature.md`
+  - `gh` is installed and authenticated
+  - the recorded worktree branch already exists on the remote
+- If any prerequisite fails, `orchestrator` must record a blocked close state and report the exact reason.
+- On success, `orchestrator` creates the PR from recorded worktree branch to recorded base branch, records `pr_status` and `pr_url` in `feature.md`, and then may mark the feature `closed` when no further workflow action is required.
+
+Exact close-flow command and check sequence:
+
+1. Resolve the active feature from session context and load its canonical `feature.md` from the main workspace.
+2. Read `recorded_worktree_path`, `recorded_worktree_branch`, `recorded_base_branch`, `started_processes`, `pr_status`, and `pr_url`.
+3. If `pr_status` is already `created` and `pr_url` is present, treat close as idempotent: do not create another PR, confirm the existing PR, and only finish any remaining workflow bookkeeping.
+4. Validate required metadata before running shell commands:
+   - feature context exists
+   - recorded worktree path is non-empty
+   - recorded worktree branch is non-empty
+   - recorded base branch is non-empty
+5. Confirm the recorded worktree path exists on disk.
+6. Stop only tracked processes recorded in `started_processes`; never stop untracked processes.
+7. Check GitHub CLI availability:
+
+```text
+which gh
+gh auth status --hostname github.com
+```
+
+8. Check that the recorded worktree is a valid git worktree and that the recorded branch exists locally in that worktree:
+
+```text
+git -C "<recorded_worktree_path>" rev-parse --is-inside-work-tree
+git -C "<recorded_worktree_path>" branch --show-current
+git -C "<recorded_worktree_path>" rev-parse --verify "<recorded_worktree_branch>"
+```
+
+9. Check that the recorded base branch exists on the remote:
+
+```text
+git ls-remote --heads origin "<recorded_base_branch>"
+```
+
+10. Check that the recorded worktree branch has already been pushed to the remote by the owner:
+
+```text
+git ls-remote --heads origin "<recorded_worktree_branch>"
+```
+
+11. If the remote worktree branch is missing, set `pr_status` to `blocked`, keep the feature open, and report that the owner must push `recorded_worktree_branch` before close can continue.
+12. Before creating a PR, check whether one already exists for `recorded_worktree_branch` against `recorded_base_branch`:
+
+```text
+gh pr list --repo jerbersoft/aegis --head "<recorded_worktree_branch>" --base "<recorded_base_branch>" --state open --json url,number,headRefName,baseRefName
+```
+
+13. If an open PR already exists, record its URL in `feature.md`, set `pr_status` to `created`, and treat close as idempotently complete.
+14. If no PR exists, create one from the recorded branch pair:
+
+```text
+gh pr create --repo jerbersoft/aegis --head "<recorded_worktree_branch>" --base "<recorded_base_branch>" --title "<title>" --body "<body>"
+```
+
+15. Record the returned PR URL in `feature.md`, set `pr_status` to `created`, and only then mark the feature `closed` if no further workflow action remains.
+16. If any shell command or GitHub operation fails, record `pr_status` as `blocked`, preserve the feature state for retry, and report the exact failed check or command category.
+
 ## Machine-readable agent result contracts
 
 Task execution, planning-setup, and acceptance agents should return a single compact JSON object for orchestration decisions.
@@ -467,6 +561,7 @@ Recommended meaning:
 - `in_progress`: one or more tasks are active or not yet complete
 - `blocked`: progress cannot continue because required work is blocked
 - `closed`: acceptance is complete and no further workflow is expected
+- In workflows that use close-time PR creation, `closed` also implies the PR was created successfully or another explicit workflow policy determined that no PR action remained.
 
 ### Task status
 
@@ -519,6 +614,7 @@ Recommended meaning:
 - Feature status should usually be derived from its tasks.
 - A feature can move toward acceptance when all required tasks are `ready` or `closed` and no mandatory task is blocked.
 - A feature should remain `in_progress` until acceptance work is finished, even if all tasks are already `ready`.
+- When close-time PR creation is part of the workflow, the feature should also keep `pr_status` aligned with the real close state.
 - The task index shown in `feature.md` is repeatable; add as many task rows as the feature requires.
 
 ## Minimum template expectations
@@ -537,6 +633,8 @@ Should capture at least:
 - recorded worktree branch
 - recorded worktree path
 - environment status
+- pr status
+- pr url
 - started processes
 - last prepared at
 - task index with statuses and dependencies
