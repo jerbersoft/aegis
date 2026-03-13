@@ -16,6 +16,52 @@ This repository uses `.work/` as the source of truth for internal feature tracki
 - Tasks are leaf-level units. Tasks do not contain sub-tasks.
 - Workflow execution runs at the task level, not directly at the feature level.
 
+## Workspace Model
+
+### Main workspace
+
+- The main workspace is the repository root, for example `/Users/herbertsabanal/Projects/aegis`.
+- The main workspace is the authoritative home for `.work/`.
+- `orchestrator`, `Architect`, `planner`, and `acceptance` operate from the main workspace.
+- The `.work` copy in the main workspace is canonical and must be treated as the single source of truth.
+
+### Implementation worktrees
+
+- Implementation worktrees are separate sibling checkouts outside the repository folder.
+- Recommended worktree root: `/Users/herbertsabanal/Projects/aegis-worktrees/`.
+- Each implementation worktree is a full checkout of the repository, not just `src/` and `tests/`.
+- `developer`, `tester`, and `reviewer` operate in an assigned implementation worktree.
+- Worktree-local copies of `.work/` are not authoritative and must not be treated as the source of truth for workflow state.
+
+### Worktree branching model
+
+- The repository owner or user chooses the base branch before execution begins.
+- `orchestrator` uses the currently checked-out branch as the base for implementation worktrees.
+- `orchestrator` does not choose between `master` and `develop`; that is an owner/user decision.
+- Each implementation worktree should use its own branch created from the current branch.
+- The worktree branch name should match the worktree folder name.
+
+### Worktree naming and location
+
+- Worktree folders should live under the sibling worktree root, for example `/Users/herbertsabanal/Projects/aegis-worktrees/`.
+- Recommended worktree folder format:
+
+```text
+<feature-folder>-impl-<number>
+```
+
+Examples:
+
+- `feature-001-market_data_implementation-impl-01`
+- `feature-001-market_data_implementation-impl-02`
+
+### Canonical-document rule
+
+- Task and feature workflow documents are authored and maintained in the main workspace under `.work/`.
+- `developer`, `tester`, and `reviewer` should read canonical task/feature docs from the main workspace, even when executing inside a worktree.
+- Code, tests, runtime verification, and review inspection happen in the assigned worktree.
+- Acceptance and final summaries are written in the main workspace.
+
 ## Directory structure
 
 ```text
@@ -135,8 +181,8 @@ Each task folder should contain:
 - Is the only agent allowed to decide which agent or subagent is called next.
 - Requires feature and task tracking to be complete before task execution begins.
 - For new planning work, routing to `Architect` happens before the execution loop starts, not inside it.
-- When beginning work on a feature, creates a feature branch from `master`.
-- The feature branch name must exactly match the feature folder name.
+- When beginning work on a feature, creates or reuses an implementation worktree from the current branch.
+- Uses a sibling worktree folder outside the repository, typically under `/Users/herbertsabanal/Projects/aegis-worktrees/`.
 - Asks `planner` for the next task that should be worked on.
 - Routes the selected task through `developer` -> `tester` -> `reviewer`.
 - After each completed task cycle, asks `planner` whether another task is ready.
@@ -158,6 +204,7 @@ Each task folder should contain:
 - Works on one task only.
 - Implements code and unit tests.
 - Writes task-level `implementation_summary.md`.
+- Reads canonical workflow documents from the main workspace and executes code changes in the assigned worktree.
 - Does not write integration tests or UI-automated tests.
 - Does not call other agents or subagents.
 
@@ -168,6 +215,7 @@ Each task folder should contain:
 - Writes and runs Playwright tests when UI automation is needed and practical.
 - May use manual UI verification only when automation is not yet practical.
 - Writes task-level `testing_results.md`.
+- Reads canonical workflow documents from the main workspace and executes testing in the assigned worktree.
 - Before declaring browser verification blocked, performs and documents a browser-verification capability check.
 - Distinguishes browser-confirmed evidence from semantics proven only by unit, integration, or API evidence.
 - For transient UI states that are difficult to hold deterministically, may combine automated proof of semantics with a real browser smoke path, as long as any remaining gap is documented precisely.
@@ -179,6 +227,7 @@ Each task folder should contain:
 - Reviews implementation and testing activity.
 - Confirms constitution alignment, coding standards, and testing sufficiency.
 - Writes task-level `review_results.md`.
+- Reads canonical workflow documents from the main workspace and reviews code/tests in the assigned worktree.
 - Does not call other agents or subagents.
 
 ### Architect
@@ -195,6 +244,7 @@ Each task folder should contain:
 - Owns feature-level `ACCEPTANCE.md`.
 - Produces final user-facing acceptance guidance after the task loop is complete.
 - May also produce `FEATURE_SUMMARY.md` when `orchestrator` wants a concise final delivery summary or PR-style overview.
+- Writes acceptance guidance in the main workspace while describing how the owner should validate the feature in the assigned worktree.
 - Does not take over implementation, testing, or review execution.
 - Does not call other agents or subagents.
 
@@ -207,8 +257,9 @@ Each task folder should contain:
 - The feature objective, scope, and task index are established.
 - If tasks are already known, they should be listed in `feature.md` before execution begins.
 - Task execution must not begin until the required feature and task tracking artifacts exist.
-- Before task execution begins, `orchestrator` creates or checks out a feature branch from `master`.
-- The feature branch name must exactly match the feature folder name, for example `feature-001-market_data_implementation`.
+- Before task execution begins, the owner or user selects the base branch in the main workspace.
+- `orchestrator` then creates or reuses an implementation worktree from the current branch.
+- The worktree branch and worktree folder should use the same implementation-lane name, for example `feature-001-market_data_implementation-impl-01`.
 
 ### 2. Task selection
 
@@ -224,12 +275,14 @@ Each task folder should contain:
 ### 3. Development
 
 - `developer` works from the selected task folder.
-- `developer` reads `TASK.md` and `developer_handoff.md`.
+- `developer` reads canonical `TASK.md` and `developer_handoff.md` from the main workspace.
+- `developer` edits code and runs developer validation in the assigned worktree.
 - `developer` implements the task and writes `implementation_summary.md`.
 
 ### 4. Testing
 
-- `tester` reads the selected task's `implementation_summary.md`.
+- `tester` reads the selected task's canonical `implementation_summary.md` from the main workspace.
+- `tester` runs integration tests, browser verification, and manual validation in the assigned worktree.
 - `tester` performs required integration testing and UI verification.
 - `tester` writes `testing_results.md`.
 - If browser verification appears blocked, `tester` must first document which capability check step failed: AppHost startup, endpoint reachability, browser launch, login path, page access, or other concrete limitation.
@@ -238,7 +291,8 @@ Each task folder should contain:
 
 ### 5. Review
 
-- `reviewer` reads the selected task's artifacts.
+- `reviewer` reads the selected task's canonical artifacts from the main workspace.
+- `reviewer` inspects code and tests in the assigned worktree.
 - `reviewer` assesses code quality, constitution alignment, and testing sufficiency.
 - `reviewer` writes `review_results.md`.
 - `reviewer` should distinguish between a true approval blocker and a non-blocking evidence-depth improvement when transient browser-only states lack a deterministic fixture but semantics are otherwise proven by stronger lower-level evidence.
@@ -259,6 +313,7 @@ Each task folder should contain:
 - When `planner` reports that no more required tasks remain, `orchestrator` asks `acceptance` to create or update feature-level `ACCEPTANCE.md`.
 - `acceptance` does not need a separate user confirmation when this work is explicitly delegated by `Orchestrator` as part of the internal workflow.
 - `ACCEPTANCE.md` should explicitly cover the tasks that are being accepted so `Orchestrator` can close them.
+- The owner validates the accepted feature against the implementation worktree state; merge or PR is not required before local acceptance testing.
 - `ACCEPTANCE.md` should tell the user:
   - how to run the app
   - what prerequisites are required
@@ -540,6 +595,8 @@ Should capture at least:
 - Use `.work/WORKFLOW.md` as the canonical workflow document.
 - Use feature folders as containers and task folders as leaf-level execution units.
 - Keep one `ACCEPTANCE.md` per feature at the feature root.
+- Keep `.work/` authoritative in the main workspace, not in worktree copies.
+- Use sibling worktrees for implementation, testing, and review execution.
 - Run the execution loop per task.
 - Let `planner` choose the next task to work on.
 - Let `acceptance` own final acceptance guidance once task execution is complete.
