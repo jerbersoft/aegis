@@ -8,6 +8,16 @@ Priority: high
 Status: closed
 Current Active Task: none
 Current Owner: orchestrator
+Main Workspace Path: /Users/herbertsabanal/Projects/aegis
+Main Workspace Branch: not_recorded
+Main Workspace Branch Verified: no
+Recorded Base Branch: not_recorded
+Recorded Worktree Branch: not_recorded
+Recorded Worktree Path: not_recorded
+PR Status: not_recorded
+PR URL: none
+Environment Status: not_recorded
+Last Prepared At: not_recorded
 Created Date: 2026-03-13
 Last Updated: 2026-03-13
 
@@ -31,6 +41,9 @@ Define and track the next `MarketData` implementation slice: explicit intraday r
 - Keep `SignalR`, other missing business modules, and broader realtime-subscription work out of scope for this feature.
 
 ## Feature-Level Blockers
+- none
+
+## Started Processes
 - none
 
 ## Task Index
@@ -65,3 +78,12 @@ Feature workflow is complete.
 ## Planner Readiness Notes
 - All required tasks for this feature are closed.
 - This feature should not re-enter the execution loop unless a task is explicitly reopened.
+
+Workflow status notes:
+
+- Keep `Current Active Task`, task statuses, and `Next Action` aligned with the actual execution loop state.
+- Keep the feature `in_progress` until acceptance work is complete, even if all tasks are already `ready`.
+- Keep `Main Workspace Path`, `Main Workspace Branch`, and `Main Workspace Branch Verified` aligned with the orchestration preflight state.
+- If `Recorded Worktree Path` is missing or matches `Main Workspace Path`, treat the feature as blocked and do not delegate implementation.
+- Keep `PR Status` and `PR URL` aligned with the real close-flow outcome when the feature enters close handling.
+- Keep environment metadata aligned with the currently prepared worktree state and only list processes started or tracked by `orchestrator`.

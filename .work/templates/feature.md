@@ -8,6 +8,9 @@ Priority: {{priority}}
 Status: {{feature_status}}
 Current Active Task: {{current_task_or_none}}
 Current Owner: {{current_owner}}
+Main Workspace Path: {{main_workspace_path}}
+Main Workspace Branch: {{main_workspace_branch}}
+Main Workspace Branch Verified: {{main_workspace_branch_verified}}
 Recorded Base Branch: {{recorded_base_branch}}
 Recorded Worktree Branch: {{recorded_worktree_branch}}
 Recorded Worktree Path: {{recorded_worktree_path}}
@@ -61,5 +64,7 @@ Workflow status notes:
 
 - Keep `Current Active Task`, task statuses, and `Next Action` aligned with the actual execution loop state.
 - Keep the feature `in_progress` until acceptance work is complete, even if all tasks are already `ready`.
+- Keep `Main Workspace Path`, `Main Workspace Branch`, and `Main Workspace Branch Verified` aligned with the orchestration preflight state.
+- If `Recorded Worktree Path` is missing or matches `Main Workspace Path`, treat the feature as blocked and do not delegate implementation.
 - Keep `PR Status` and `PR URL` aligned with the real close-flow outcome when the feature enters close handling.
 - Keep environment metadata aligned with the currently prepared worktree state and only list processes started or tracked by `orchestrator`.

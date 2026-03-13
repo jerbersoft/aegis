@@ -24,6 +24,9 @@ This repository uses `.work/` as the source of truth for internal feature tracki
 - The main workspace is the authoritative home for `.work/`.
 - `orchestrator`, `Architect`, `planner`, and `acceptance` operate from the main workspace.
 - The `.work` copy in the main workspace is canonical and must be treated as the single source of truth.
+- The main workspace is orchestration-only during feature execution.
+- `orchestrator` must not switch the main workspace branch in order to run feature implementation.
+- `orchestrator` must not run feature implementation, testing, or review against the main workspace checkout.
 
 ## Session guardrails
 
@@ -45,6 +48,8 @@ This repository uses `.work/` as the source of truth for internal feature tracki
 - The repository owner or user chooses the base branch before execution begins.
 - `orchestrator` uses the currently checked-out branch as the base for implementation worktrees.
 - `orchestrator` does not choose between `master` and `develop`; that is an owner/user decision.
+- `orchestrator` must leave the main workspace on whatever branch is currently checked out when execution starts.
+- `orchestrator` must create the feature implementation branch only in the implementation worktree, not by switching the main workspace checkout.
 - Each implementation worktree must use its own branch created from the current branch.
 - The worktree branch name must match the worktree folder name.
 
@@ -71,9 +76,24 @@ Examples:
 - Task and feature workflow documents are authored and maintained in the main workspace under `.work/`.
 - `developer`, `tester`, and `reviewer` should read canonical task/feature docs from the main workspace, even when executing inside a worktree.
 - Code, tests, runtime verification, and review inspection happen in the assigned worktree.
+- Any delegated code-editing, build, lint, test, browser-verification, or code-inspection command that targets repository contents must use the assigned worktree path rather than the main workspace path.
 - Acceptance and final summaries are written in the main workspace.
 - `orchestrator` must record the full hidden worktree path in feature metadata so acceptance preparation, cleanup, and PR creation operate on the correct worktree.
 - `orchestrator` must also use the recorded worktree branch and recorded base branch from `feature.md` for close-flow PR creation rather than whatever branch happens to be checked out later.
+
+### Mandatory worktree preflight
+
+- No planner, developer, tester, or reviewer execution may begin until worktree setup is complete.
+- Before the first task delegation, `orchestrator` must verify and record all of the following:
+  - the main workspace path
+  - the main workspace branch
+  - the assigned feature worktree path
+  - the assigned feature worktree branch
+  - that the main workspace path and worktree path are different
+  - that the main workspace branch has not been changed as part of feature setup
+- If the recorded worktree path is missing, points at the main workspace, or the worktree branch is not present in the worktree, the feature is blocked and execution must not start.
+- `orchestrator` must explicitly state both the main workspace path plus branch and the feature worktree path plus branch before delegating implementation.
+- If those paths are the same, `orchestrator` must stop and treat it as a workflow error.
 
 ### Environment and process tracking
 
@@ -238,6 +258,8 @@ Each task folder should contain:
 - For new planning work, routing to `Architect` happens before the execution loop starts, not inside it.
 - When beginning work on a feature, creates or reuses an implementation worktree from the current branch.
 - Uses a hidden sibling worktree folder outside the repository under `/Users/herbertsabanal/Projects/.aegis-worktrees/`.
+- Must not switch the main workspace branch as part of feature setup or execution.
+- Must verify that delegated execution agents operate on the assigned worktree path, never the main workspace path.
 - Records environment and process-tracking metadata for the active feature.
 - Asks `planner` for the next task that should be worked on.
 - Routes the selected task through `developer` -> `tester` -> `reviewer`.
@@ -318,6 +340,9 @@ Each task folder should contain:
 - The worktree branch and worktree folder must use the same implementation-lane name, for example `feature-001-market_data_implementation-impl-01`.
 - `orchestrator` must record the full hidden worktree path in feature metadata before delegating task execution.
 - `orchestrator` must also initialize environment status and process-tracking metadata before acceptance preparation begins.
+- `orchestrator` must not switch the main workspace branch during this setup.
+- `orchestrator` must verify that the implementation worktree branch exists in the worktree and that the main workspace remains on the owner-selected base branch.
+- If that verification fails, execution is blocked and no task agent may be called.
 
 ### 2. Task selection
 
@@ -336,6 +361,7 @@ Each task folder should contain:
 - `developer` reads canonical `TASK.md` and `developer_handoff.md` from the main workspace.
 - `developer` edits code and runs developer validation in the assigned worktree.
 - `developer` implements the task and writes `implementation_summary.md`.
+- `developer` must not edit or validate code in the main workspace checkout.
 
 ### 4. Testing
 
@@ -343,6 +369,7 @@ Each task folder should contain:
 - `tester` runs integration tests, browser verification, and manual validation in the assigned worktree.
 - `tester` performs required integration testing and UI verification.
 - `tester` writes `testing_results.md`.
+- `tester` must not run verification against the main workspace checkout.
 - If browser verification appears blocked, `tester` must first document which capability check step failed: AppHost startup, endpoint reachability, browser launch, login path, page access, or other concrete limitation.
 - If full browser observation of all states is impractical, `tester` should document the verification split between browser evidence and automated/API evidence rather than collapsing all remaining work into a generic blocker.
 - When the missing browser evidence involves a transient UI state, `tester` should explicitly state whether a deterministic fixture, seeded scenario, test-host override, or operator-triggerable path exists. If not, that absence must be recorded as the reason the browser evidence is partial rather than silently assumed.
@@ -353,6 +380,7 @@ Each task folder should contain:
 - `reviewer` inspects code and tests in the assigned worktree.
 - `reviewer` assesses code quality, constitution alignment, and testing sufficiency.
 - `reviewer` writes `review_results.md`.
+- `reviewer` must not inspect repository code from the main workspace as the implementation target.
 - `reviewer` should distinguish between a true approval blocker and a non-blocking evidence-depth improvement when transient browser-only states lack a deterministic fixture but semantics are otherwise proven by stronger lower-level evidence.
 
 ### 6. Loop decision
@@ -632,6 +660,9 @@ Should capture at least:
 - recorded base branch
 - recorded worktree branch
 - recorded worktree path
+- main workspace path
+- main workspace branch
+- main workspace branch verified
 - environment status
 - pr status
 - pr url

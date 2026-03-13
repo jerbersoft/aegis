@@ -8,6 +8,9 @@ Priority: high
 Status: draft
 Current Active Task: none
 Current Owner: architect
+Main Workspace Path: /Users/herbertsabanal/Projects/aegis
+Main Workspace Branch: master
+Main Workspace Branch Verified: yes
 Recorded Base Branch: not_recorded
 Recorded Worktree Branch: not_recorded
 Recorded Worktree Path: not_recorded
@@ -85,5 +88,7 @@ Workflow status notes:
 
 - Keep `Current Active Task`, task statuses, and `Next Action` aligned with the actual execution loop state.
 - Keep the feature `in_progress` until acceptance work is complete, even if all tasks are already `ready`.
+- Keep `Main Workspace Path`, `Main Workspace Branch`, and `Main Workspace Branch Verified` aligned with the orchestration preflight state.
+- If `Recorded Worktree Path` is missing or matches `Main Workspace Path`, treat the feature as blocked and do not delegate implementation.
 - Keep `PR Status` and `PR URL` aligned with the real close-flow outcome when the feature enters close handling.
 - Keep environment metadata aligned with the currently prepared worktree state and only list processes started or tracked by `orchestrator`.
