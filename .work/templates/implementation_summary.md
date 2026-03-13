@@ -1,158 +1,109 @@
 # Implementation Summary
 
-## Ticket Information
-Ticket ID: {{ticket_id}}
-Title: {{ticket_title}}
+## Feature Information
+Feature ID: {{feature_id}}
+Feature Title: {{feature_title}}
+Feature Folder: {{feature_folder}}
 
 Implemented By: Developer Agent
 Date: {{date}}
 
 ---
 
-# 1. Feature Overview
+## 1. Objective Implemented
 
-Brief summary of the implemented feature.
+Summarize the requested work that was implemented.
 
-Example:
-Implemented password reset functionality including token generation,
-email delivery, and password update endpoint.
+{{objective_implemented}}
 
 ---
 
-# 2. Implementation Details
+## 2. Work Completed
 
-High-level explanation of how the feature was implemented.
-
-Example:
-
-- Added password reset token generation using ASP.NET Identity
-- Created service to handle token validation
-- Implemented controller endpoints for request and confirmation
+- {{completed_work_item_1}}
+- {{completed_work_item_2}}
 
 ---
 
-# 3. Files Modified
+## 3. Behavior Changes
 
-List all modified files.
-
-Example:
-
-Controllers:
-- UserController.cs
-
-Services:
-- PasswordResetService.cs
-
-Models:
-- PasswordResetToken.cs
+- {{behavior_change_1}}
+- {{behavior_change_2}}
 
 ---
 
-# 4. Files Added
+## 4. Files Modified
 
-List newly created files.
-
-Example:
-
-Services:
-- PasswordResetService.cs
-
-Tests:
-- PasswordResetServiceTests.cs
+- {{modified_file_1}}
+- {{modified_file_2}}
 
 ---
 
-# 5. Key Code Changes
+## 5. Files Added
 
-Summarize important logic introduced.
-
-Example:
-
-- Reset tokens generated using secure random values
-- Tokens stored with expiration timestamp
-- Validation checks added before allowing password update
+- {{added_file_1_or_none}}
+- {{added_file_2_or_none}}
 
 ---
 
-# 6. API Endpoints Implemented
+## 6. Implementation Notes
 
-If applicable.
+High-level technical notes useful for testing and review.
 
-Example:
-
-POST /api/password-reset/request
-
-POST /api/password-reset/confirm
+- {{implementation_note_1}}
+- {{implementation_note_2}}
 
 ---
 
-# 7. Database Changes
+## 7. Unit Tests Added or Updated
 
-Document schema changes.
+- {{unit_test_file_1_or_none}}
+- {{unit_test_file_2_or_none}}
 
-Example:
+Test focus:
 
-New table created:
-
-PasswordResetTokens
-
-Columns:
-- Id
-- UserId
-- Token
-- ExpiryDate
-
-If no database changes:
-
-None
+- {{unit_test_focus_1}}
+- {{unit_test_focus_2}}
 
 ---
 
-# 8. Unit Tests Added
+## 8. Validation Performed
 
-List new unit tests.
+Commands executed:
 
-Example:
+```text
+{{validation_command_1}}
+{{validation_command_2}}
+```
 
-PasswordResetServiceTests.cs
+Requirement-focused verification:
 
-Test cases:
-
-- token_generation_success
-- token_expiry_validation
-- invalid_token_rejected
-
----
-
-# 9. Known Limitations
-
-List anything incomplete or worth noting.
-
-Example:
-
-- Email templates currently hardcoded
-- Rate limiting not implemented yet
+- {{verification_note_1}}
+- {{verification_note_2}}
 
 ---
 
-# 10. Implementation Notes
+## 9. Known Limitations or Follow-Up Risks
 
-Extra technical notes useful for testing or review.
+- {{limitation_or_risk_1}}
+- {{limitation_or_risk_2}}
 
-Example:
+If none:
 
-Reset tokens expire after 30 minutes.
+- None
 
 ---
 
-# 11. Recommended Test Focus
+## 10. Recommended Test Focus For Tester
 
-Guidance for Tester agent.
+- {{tester_focus_1}}
+- {{tester_focus_2}}
 
-Example:
+---
 
-Focus on:
+## 11. Testing Not Covered By Developer
 
-- token expiration behavior
-- invalid token handling
-- repeated reset requests
+- {{not_covered_1}}
+- {{not_covered_2}}
+
+This section should describe what belongs to `tester`, such as integration coverage, Playwright coverage, or manual UI fallback when needed.

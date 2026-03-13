@@ -1,191 +1,134 @@
 # Developer Handoff
 
-## Ticket Information
-Ticket ID: {{ticket_id}}
-Title: {{ticket_title}}
-Source: {{jira_or_trello_url}}
+## Feature Information
+Feature ID: {{feature_id}}
+Feature Title: {{feature_title}}
+Feature Folder: {{feature_folder}}
 
-Prepared By: Taskmaster Agent
+Prepared By: Planner Agent
 Date: {{date}}
 
 ---
 
-# 1. Feature Summary
+## 1. Objective
 
-Brief description of the feature or change.
+Describe the implementation goal for this feature or work-item.
 
-Example:
-Implement password reset functionality allowing users to request
-a reset token via email and update their password.
+{{objective}}
 
 ---
 
-# 2. Business Objective
+## 2. Work-Items In Scope
 
-Why this change is needed.
-
-Example:
-Users must be able to reset their password without contacting support.
+- {{work_item_1}}
+- {{work_item_2}}
 
 ---
 
-# 3. Requirements
+## 3. Business and Product Context
 
-List all functional requirements.
+Why this work matters.
 
-1. User can request a password reset.
-2. System generates a reset token.
-3. Token expires after 30 minutes.
-4. User can set a new password using the token.
+{{business_context}}
 
 ---
 
-# 4. Acceptance Criteria
+## 4. Requirements
 
-Define conditions that must be satisfied for the ticket to be complete.
+List the concrete requirements `developer` must satisfy.
 
-- Endpoint returns HTTP 200 on success.
-- Invalid token returns HTTP 400.
-- Expired token returns HTTP 401.
-- Password must meet security policy.
+1. {{requirement_1}}
+2. {{requirement_2}}
 
 ---
 
-# 5. Technical Context
+## 5. Acceptance Criteria
 
-Relevant architecture or system constraints.
-
-Example:
-- ASP.NET Core API
-- Authentication handled by ASP.NET Identity
-- Password reset handled by UserManager
+- {{acceptance_criterion_1}}
+- {{acceptance_criterion_2}}
 
 ---
 
-# 6. Files Likely Impacted
+## 6. Scope Boundaries
 
-List likely files to modify or extend.
+In scope:
 
-Example:
+- {{in_scope_1}}
+- {{in_scope_2}}
 
-Controllers:
-- UserController.cs
+Out of scope:
 
-Services:
-- PasswordResetService.cs
-
-Repositories:
-- UserRepository.cs
+- {{out_of_scope_1}}
+- {{out_of_scope_2}}
 
 ---
 
-# 7. Suggested Implementation Approach
+## 7. Repository Context
 
-Optional guidance for the Developer agent.
+Relevant modules, files, or architecture notes.
 
-Example:
+- {{context_1}}
+- {{context_2}}
 
-1. Add endpoint POST /api/password-reset/request
-2. Generate secure reset token
-3. Send email with reset link
-4. Add endpoint POST /api/password-reset/confirm
+Likely implementation surfaces:
 
----
-
-# 8. API Changes
-
-If new endpoints are required.
-
-Example:
-
-POST /api/password-reset/request
-
-Request:
-{
-  "email": "user@example.com"
-}
-
-Response:
-{
-  "message": "Reset email sent"
-}
+- {{implementation_surface_1}}
+- {{implementation_surface_2}}
 
 ---
 
-# 9. Data Model Changes
+## 8. Constraints and Assumptions
 
-If database changes are needed.
+Constraints:
 
-Example:
+- {{constraint_1}}
+- {{constraint_2}}
 
-Table: PasswordResetTokens
+Assumptions:
 
-Columns:
-- Id
-- UserId
-- Token
-- ExpiryDate
+- {{assumption_1}}
+- {{assumption_2}}
 
 ---
 
-# 10. Dependencies
+## 9. Expected Behavior Changes
 
-List systems or components involved.
-
-Example:
-
-- Email service
-- Authentication service
-- Database
+- {{behavior_change_1}}
+- {{behavior_change_2}}
 
 ---
 
-# 11. Edge Cases
+## 10. Unit Test Expectations
 
-Important scenarios to handle.
+`developer` owns unit tests for the implemented behavior.
 
-Example:
-
-- Email does not exist
-- Token expired
-- Multiple reset requests
-- Invalid token format
+- {{unit_test_expectation_1}}
+- {{unit_test_expectation_2}}
 
 ---
 
-# 12. Testing Expectations
+## 11. Validation Expectations For Developer
 
-Developer must include:
-
-- Unit tests for service logic
-- Validation tests
-- Error handling tests
-
-Integration tests handled by Tester agent.
+- {{developer_validation_expectation_1}}
+- {{developer_validation_expectation_2}}
 
 ---
 
-# 13. Definition of Done
+## 12. Follow-On Testing Notes For Tester
 
-The task is complete when:
-
-- Feature implemented
-- Unit tests written and passing
-- Code compiles
-- Acceptance criteria satisfied
+- {{tester_note_1}}
+- {{tester_note_2}}
 
 ---
 
-# 14. Notes
+## 13. Risks and Open Questions
 
-Additional context from the ticket or stakeholders.
+Risks:
 
----
+- {{risk_1}}
+- {{risk_2}}
 
-# 15. Open Questions
+Open questions:
 
-List unclear points.
-
-Example:
-
-- Should reset tokens be single-use?
+- {{open_question_1}}
+- {{open_question_2}}
