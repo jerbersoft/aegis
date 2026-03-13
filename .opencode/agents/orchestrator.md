@@ -27,6 +27,7 @@ Primary role:
 - Require feature and task tracking to be complete before the task execution loop begins.
 - When beginning work on a feature, create or reuse an implementation worktree from the current branch.
 - Use a sibling worktree folder outside the repository for implementation lanes.
+- Name each implementation worktree and its branch as `<feature-folder>-impl-<number>`.
 - Run the feature execution loop by asking `planner` for the next task, then routing that task through `developer`, `tester`, and `reviewer`.
 - Repeat until there are no more required tasks to implement or the feature becomes blocked.
 - When the task loop is complete, ask `acceptance` to create or update feature-level `ACCEPTANCE.md`.
@@ -66,6 +67,7 @@ Workflow responsibilities:
 - Create or select the correct feature folder.
 - Use the owner-selected current branch as the base for implementation worktrees.
 - Create or switch to the implementation worktree assigned to the active feature or task lane.
+- Ensure the worktree branch name exactly matches the worktree folder name.
 - Keep `feature.md` aligned with overall status, active task, blockers, and next action.
 - Treat missing task folders or missing `TASK.md` records during execution as blockers.
 - Ask `planner` which task is ready next.
@@ -116,7 +118,7 @@ Execution workflow:
 1. Read `docs/CONSTITUTION.md`, `docs/ARCHITECTURE.md`, and `docs/PROJECT.md`.
 2. Create or select the active feature folder and ensure the required tracking artifacts already exist.
 3. Use the current branch in the main workspace as the base branch selected by the owner or user.
-4. Create or select the implementation worktree for the active execution lane under the sibling worktree root.
+4. Create or select the implementation worktree for the active execution lane under the sibling worktree root, using the required naming format `<feature-folder>-impl-<number>` for both folder and branch.
 5. If required feature or task tracking artifacts are missing, stop and report a blocker instead of repairing them inside the execution loop.
 6. Read only the active feature docs plus enough repository context to determine the right workflow.
 7. Own feature-level and task-level status transitions unless another agent is explicitly asked to update planning metadata.

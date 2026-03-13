@@ -38,13 +38,13 @@ This repository uses `.work/` as the source of truth for internal feature tracki
 - The repository owner or user chooses the base branch before execution begins.
 - `orchestrator` uses the currently checked-out branch as the base for implementation worktrees.
 - `orchestrator` does not choose between `master` and `develop`; that is an owner/user decision.
-- Each implementation worktree should use its own branch created from the current branch.
-- The worktree branch name should match the worktree folder name.
+- Each implementation worktree must use its own branch created from the current branch.
+- The worktree branch name must match the worktree folder name.
 
 ### Worktree naming and location
 
 - Worktree folders should live under the sibling worktree root, for example `/Users/herbertsabanal/Projects/aegis-worktrees/`.
-- Recommended worktree folder format:
+- Worktree folders must use this format:
 
 ```text
 <feature-folder>-impl-<number>
@@ -54,6 +54,10 @@ Examples:
 
 - `feature-001-market_data_implementation-impl-01`
 - `feature-001-market_data_implementation-impl-02`
+
+- The worktree branch name must exactly match the worktree folder name.
+- `number` must be a zero-padded lane identifier such as `01`, `02`, or `03`.
+- `orchestrator` must assign a new lane number for each parallel implementation worktree under the same feature.
 
 ### Canonical-document rule
 
@@ -259,7 +263,7 @@ Each task folder should contain:
 - Task execution must not begin until the required feature and task tracking artifacts exist.
 - Before task execution begins, the owner or user selects the base branch in the main workspace.
 - `orchestrator` then creates or reuses an implementation worktree from the current branch.
-- The worktree branch and worktree folder should use the same implementation-lane name, for example `feature-001-market_data_implementation-impl-01`.
+- The worktree branch and worktree folder must use the same implementation-lane name, for example `feature-001-market_data_implementation-impl-01`.
 
 ### 2. Task selection
 
