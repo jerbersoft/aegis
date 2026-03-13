@@ -1343,3 +1343,42 @@ Deepen the current finalized-only `1-min` intraday runtime/readiness slice so re
 #### Recommended next slice
 
 - add explicit repair/recompute progression semantics on top of the current gap-aware finalized-history readiness layer
+
+### Task 12.6 — Add explicit intraday repair/recompute progression semantics
+
+Status:
+
+- next
+
+#### Goal
+
+Extend the current gap-aware `1-min` intraday readiness layer so required `Execution` symbols move through an explicit repair/recompute progression when gaps or materially changed corrected bars affect canonical runtime state.
+
+#### Scope
+
+In scope:
+
+- explicit repair-state progression for required `intraday_core` symbols
+- repair job identity, deduplication, widening, priority, and bounded-concurrency semantics
+- recompute start-point rules for trailing gaps, internal gaps, and corrected finalized bars
+- readiness restoration only after repair fetch, persistence, recompute, and repaired-sequence validation succeed
+- minimum REST/Home-widget visibility needed to observe repair progression without introducing `SignalR`
+
+Out of scope:
+
+- broader realtime subscription/orchestration work
+- `SignalR`
+- new business modules outside `MarketData`
+- portfolio/orders/strategies UI replacement work
+
+#### Acceptance criteria
+
+- required intraday symbols can enter an explicit `repairing` lifecycle when repairable gaps or corrected-bar recompute work begins
+- repair requests deduplicate by symbol/interval/range and preserve priority semantics
+- trailing-gap and internal-gap repairs recompute from the correct earliest affected timestamp
+- readiness returns to `ready` only after repaired data is persisted, recomputed, and validated successfully
+- current REST/Home surfaces expose enough state to distinguish ordinary `not_ready` from active repair/recompute progression
+
+#### Tracking note
+
+- Active planning for this immediate next slice now lives in `.work/features/feature-001-market_data_intraday_repair_recompute/feature.md`.

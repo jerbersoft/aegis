@@ -260,6 +260,7 @@ Recommended dependency-ordered next work:
 
 1. continue `MarketData` beyond the current first `1-min` intraday runtime/readiness foundation
    - immediate recommended slice: build the next intraday repair/recompute layer on top of the now-implemented gap-aware readiness semantics
+   - active planning/tracking artifact: `.work/features/feature-001-market_data_intraday_repair_recompute/feature.md`
 2. decide and document the `SignalR` path for market-data-driven UI updates
 3. bootstrap `Strategies` contracts and assignment/runtime ownership
 4. bootstrap `Orders` contracts and open-order ownership
@@ -273,6 +274,7 @@ Why this order:
 
 - `MarketData` remains the primary remaining technical foundation area, but it now has an implemented daily-bootstrap base to build on.
 - the next best `MarketData` step is now the follow-on slice after the first `1-min` intraday runtime/readiness foundation, not a jump straight to full realtime or SignalR work.
+- the immediate next `MarketData` slice is now tracked in `.work/` so the repository can transition planning from legacy backlog/status docs into the new workflow structure without losing continuity.
 - `Strategies`, `Orders`, and `Portfolio` establish the ownership boundaries that the real `Execution` guard depends on.
 - `IBKR` and `Infrastructure` should follow the relevant module boundaries rather than precede them.
 - richer realtime UI work should follow the backend/runtime foundations that supply the data.
