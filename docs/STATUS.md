@@ -8,7 +8,7 @@ It exists to separate present reality from target architecture and future planni
 
 ## 2) Current implemented scope
 
-The repository now contains a working v1 bootstrap slice centered on `Universe`.
+The repository now contains working v1 bootstrap slices centered on `Universe` and the first `MarketData` runtime foundations.
 
 Implemented projects:
 
@@ -266,7 +266,7 @@ Recommended dependency-ordered next work:
 Why this order:
 
 - `MarketData` remains the primary remaining technical foundation area, but it now has an implemented daily-bootstrap base to build on.
-- the next best `MarketData` step is now the follow-on slice after benchmark-aware daily readiness, not a jump straight to full realtime or SignalR work.
+- the next best `MarketData` step is now the follow-on slice after the first `1-min` intraday runtime/readiness foundation, not a jump straight to full realtime or SignalR work.
 - `Strategies`, `Orders`, and `Portfolio` establish the ownership boundaries that the real `Execution` guard depends on.
 - `IBKR` and `Infrastructure` should follow the relevant module boundaries rather than precede them.
 - richer realtime UI work should follow the backend/runtime foundations that supply the data.

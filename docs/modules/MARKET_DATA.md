@@ -12,7 +12,7 @@ Boundaries:
 
 ## Current implementation status
 
-`MarketData` is now partially implemented as a bootstrap daily-historical foundation, but the broader module remains incomplete.
+`MarketData` is now partially implemented as a bootstrap daily plus first `1-min` intraday foundation, but the broader module remains incomplete.
 
 Current repository reality:
 
@@ -48,7 +48,7 @@ Recommended immediate next implementation slice:
 
 - after the first `1-min` intraday runtime/readiness foundation, add `volume_buzz_percent` with its required reference-curve state
 
-This document should therefore be read as target design layered on top of the now-implemented daily bootstrap foundation.
+This document should therefore be read as target design layered on top of the now-implemented daily and first `1-min` intraday foundations.
 
 ## 2) Core v1 policies
 
@@ -197,6 +197,11 @@ Intraday indicator definitions:
   - provisional tick-extension state for live cumulative session volume only
   - gap/repair metadata
   - recompute watermark information
+
+Current implementation note:
+
+- the currently implemented intraday slice computes `ema_30`, `ema_100`, and `vwap`
+- `volume_buzz_percent` remains deferred until the reference-curve state described below is implemented
 
 ### Intraday raw-window policy
 
