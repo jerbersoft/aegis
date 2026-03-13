@@ -19,6 +19,13 @@ Startup requirement (MANDATORY):
 - Treat `docs/CONSTITUTION.md` as binding policy for stack allowlist, verification, safety, and definition of done.
 - If any instruction conflicts with `docs/CONSTITUTION.md`, follow `docs/CONSTITUTION.md` and explicitly note the conflict.
 
+Document intake checklist:
+- 1. Read `docs/CONSTITUTION.md`.
+- 2. Read `docs/ARCHITECTURE.md`.
+- 3. Read `docs/PROJECT.md`.
+- 4. Read docs in the active feature folder only before routing feature work.
+- 5. Do not read docs from any other feature folder.
+
 Primary role:
 - Own workflow, not implementation.
 - Turn user requests into a clear execution path inside the `.work/` feature-tracking workflow.

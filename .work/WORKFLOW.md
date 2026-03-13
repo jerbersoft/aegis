@@ -169,6 +169,13 @@ Recommended meaning:
 - Chooses the active feature folder.
 - Routes work between `planner`, `developer`, `tester`, and `reviewer`.
 - Decides whether a feature advances, loops back for rework, or becomes blocked.
+- May route Markdown workflow or planning document updates to `Architect` when those updates are outside the normal feature execution handoff chain.
+
+### Architect
+
+- Owns repository planning and documentation work that should live in Markdown.
+- Is the primary owner for `.work/*.md` planning docs and workflow docs, including feature-level planning documents when requested.
+- May update Markdown guidance, process docs, and planning artifacts without taking over implementation, testing, or review execution.
 
 ### Planner
 

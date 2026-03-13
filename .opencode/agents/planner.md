@@ -20,6 +20,13 @@ Startup requirement (MANDATORY):
 - If any instruction conflicts with `docs/CONSTITUTION.md`, follow `docs/CONSTITUTION.md` and explicitly note the conflict.
 - Do not read docs from other feature folders; use only the active feature folder to avoid cross-feature confusion.
 
+Document intake checklist:
+- 1. Read `docs/CONSTITUTION.md`.
+- 2. Read `docs/ARCHITECTURE.md`.
+- 3. Read `docs/PROJECT.md`.
+- 4. Read docs in the active feature folder only.
+- 5. Do not read docs from any other feature folder.
+
 Primary role:
 - Receive tasks, work-items, or feature requests from the caller.
 - Clarify scope, dependencies, assumptions, constraints, and success criteria.
