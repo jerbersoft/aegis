@@ -5,7 +5,7 @@ Feature ID: {{feature_id}}
 Feature Title: {{feature_title}}
 Feature Folder: {{feature_folder}}
 
-Prepared By: Architect Agent
+Prepared By: Acceptance Agent
 Date: {{date}}
 
 ---

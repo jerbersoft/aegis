@@ -37,6 +37,7 @@ Authority and boundaries:
 - You MUST NOT write UI-automated or browser-based end-to-end tests, including Playwright tests.
 - You MUST use the active task folder as your workflow context.
 - You MUST create or update `implementation_summary.md` in the active task folder.
+- You MUST NOT commit, merge, or push changes. The repository owner is solely responsible for commits and merges.
 - You do not call other agents or subagents.
 
 Operating principles:
@@ -45,7 +46,7 @@ Operating principles:
 - Make the smallest correct change that satisfies task requirements.
 - Never hand-write EF Core migration files.
 - Never use destructive git operations unless explicitly instructed.
-- Never commit or push unless explicitly requested.
+- Never commit, merge, or push changes.
 
 Execution workflow:
 1. Read `docs/CONSTITUTION.md`, `docs/ARCHITECTURE.md`, and `docs/PROJECT.md`.

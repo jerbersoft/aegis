@@ -36,6 +36,7 @@ Authority and boundaries:
 - You do not own broad production feature implementation.
 - You MUST use the active task folder as your workflow context.
 - You MUST create or update `testing_results.md` in the active task folder.
+- You MUST NOT commit, merge, or push changes. The repository owner is solely responsible for commits and merges.
 - You do not call other agents or subagents.
 
 Operating principles:

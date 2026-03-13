@@ -6,7 +6,7 @@ This repository uses `.work/` as the source of truth for internal feature tracki
 
 - Keep one durable workflow record per feature.
 - Make tasks the leaf-level execution unit.
-- Make handoffs explicit between `orchestrator`, `planner`, `developer`, `tester`, `reviewer`, and `Architect`.
+- Make handoffs explicit between `orchestrator`, `planner`, `developer`, `tester`, `reviewer`, `Architect`, and `acceptance`.
 - Preserve a clear audit trail of what was planned, implemented, tested, reviewed, and accepted.
 
 ## Hierarchy
@@ -134,7 +134,7 @@ Each task folder should contain:
 - Routes the selected task through `developer` -> `tester` -> `reviewer`.
 - After each completed task cycle, asks `planner` whether another task is ready.
 - Repeats until there are no more required tasks ready to implement, or the feature is blocked.
-- When no more required tasks remain, asks `Architect` to create or update `ACCEPTANCE.md`.
+- When no more required tasks remain, asks `acceptance` to create or update `ACCEPTANCE.md`.
 
 ### Planner
 
@@ -175,11 +175,15 @@ Each task folder should contain:
 
 - Owns Markdown workflow and planning documents under `.work/`.
 - During planning phase, creates new feature folders, task folders, `feature.md`, and `TASK.md` records for newly defined tracked work.
+- Does not take over implementation, testing, or review execution.
+- Does not own task execution artifacts such as `developer_handoff.md`, `implementation_summary.md`, `testing_results.md`, or `review_results.md`.
+
+### Acceptance
+
 - Owns feature-level `ACCEPTANCE.md`.
 - Produces final user-facing acceptance guidance after the task loop is complete.
 - Does not take over implementation, testing, or review execution.
-- Does not own task execution artifacts such as `developer_handoff.md`, `implementation_summary.md`, `testing_results.md`, or `review_results.md`.
-- Does not call other agents or subagents when acting inside the workflow loop.
+- Does not call other agents or subagents.
 
 ## Workflow loop
 
@@ -230,8 +234,8 @@ Each task folder should contain:
 
 ### 7. Acceptance document
 
-- When `planner` reports that no more required tasks remain, `orchestrator` asks `Architect` to create or update feature-level `ACCEPTANCE.md`.
-- `Architect` does not need a separate user confirmation when this work is explicitly delegated by `Orchestrator` as part of the internal workflow.
+- When `planner` reports that no more required tasks remain, `orchestrator` asks `acceptance` to create or update feature-level `ACCEPTANCE.md`.
+- `acceptance` does not need a separate user confirmation when this work is explicitly delegated by `Orchestrator` as part of the internal workflow.
 - `ACCEPTANCE.md` should explicitly cover the tasks that are being accepted so `Orchestrator` can close them.
 - `ACCEPTANCE.md` should tell the user:
   - how to run the app
@@ -242,7 +246,7 @@ Each task folder should contain:
 
 ## Machine-readable agent result contracts
 
-Task execution and acceptance agents should return a single compact JSON object for orchestration decisions.
+Task execution, planning-setup, and acceptance agents should return a single compact JSON object for orchestration decisions.
 
 Shared envelope:
 
@@ -252,18 +256,18 @@ Shared envelope:
   "feature_folder": "string",
   "task_id": "string | null",
   "task_folder": "string | null",
-  "agent": "planner | developer | tester | reviewer | architect",
+  "agent": "planner | developer | tester | reviewer | architect | acceptance",
   "agent_status": "complete | partial | blocked | failed",
   "artifact": "string",
   "result": "string",
-  "next_agent": "planner | developer | tester | reviewer | architect | orchestrator | user | none",
+  "next_agent": "planner | developer | tester | reviewer | architect | acceptance | orchestrator | user | none",
   "reason_code": "string | null"
 }
 ```
 
 Rules:
 
-- Use `task_id` and `task_folder` for task-scoped work; use `null` only when the outcome is feature-level, such as `no_more_tasks` or `acceptance_ready`.
+- Use `task_id` and `task_folder` for task-scoped work; use `null` only when the outcome is feature-level, such as `no_more_tasks`, `feature_tracking_ready`, or `acceptance_ready`.
 - `artifact` is the primary file created or updated by the agent, or `none` when no artifact changed.
 - Detailed evidence belongs in the artifact document, not in the JSON.
 - `next_agent` is a recommendation only; only `Orchestrator` decides actual routing.
@@ -289,6 +293,8 @@ Agent-specific outcomes:
   - `blocked + blocked`
 - `architect`
   - `complete + feature_tracking_ready`
+  - `blocked + blocked`
+- `acceptance`
   - `complete + acceptance_ready`
   - `blocked + blocked`
 
@@ -299,12 +305,13 @@ Suggested `reason_code` values:
 - `developer`: `handoff_gap`, `implementation_incomplete`, `unit_validation_blocked`
 - `tester`: `defect_found`, `verification_gap`, `test_env_blocked`
 - `reviewer`: `code_gap`, `test_gap`, `missing_evidence`, `standards_gap`
-- `architect`: `planning_incomplete`, `acceptance_incomplete`
+- `architect`: `planning_incomplete`
+- `acceptance`: `acceptance_incomplete`
 
 Expected routing:
 
 - `planner` + `task_ready` -> `Orchestrator` decides whether to call `developer`
-- `planner` + `no_more_tasks` -> `Orchestrator` decides whether to call `Architect`
+- `planner` + `no_more_tasks` -> `Orchestrator` decides whether to call `acceptance`
 - `planner` + `needs_clarification` -> `Orchestrator` decides whether clarification is needed from the user
 - `planner` + `blocked` -> `Orchestrator` decides the next action
 - `developer` + `implementation_ready` -> `Orchestrator` decides whether to call `tester`
@@ -317,8 +324,9 @@ Expected routing:
 - `reviewer` + `changes_requested` -> `Orchestrator` decides whether to route to `developer` or `tester`
 - `reviewer` + `blocked` -> `Orchestrator` decides the next action
 - `architect` + `feature_tracking_ready` -> `Orchestrator` decides the next action
-- `architect` + `acceptance_ready` -> `Orchestrator` closes covered tasks and the feature when appropriate
 - `architect` + `blocked` -> `Orchestrator` decides the next action
+- `acceptance` + `acceptance_ready` -> `Orchestrator` closes covered tasks and the feature when appropriate
+- `acceptance` + `blocked` -> `Orchestrator` decides the next action
 
 ## Status model
 
@@ -491,4 +499,4 @@ Should capture at least:
 - Keep one `ACCEPTANCE.md` per feature at the feature root.
 - Run the execution loop per task.
 - Let `planner` choose the next task to work on.
-- Let `Architect` own final acceptance guidance once task execution is complete.
+- Let `acceptance` own final acceptance guidance once task execution is complete.

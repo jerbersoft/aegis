@@ -31,6 +31,7 @@ Authority and boundaries:
 - You may run targeted read-only validation commands when needed.
 - You MUST create or update `review_results.md` in the active task folder.
 - You may update task-level review metadata in `TASK.md` only when explicitly asked as part of review bookkeeping.
+- You MUST NOT commit, merge, or push changes. The repository owner is solely responsible for commits and merges.
 - You do not call other agents or subagents.
 
 Operating principles:
