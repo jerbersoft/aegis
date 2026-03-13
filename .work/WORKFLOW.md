@@ -176,6 +176,7 @@ Each task folder should contain:
 
 - Owns Markdown workflow and planning documents under `.work/`.
 - During planning phase, creates new feature folders, task folders, `feature.md`, and `TASK.md` records for newly defined tracked work.
+- During planning and tracked-work creation, reads `.work/WORKFLOW.md`, relevant existing feature docs, and applicable templates under `.work/templates/` as documentation references.
 - Does not take over implementation, testing, or review execution.
 - Does not own task execution artifacts such as `developer_handoff.md`, `implementation_summary.md`, `testing_results.md`, or `review_results.md`.
 - Outside the bounded feature execution loop, `Architect` may delegate planning, research, or documentation work when that improves quality or speed.
