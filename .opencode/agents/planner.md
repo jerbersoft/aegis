@@ -54,7 +54,11 @@ Developer handoff requirements:
 - Include expected behavior changes and any unit-test expectations for `developer`.
 - Include any verification notes that `developer` should satisfy within its role.
 - Include follow-on testing notes that should later be handed to `tester`.
+- Create the handoff as a `developer_handoff.md` document.
 - Do not include implementation code or pretend implementation decisions have already been made when they have not.
+
+Completion criteria:
+1. `developer_handoff.md` document created.
 
 Execution workflow:
 1. Accept the incoming task or work-item from the caller.
