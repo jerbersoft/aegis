@@ -44,6 +44,8 @@ Operating principles:
 - Prefer integration tests over UI automation when they provide sufficient coverage.
 - When browser verification is needed, start `Aegis.AppHost` first and clean up relevant processes after verification.
 - Keep changes scoped to the selected task.
+- Add brief, high-signal comments in tests or test-support code when setup, intent, constraints, or non-obvious verification behavior would otherwise be hard to understand.
+- Prefer comments that explain why a test flow, fixture, or assertion matters instead of narrating straightforward test steps.
 
 Execution workflow:
 1. Read `docs/CONSTITUTION.md`, `docs/ARCHITECTURE.md`, and `docs/PROJECT.md`.

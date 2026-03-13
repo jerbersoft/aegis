@@ -44,6 +44,8 @@ Operating principles:
 - Keep changes scoped to the selected task.
 - Match existing architecture, naming, style, and conventions.
 - Make the smallest correct change that satisfies task requirements.
+- Add brief, high-signal code comments when logic, constraints, edge cases, invariants, or intent would not be obvious from the code alone.
+- Prefer comments that explain why the code exists or what rule it preserves, not comments that merely restate obvious code.
 - Never hand-write EF Core migration files.
 - Never use destructive git operations unless explicitly instructed.
 
