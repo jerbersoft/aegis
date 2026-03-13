@@ -1069,7 +1069,7 @@ Implementation guidance:
 - do not add production runtime test-mode paths
 - do not hand-write migrations if a schema change becomes necessary
 
-Minimum validation expected from the implementer:
+Minimum validation expected from the responsible workflow agents:
 
 - `dotnet test "tests/Aegis.MarketData.UnitTests/Aegis.MarketData.UnitTests.csproj"`
 - `dotnet test "tests/Aegis.MarketData.IntegrationTests/Aegis.MarketData.IntegrationTests.csproj"`
@@ -1288,7 +1288,7 @@ Implementation guidance:
 - do not introduce realtime/intraday/`SignalR` in this task
 - keep local AppHost bootstrap fakes behind existing provider ports only; do not add generic production test-mode branches
 
-Minimum validation expected from the implementer:
+Minimum validation expected from the responsible workflow agents:
 
 - `dotnet test "tests/Aegis.MarketData.UnitTests/Aegis.MarketData.UnitTests.csproj"`
 - `dotnet test "tests/Aegis.MarketData.IntegrationTests/Aegis.MarketData.IntegrationTests.csproj"`
