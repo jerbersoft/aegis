@@ -22,6 +22,7 @@ Define how repaired or corrected `1-min` bars drive persistence, recompute, vali
 - Specify recompute start-point rules for trailing-gap append, internal-gap repair, and materially changed corrected bars.
 - Specify how persisted upsert, runtime recompute, and atomic snapshot replacement should sequence.
 - Specify how sequence validation determines whether repair actually restored readiness.
+- Specify how recompute progression should surface `awaiting_recompute` or equivalent semantics between repaired persistence and restored readiness when materially useful.
 - Specify failure-path behavior when repair fetch, persistence, or recompute fails.
 - Keep the work limited to finalized `1-min` bar repair/recompute semantics and current intraday indicators/runtime state.
 
@@ -46,3 +47,10 @@ Use the repair-state model from task `001` to define the concrete recompute and 
 ## Notes
 - This task should preserve the documented rule that readiness returns only after repair fetch, upsert, recompute, and repaired-sequence validation all succeed.
 - The task should preserve atomic runtime snapshot replacement and avoid architecture-breaking mutable cross-module coupling.
+- Expected default for this feature: trailing-gap repairs may use incremental append/recompute, while internal-gap and corrected-bar repairs recompute from the earliest affected timestamp forward.
+
+## Planner Readiness Notes
+- Expected implementation surfaces likely include `src/modules/Aegis.MarketData/Application/IntradayMarketDataHydrationService.cs`, `src/modules/Aegis.MarketData/Application/MarketDataIntradayRuntimeStore.cs`, `src/modules/Aegis.MarketData/Application/IntradayComputedIndicatorState.cs`, and persistence/upsert paths under `src/modules/Aegis.MarketData/Infrastructure/`.
+- The handoff should require explicit recompute sequencing: repaired persistence first, recompute from the correct earliest affected timestamp second, atomic snapshot swap third, readiness restoration only after repaired-sequence validation last.
+- The handoff should require corrected-bar no-op handling when provider revisions are materially identical to stored/runtime data.
+- Minimum validation expected from the eventual implementation should include unit and integration coverage for trailing-gap append, internal-gap recompute, corrected-bar recompute, and failure-path readiness behavior.

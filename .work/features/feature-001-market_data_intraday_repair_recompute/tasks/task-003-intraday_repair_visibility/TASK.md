@@ -19,9 +19,10 @@ Allowed Acceptance Status Values: `not_covered | covered_in_acceptance | not_app
 Define the minimum backend/UI-visible repair progression and verification guidance needed so the intraday repair/recompute slice is observable, testable, and operator-comprehensible.
 
 ## Scope
-- Specify what repair/recompute progression must be visible through current REST readiness surfaces.
+- Specify what repair/recompute progression must be visible through current REST readiness surfaces at both per-symbol and rollup levels.
 - Specify any required payload additions or semantics needed to distinguish `repairing`, `awaiting_recompute`, and restored readiness.
 - Specify the minimum Home widget behavior needed to surface active repair state without introducing `SignalR` in this slice.
+- Include only minimal operator-facing metadata such as active gap type, earliest affected timestamp, and recompute-pending state; do not introduce speculative percentage-complete progress tracking.
 - Specify unit, integration, and browser verification expectations under `Aegis.AppHost` for the completed feature.
 - Keep the work focused on currently implemented backend and Home widget surfaces.
 
@@ -46,3 +47,10 @@ After the repair lifecycle and recompute semantics are defined, shape the observ
 ## Notes
 - Browser-based verification guidance must continue to require starting `Aegis.AppHost` first, using Aspire-exposed backend/web URLs only, and stopping related processes after verification.
 - This task intentionally avoids broader live-update delivery design; `SignalR` remains separate follow-on work.
+- Expected default for this feature: API contract expectations and Home widget expectations stay together because the current operator verification path already depends on both surfaces.
+
+## Planner Readiness Notes
+- Expected implementation surfaces likely include `src/Aegis.Backend/Endpoints/` market-data readiness endpoints, `src/Aegis.Web/lib/api/market-data.ts`, `src/Aegis.Web/lib/types/market-data.ts`, and the Home/dashboard MarketData widget components under `src/Aegis.Web/components/dashboard/`.
+- The handoff should require both per-symbol and rollup visibility for active repair work while keeping payload changes minimal and backward-compatible where practical.
+- The handoff should explicitly avoid `SignalR`; visibility for this task is pull/refresh-based through the current REST and Home widget path.
+- Minimum validation expected from the eventual implementation should include backend integration coverage for readiness payloads, web validation for displayed repair states, and browser verification under `Aegis.AppHost` with process cleanup afterward.
