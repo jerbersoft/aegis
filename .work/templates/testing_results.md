@@ -18,6 +18,7 @@ Date: {{date}}
 - Integration tests: {{yes_or_no}}
 - Playwright tests: {{yes_or_no}}
 - Manual UI verification: {{yes_or_no}}
+- Browser verification required by scope: {{yes_or_no}}
 
 Reasoning:
 
@@ -48,6 +49,21 @@ Manual verification notes:
 
 - {{manual_verification_note_or_none}}
 
+Browser verification capability check:
+
+- `Aegis.AppHost` startup: {{capability_result_or_not_applicable}}
+- Aspire endpoint reachability: {{capability_result_or_not_applicable}}
+- Browser automation launch: {{capability_result_or_not_applicable}}
+- Login path: {{capability_result_or_not_applicable}}
+- Target page access: {{capability_result_or_not_applicable}}
+- Concrete blocker/error: {{capability_blocker_or_none}}
+
+Deterministic transient-state fixture:
+
+- Exists: {{yes_no_or_not_applicable}}
+- Details: {{fixture_details_or_none}}
+- If absent, why partial browser coverage is expected: {{fixture_gap_reason_or_none}}
+
 ---
 
 ## 4. Commands Executed
@@ -65,6 +81,8 @@ Manual verification notes:
 - Integration result: {{pass_fail_not_run}}
 - Playwright result: {{pass_fail_not_run}}
 - Manual UI result: {{pass_fail_not_run}}
+- Browser-confirmed coverage: {{browser_confirmed_scope}}
+- Automated/API-only coverage: {{automated_only_scope}}
 
 ---
 
@@ -82,6 +100,17 @@ If none:
 ## 7. Coverage Assessment
 
 {{coverage_assessment}}
+
+If browser coverage is partial, explain:
+
+- which states were confirmed in the real UI
+- which states were verified only through automated or API evidence
+- whether the remaining gap is blocking or non-blocking, and why
+
+Aspire/browser cleanup evidence:
+
+- Cleanup commands executed: {{cleanup_commands_or_none}}
+- Cleanup verification result: {{cleanup_verification_result_or_none}}
 
 ---
 

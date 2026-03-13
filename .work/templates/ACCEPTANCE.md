@@ -22,6 +22,11 @@ Date: {{date}}
 - {{task_1_id}} - {{task_1_title}}
 - {{task_2_id}} - {{task_2_title}}
 
+Task outcome summary:
+
+- {{task_1_id}}: {{task_1_outcome_summary}}
+- {{task_2_id}}: {{task_2_outcome_summary}}
+
 ---
 
 ## 3. Prerequisites
@@ -58,3 +63,9 @@ Date: {{date}}
 
 - {{limitation_1_or_none}}
 - {{limitation_2_or_none}}
+
+## 8. Verification Notes
+
+- Browser coverage status: {{browser_coverage_complete_or_partial}}
+- Transient-state verification support: {{transient_state_verification_note_or_none}}
+- Browser cleanup confirmation: {{browser_cleanup_confirmation_or_none}}

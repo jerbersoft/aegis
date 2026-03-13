@@ -34,7 +34,7 @@ Define the minimum backend/UI-visible repair progression and verification guidan
 - none
 
 ## Next Action
-Task approved. Keep this task ready for feature-level acceptance coverage.
+Task is closed and represented in feature-level acceptance.
 
 ## Linked Artifacts
 - `developer_handoff.md`
@@ -42,6 +42,10 @@ Task approved. Keep this task ready for feature-level acceptance coverage.
 - `testing_results.md`
 - `review_results.md`
 - `../ACCEPTANCE.md`
+
+Status note:
+
+- This task is closed. Reopen only if follow-up feature work explicitly requires new execution on this task.
 
 ## Notes
 - Browser-based verification guidance must continue to require starting `Aegis.AppHost` first, using Aspire-exposed backend/web URLs only, and stopping related processes after verification.

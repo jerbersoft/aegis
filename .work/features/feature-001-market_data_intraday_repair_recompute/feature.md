@@ -34,9 +34,9 @@ Define and track the next `MarketData` implementation slice: explicit intraday r
 - none
 
 ## Task Index
-- `task-001-intraday_repair_state_model` - Define intraday repair state model and orchestration semantics - ready - depends on: none
-- `task-002-intraday_recompute_execution` - Define intraday recompute execution and readiness restoration - draft - depends on: task-001-intraday_repair_state_model
-- `task-003-intraday_repair_visibility` - Define intraday repair visibility and verification surfaces - draft - depends on: task-001-intraday_repair_state_model, task-002-intraday_recompute_execution
+- `task-001-intraday_repair_state_model` - Define intraday repair state model and orchestration semantics - closed - depends on: none
+- `task-002-intraday_recompute_execution` - Define intraday recompute execution and readiness restoration - closed - depends on: task-001-intraday_repair_state_model
+- `task-003-intraday_repair_visibility` - Define intraday repair visibility and verification surfaces - closed - depends on: task-001-intraday_repair_state_model, task-002-intraday_recompute_execution
 
 ## Next Action
 Feature workflow is complete.
@@ -54,6 +54,7 @@ Feature workflow is complete.
 - Accepted feature defaults for planning: include corrected-bar-triggered recompute now, surface `repairing` at both symbol and rollup levels, treat repair as background orchestrated work, and include minimal REST/Home visibility metadata without introducing detailed progress accounting.
 
 ## Linked Artifacts
+- `FEATURE_SUMMARY.md`
 - `ACCEPTANCE.md`
 - `tasks/`
 
@@ -62,8 +63,5 @@ Feature workflow is complete.
 - Legacy planning references should continue to mention this feature until the repository fully transitions from backlog/status-driven planning to `.work/` tracking.
 
 ## Planner Readiness Notes
-- `task-001-intraday_repair_state_model` is approved and should not be re-selected.
-- The next ready task is `task-002-intraday_recompute_execution` because its dependency on `task-001` is satisfied.
-- No known cross-module decisions remain open for this feature; accepted defaults are already captured in scope and task notes.
-- Planner should preserve the current dependency order and avoid parallel execution of these tasks because the later tasks depend on finalized repair-state semantics from earlier work.
-- The active handoff should keep implementation limited to `MarketData` application/runtime/readiness surfaces and avoid `SignalR` or non-`MarketData` module work.
+- All required tasks for this feature are closed.
+- This feature should not re-enter the execution loop unless a task is explicitly reopened.

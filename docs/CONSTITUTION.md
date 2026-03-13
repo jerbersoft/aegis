@@ -82,6 +82,11 @@ Browser-based verification policy:
 - Perform backend or web URL testing only against the backend and web endpoints exposed by the running Aspire host.
 - Do not treat ad hoc standalone browser launches against hardcoded service URLs as the default local verification path when Aspire orchestration is available.
 - After browser-based verification completes, stop or kill the related Aspire, backend, web, and browser-test processes so no unnecessary local test/runtime processes are left running.
+- For UI-adjacent or backend-driven features, use browser verification to confirm the real user-visible path, but keep business-rule validation primarily in unit and integration tests whenever those layers can prove the behavior more directly.
+- Browser verification does not need to be the sole proof for every transient UI state when those states are difficult to hold deterministically in-browser. In that case, the agent should combine: (1) automated tests that prove the semantics, (2) API or runtime evidence that exposes the state, and (3) at least one real browser path that confirms the production UI wiring and rendered surface.
+- If a transient UI state cannot be exercised deterministically in-browser, the agent must document exactly which visible states were confirmed in the browser, which states were verified through automated or API evidence instead, and why a deterministic browser fixture was not available.
+- Before reporting browser verification as blocked, the testing agent must perform and document a capability check covering, where applicable: whether `Aegis.AppHost` can be started, whether Aspire-exposed endpoints are reachable, whether browser automation can launch, whether the login path can be exercised, and whether the target page can be opened.
+- Agents must not report `test_env_blocked` or equivalent browser-verification blockers without recording the concrete failed capability step and the exact observed error or limitation.
 
 Verification depth by task type:
 
@@ -109,6 +114,7 @@ Verification reporting requirements:
 - State which test scope was chosen (unit/integration/e2e) and why.
 - Report pass/fail outcomes.
 - If any tests are skipped, explicitly state what was skipped and why.
+- If browser coverage is partial, explicitly distinguish what was verified in the real UI, what was verified only through automated or API evidence, and whether the remaining gap is blocking or non-blocking.
 
 ## 6) Mandatory Verification (Completion Gate)
 

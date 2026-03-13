@@ -28,6 +28,7 @@ This repository uses `.work/` as the source of truth for internal feature tracki
     implementation_summary.md
     testing_results.md
     review_results.md
+    FEATURE_SUMMARY.md
     ACCEPTANCE.md
   features/
     feature-001-market_data_implementation/
@@ -98,6 +99,9 @@ Examples:
 - `feature.md`
   - canonical feature dashboard and metadata file
   - indexes tasks, task statuses, dependencies, blockers, and current focus
+- `FEATURE_SUMMARY.md`
+  - optional concise feature-delivery summary
+  - suitable for final user updates, PR drafting, or release-note style reporting
 - `ACCEPTANCE.md`
   - feature-level acceptance guide for the user
   - explains how to run the app, what to test, and expected outcomes
@@ -164,6 +168,9 @@ Each task folder should contain:
 - Writes and runs Playwright tests when UI automation is needed and practical.
 - May use manual UI verification only when automation is not yet practical.
 - Writes task-level `testing_results.md`.
+- Before declaring browser verification blocked, performs and documents a browser-verification capability check.
+- Distinguishes browser-confirmed evidence from semantics proven only by unit, integration, or API evidence.
+- For transient UI states that are difficult to hold deterministically, may combine automated proof of semantics with a real browser smoke path, as long as any remaining gap is documented precisely.
 - Does not call other agents or subagents.
 
 ### Reviewer
@@ -187,6 +194,7 @@ Each task folder should contain:
 
 - Owns feature-level `ACCEPTANCE.md`.
 - Produces final user-facing acceptance guidance after the task loop is complete.
+- May also produce `FEATURE_SUMMARY.md` when `orchestrator` wants a concise final delivery summary or PR-style overview.
 - Does not take over implementation, testing, or review execution.
 - Does not call other agents or subagents.
 
@@ -206,6 +214,7 @@ Each task folder should contain:
 
 - `orchestrator` asks `planner` for the next task to work on.
 - `planner` inspects `feature.md`, task statuses, task dependencies, and blockers.
+- `planner` must treat tasks already marked `ready` or `closed` as non-selectable unless `orchestrator` has explicitly reopened them.
 - `planner` either:
   - selects the next ready task and prepares its `developer_handoff.md`, or
   - reports that no more tasks are ready, or
@@ -223,12 +232,16 @@ Each task folder should contain:
 - `tester` reads the selected task's `implementation_summary.md`.
 - `tester` performs required integration testing and UI verification.
 - `tester` writes `testing_results.md`.
+- If browser verification appears blocked, `tester` must first document which capability check step failed: AppHost startup, endpoint reachability, browser launch, login path, page access, or other concrete limitation.
+- If full browser observation of all states is impractical, `tester` should document the verification split between browser evidence and automated/API evidence rather than collapsing all remaining work into a generic blocker.
+- When the missing browser evidence involves a transient UI state, `tester` should explicitly state whether a deterministic fixture, seeded scenario, test-host override, or operator-triggerable path exists. If not, that absence must be recorded as the reason the browser evidence is partial rather than silently assumed.
 
 ### 5. Review
 
 - `reviewer` reads the selected task's artifacts.
 - `reviewer` assesses code quality, constitution alignment, and testing sufficiency.
 - `reviewer` writes `review_results.md`.
+- `reviewer` should distinguish between a true approval blocker and a non-blocking evidence-depth improvement when transient browser-only states lack a deterministic fixture but semantics are otherwise proven by stronger lower-level evidence.
 
 ### 6. Loop decision
 
@@ -252,6 +265,8 @@ Each task folder should contain:
   - what to test manually
   - what outcomes to expect
   - any known limitations or caveats
+- `ACCEPTANCE.md` should also summarize feature-level outcomes task by task so users can see what was delivered, what was directly browser-verified, and what remains as a documented non-blocking follow-up.
+- When helpful for final reporting, `orchestrator` may also ask `acceptance` to create `FEATURE_SUMMARY.md` with a concise implementation-oriented summary suitable for user updates or PR drafting.
 
 ## Machine-readable agent result contracts
 
@@ -311,7 +326,7 @@ Suggested `reason_code` values:
 - Shared: `missing_decision`, `missing_dependency`, `environment_blocked`, `artifact_missing`
 - `planner`: `task_tracking_missing`, `dependency_blocked`, `task_not_ready`
 - `developer`: `handoff_gap`, `implementation_incomplete`, `unit_validation_blocked`
-- `tester`: `defect_found`, `verification_gap`, `test_env_blocked`
+- `tester`: `defect_found`, `verification_gap`, `test_env_blocked`, `apphost_start_failed`, `endpoint_unreachable`, `browser_launch_failed`, `login_flow_blocked`, `page_access_blocked`
 - `reviewer`: `code_gap`, `test_gap`, `missing_evidence`, `standards_gap`
 - `architect`: `planning_incomplete`
 - `acceptance`: `acceptance_incomplete`
@@ -347,7 +362,6 @@ Allowed feature statuses:
 - `draft`
 - `in_progress`
 - `blocked`
-- `ready_for_acceptance`
 - `closed`
 
 Recommended meaning:
@@ -355,7 +369,6 @@ Recommended meaning:
 - `draft`: feature exists but task execution has not started
 - `in_progress`: one or more tasks are active or not yet complete
 - `blocked`: progress cannot continue because required work is blocked
-- `ready_for_acceptance`: required tasks are complete and the feature is ready for `ACCEPTANCE.md`
 - `closed`: acceptance is complete and no further workflow is expected
 
 ### Task status
@@ -365,11 +378,7 @@ Task status is tracked in `TASK.md` and represents execution state for the leaf-
 Allowed task statuses:
 
 - `draft`
-- `planned`
-- `in_development`
-- `in_testing`
-- `in_review`
-- `rework_required`
+- `in_progress`
 - `ready`
 - `blocked`
 - `closed`
@@ -377,14 +386,18 @@ Allowed task statuses:
 Recommended meaning:
 
 - `draft`: task exists but has not been prepared for execution
-- `planned`: task handoff is ready for `developer`
-- `in_development`: `developer` is implementing the task
-- `in_testing`: `tester` is validating the task
-- `in_review`: `reviewer` is assessing the task
-- `rework_required`: the task needs more implementation or testing
+- `in_progress`: the task is active anywhere inside the execution loop, including development, testing, review, or directed rework; use `Current Owner` plus artifacts to show the exact active phase
 - `ready`: the task has passed the execution loop and is waiting to be represented in `ACCEPTANCE.md`
 - `blocked`: the task cannot proceed
 - `closed`: the task is represented in `ACCEPTANCE.md` and no further workflow work is expected
+
+Ownership guidance:
+
+- `orchestrator` normally performs task status transitions based on agent outcomes.
+- `planner` should not re-select tasks already marked `ready` or `closed` unless `orchestrator` explicitly reopens them.
+- `blocked` should be used only when the next required step cannot proceed because of a concrete external dependency, missing evidence, or environment limitation; it should not be used as a substitute for incomplete reasoning.
+- `ready` means the task has completed development, testing, and review and is waiting only for feature-level acceptance coverage or closure.
+- `closed` means the task is represented in `ACCEPTANCE.md` and should not be re-entered into the execution loop unless explicitly reopened.
 
 ### Task acceptance status
 
@@ -407,7 +420,8 @@ Recommended meaning:
 - `feature.md` should index all tasks and their current statuses.
 - `feature.md` should identify the current active task when one exists.
 - Feature status should usually be derived from its tasks.
-- A feature can move to `ready_for_acceptance` when all required tasks are `ready` or `closed` and no mandatory task is blocked.
+- A feature can move toward acceptance when all required tasks are `ready` or `closed` and no mandatory task is blocked.
+- A feature should remain `in_progress` until acceptance work is finished, even if all tasks are already `ready`.
 - The task index shown in `feature.md` is repeatable; add as many task rows as the feature requires.
 
 ## Minimum template expectations
@@ -425,6 +439,7 @@ Should capture at least:
 - task index with statuses and dependencies
 - next action
 - linked artifacts including `ACCEPTANCE.md`
+- optionally `FEATURE_SUMMARY.md` when feature-level summary reporting is needed
 
 ### `TASK.md`
 
@@ -466,6 +481,8 @@ Should capture at least:
 - validation performed
 - limitations or risks
 - remaining testing expectations for `tester`
+- whether any deterministic fixture, seeded scenario, or test hook exists for hard-to-reproduce transient states
+- what evidence the developer expects `tester` to gather in the real browser versus lower-level automation
 
 ### `testing_results.md`
 
@@ -478,6 +495,10 @@ Should capture at least:
 - commands executed
 - pass or fail outcomes
 - blockers or failures
+- browser-verification capability check results when browser verification is required or reported blocked
+- a clear split between browser-confirmed evidence and automated/API-only evidence when coverage is mixed
+- whether a deterministic transient-state fixture exists, and if not, why the browser evidence is necessarily partial
+- process cleanup evidence for Aspire/backend/web/browser verification flows
 
 ### `review_results.md`
 
@@ -488,6 +509,7 @@ Should capture at least:
 - missing evidence
 - required fixes
 - readiness recommendation
+- whether any missing browser-only evidence is truly blocking or only a follow-up improvement
 
 ### `ACCEPTANCE.md`
 
@@ -495,11 +517,23 @@ Should capture at least:
 
 - feature summary
 - tasks covered by this acceptance guide
+- feature-level delivered outcomes by task
 - prerequisites
 - how to run the app
 - what to test
 - expected outcomes
 - known limitations or caveats
+- when applicable, whether browser coverage is complete or partly supported by automated/API evidence for transient states
+
+### `FEATURE_SUMMARY.md`
+
+Should capture at least:
+
+- feature summary
+- tasks delivered and their user-visible outcomes
+- key verification performed
+- notable blockers resolved during implementation
+- any remaining non-blocking follow-up notes
 
 ## Initial policy
 

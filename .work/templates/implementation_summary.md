@@ -89,6 +89,13 @@ Requirement-focused verification:
 - {{limitation_or_risk_1}}
 - {{limitation_or_risk_2}}
 
+Transient-state verification notes:
+
+- Deterministic fixture or seeded scenario available: {{yes_no_or_not_applicable}}
+- Fixture or scenario details: {{fixture_details_or_none}}
+- Browser evidence expected from tester: {{browser_evidence_expectation}}
+- Automated/API evidence expected from tester: {{automation_evidence_expectation}}
+
 If none:
 
 - None

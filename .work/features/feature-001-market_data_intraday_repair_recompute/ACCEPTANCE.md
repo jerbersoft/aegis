@@ -8,6 +8,11 @@
   - `task-002` - intraday recompute execution
   - `task-003` - intraday repair visibility
 
+Task outcome summary:
+- `task-001`: explicit repair lifecycle, repair-cause classification, deduplication, and rollup repair-state semantics are implemented.
+- `task-002`: repaired persistence, bounded recompute replay, atomic runtime replacement, and validation-gated readiness restoration are implemented.
+- `task-003`: minimal repair/recompute visibility is exposed through readiness APIs and the `/home` MarketData widget.
+
 ## What this acceptance covers
 - Required `1-min` intraday symbols move into `repairing` for trailing gaps, internal gaps, and materially changed corrected finalized bars.
 - Repair work stays deduplicated per `symbol|interval|profile` and widens to the earliest affected timestamp when repeated detections occur.
@@ -84,6 +89,11 @@ Expected outcomes:
 
 ## Caveat
 - A deterministic browser-visible fixture for transient `repairing` / `awaiting_recompute` widget states was not available. Those transient states were verified through unit tests, integration tests, and REST evidence rather than a held in-browser scenario. This is documented as a non-blocking follow-up, not an acceptance blocker.
+
+## Verification notes
+- Browser coverage status: partial, with real Aspire-managed browser verification completed for the `/home` ready/restored-ready path.
+- Transient-state verification support: no deterministic browser fixture yet for held `repairing` / `awaiting_recompute` UI states; automated and REST evidence cover those semantics.
+- Browser cleanup confirmation: Aspire, backend, web, and browser-test processes were explicitly terminated and verified stopped after testing.
 
 ## Acceptance decision
 - Feature acceptance status: ready

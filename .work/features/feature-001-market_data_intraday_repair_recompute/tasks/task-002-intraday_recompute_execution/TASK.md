@@ -35,7 +35,7 @@ Define how repaired or corrected `1-min` bars drive persistence, recompute, vali
 - none
 
 ## Next Action
-Task approved. Keep this task ready for feature-level acceptance coverage, then proceed to dependent task `task-003-intraday_repair_visibility`.
+Task is closed and represented in feature-level acceptance.
 
 ## Linked Artifacts
 - `developer_handoff.md`
@@ -43,6 +43,10 @@ Task approved. Keep this task ready for feature-level acceptance coverage, then 
 - `testing_results.md`
 - `review_results.md`
 - `../ACCEPTANCE.md`
+
+Status note:
+
+- This task is closed. Reopen only if follow-up feature work explicitly requires new execution on this task.
 
 ## Notes
 - This task should preserve the documented rule that readiness returns only after repair fetch, upsert, recompute, and repaired-sequence validation all succeed.

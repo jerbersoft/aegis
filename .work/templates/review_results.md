@@ -44,6 +44,8 @@ Findings:
 - Playwright used when practical: {{pass_fail_needs_follow_up}}
 - Manual fallback justified when used: {{pass_fail_needs_follow_up}}
 - Reported evidence is credible and complete: {{pass_fail_needs_follow_up}}
+- Browser blocker/capability assessment is specific and evidence-based: {{pass_fail_needs_follow_up}}
+- Mixed browser vs automated/API evidence is clearly separated: {{pass_fail_needs_follow_up}}
 
 Findings:
 
@@ -56,6 +58,11 @@ Findings:
 
 - {{missing_evidence_1}}
 - {{missing_evidence_2}}
+
+Transient browser-state fixture assessment:
+
+- Deterministic fixture exists: {{yes_no_or_not_applicable}}
+- If not, reviewer treatment: {{blocking_or_non_blocking_with_reason}}
 
 If none:
 
@@ -80,6 +87,7 @@ If none:
 - Needs developer follow-up: {{yes_or_no}}
 - Needs tester follow-up: {{yes_or_no}}
 - Blocked pending clarification: {{yes_or_no}}
+- Browser-only transient-state evidence still required: {{yes_or_no}}
 
 ---
 

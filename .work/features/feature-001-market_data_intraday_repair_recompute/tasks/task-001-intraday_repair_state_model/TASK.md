@@ -36,7 +36,7 @@ Define the first implementation task for explicit `1-min` intraday repair progre
 - none
 
 ## Next Action
-Task approved. Keep this task ready for feature-level acceptance coverage, then proceed to dependent task `task-002-intraday_recompute_execution`.
+Task is closed and represented in feature-level acceptance.
 
 ## Linked Artifacts
 - `developer_handoff.md`
@@ -44,6 +44,10 @@ Task approved. Keep this task ready for feature-level acceptance coverage, then 
 - `testing_results.md`
 - `review_results.md`
 - `../ACCEPTANCE.md`
+
+Status note:
+
+- This task is closed. Reopen only if follow-up feature work explicitly requires new execution on this task.
 
 ## Notes
 - This task is expected to lock the repair-state vocabulary and orchestration rules before deeper recompute execution work begins.

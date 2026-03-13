@@ -14,6 +14,7 @@ Created Date: {{created_date}}
 Last Updated: {{last_updated}}
 
 Allowed Acceptance Status Values: `not_covered | covered_in_acceptance | not_applicable`
+Recommended Task Status Values: `draft | in_progress | ready | blocked | closed`
 
 ## Objective
 {{objective}}
@@ -28,6 +29,13 @@ Allowed Acceptance Status Values: `not_covered | covered_in_acceptance | not_app
 ## Blockers
 - {{blocker_1_or_none}}
 - {{blocker_2_or_none}}
+
+Status note:
+
+- Use `blocked` only when the next required step cannot proceed because of a concrete dependency, missing evidence, or environment limitation.
+- Use `in_progress` for any active execution-loop phase; use `Current Owner` and the task artifacts to show whether the task is in development, testing, review, or rework.
+- Use `ready` only after development, testing, and review are complete.
+- Use `closed` only after the task is represented in feature-level `ACCEPTANCE.md`.
 
 ## Next Action
 {{next_action}}
