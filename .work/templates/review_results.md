@@ -1,9 +1,12 @@
 # Review Results
 
-## Feature Information
+## Task Information
 Feature ID: {{feature_id}}
 Feature Title: {{feature_title}}
 Feature Folder: {{feature_folder}}
+Task ID: {{task_id}}
+Task Title: {{task_title}}
+Task Folder: {{task_folder}}
 
 Reviewed By: Reviewer Agent
 Date: {{date}}
@@ -12,6 +15,7 @@ Date: {{date}}
 
 ## 1. Inputs Reviewed
 
+- `TASK.md`: {{reviewed_yes_or_no}}
 - `developer_handoff.md`: {{reviewed_yes_or_no}}
 - `implementation_summary.md`: {{reviewed_yes_or_no}}
 - `testing_results.md`: {{reviewed_yes_or_no}}
@@ -20,8 +24,6 @@ Date: {{date}}
 ---
 
 ## 2. Code Review Findings
-
-Assessment areas:
 
 - Constitution alignment: {{pass_fail_needs_follow_up}}
 - Repository conventions: {{pass_fail_needs_follow_up}}
@@ -36,8 +38,6 @@ Findings:
 ---
 
 ## 3. Testing Activity Review Findings
-
-Assessment areas:
 
 - Integration coverage present when needed: {{pass_fail_needs_follow_up}}
 - UI verification present when needed: {{pass_fail_needs_follow_up}}

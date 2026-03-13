@@ -1,9 +1,12 @@
 # Testing Results
 
-## Feature Information
+## Task Information
 Feature ID: {{feature_id}}
 Feature Title: {{feature_title}}
 Feature Folder: {{feature_folder}}
+Task ID: {{task_id}}
+Task Title: {{task_title}}
+Task Folder: {{task_folder}}
 
 Tested By: Tester Agent
 Date: {{date}}
@@ -11,8 +14,6 @@ Date: {{date}}
 ---
 
 ## 1. Testing Scope
-
-Selected test depth:
 
 - Integration tests: {{yes_or_no}}
 - Playwright tests: {{yes_or_no}}
@@ -25,8 +26,6 @@ Reasoning:
 ---
 
 ## 2. Implementation Summary Used
-
-Reference the implementation summary consumed for testing.
 
 - Source file: `implementation_summary.md`
 - Key behaviors under test:
@@ -53,8 +52,6 @@ Manual verification notes:
 
 ## 4. Commands Executed
 
-List exact commands run.
-
 ```text
 {{command_1}}
 {{command_2}}
@@ -71,7 +68,7 @@ List exact commands run.
 
 ---
 
-## 6. Failures or Blockers
+## 6. Failures Or Blockers
 
 - {{failure_or_blocker_1}}
 - {{failure_or_blocker_2}}
@@ -84,19 +81,10 @@ If none:
 
 ## 7. Coverage Assessment
 
-Did testing appear sufficient for the implemented change?
-
 {{coverage_assessment}}
 
 ---
 
 ## 8. Recommended Next Step
-
-- Send to reviewer
-- Return to developer
-- Re-run testing after fixes
-- Blocked pending clarification
-
-Selected next step:
 
 {{recommended_next_step}}

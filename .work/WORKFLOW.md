@@ -1,39 +1,60 @@
 # Work Tracking Workflow
 
-This repository uses `.work/` as the source of truth for internal feature tracking, work-item coordination, and agent handoffs.
+This repository uses `.work/` as the source of truth for internal feature tracking, task execution, agent handoffs, and final acceptance guidance.
 
 ## Goals
 
 - Keep one durable workflow record per feature.
-- Make handoffs explicit between `planner`, `developer`, `tester`, `reviewer`, and `orchestrator`.
-- Preserve a simple audit trail of what was requested, implemented, tested, reviewed, and what still needs action.
+- Make tasks the leaf-level execution unit.
+- Make handoffs explicit between `orchestrator`, `planner`, `developer`, `tester`, `reviewer`, and `Architect`.
+- Preserve a clear audit trail of what was planned, implemented, tested, reviewed, and accepted.
+
+## Hierarchy
+
+- A `feature` is the container for a coherent body of work.
+- A `task` is the smallest executable unit of work inside a feature.
+- Tasks are leaf-level units. Tasks do not contain sub-tasks.
+- Workflow execution runs at the task level, not directly at the feature level.
 
 ## Directory structure
 
 ```text
 .work/
   WORKFLOW.md
-  features/
-    feature-001-market_data_implementation/
-      feature.md
-      developer_handoff.md
-      implementation_summary.md
-      testing_results.md
-      review_results.md
-      artifacts/
   templates/
     feature.md
+    TASK.md
     developer_handoff.md
     implementation_summary.md
     testing_results.md
     review_results.md
+    ACCEPTANCE.md
+  features/
+    feature-001-market_data_implementation/
+      feature.md
+      ACCEPTANCE.md
+      tasks/
+        task-001-bootstrap_daily_ingestion/
+          TASK.md
+          developer_handoff.md
+          implementation_summary.md
+          testing_results.md
+          review_results.md
+          artifacts/
+        task-002-market_data_api/
+          TASK.md
+          developer_handoff.md
+          implementation_summary.md
+          testing_results.md
+          review_results.md
+          artifacts/
 ```
 
-## Feature naming convention
+## Naming conventions
 
-Each feature lives in its own folder under `.work/features/`.
+### Feature folders
 
-Feature folder names must use this format:
+Feature folders must use this format:
 
 ```text
 feature-<number>-<description>
@@ -41,103 +62,193 @@ feature-<number>-<description>
 
 Rules:
 
-- `number` is a zero-padded feature identifier such as `001`, `002`, or `017`.
-- `description` is a short snake_case label.
+- `number` is zero-padded, such as `001`, `002`, or `017`.
+- `description` is short snake_case.
 - Use lowercase letters, numbers, and underscores only.
-- Do not use spaces.
 
 Examples:
 
 - `feature-001-market_data_implementation`
 - `feature-002-watchlist_management`
-- `feature-003-order_entry`
 
-## Feature model
+### Task folders
 
-- One feature folder represents one tracked feature.
-- A feature may contain multiple smaller work-items if they all belong to the same feature.
-- The feature folder is the canonical place for planning, implementation, testing, review, and workflow state.
+Task folders live under a feature's `tasks/` directory and must use this format:
 
-## Canonical files per feature
+```text
+task-<number>-<description>
+```
 
-Every feature folder should use these files:
+Rules:
+
+- `number` is zero-padded within the feature, such as `001`, `002`, or `003`.
+- `description` is short snake_case.
+- Task numbering resets per feature.
+- Tasks are leaf-level units and should be small enough for one execution loop.
+
+Examples:
+
+- `task-001-bootstrap_daily_ingestion`
+- `task-002-market_data_api`
+
+## Canonical files
+
+### Feature-level files
 
 - `feature.md`
-  - canonical metadata and status file for the feature
-  - records current workflow stage, owner, blockers, and next action
+  - canonical feature dashboard and metadata file
+  - indexes tasks, task statuses, dependencies, blockers, and current focus
+- `ACCEPTANCE.md`
+  - feature-level acceptance guide for the user
+  - explains how to run the app, what to test, and expected outcomes
+- `tasks/`
+  - contains all executable task folders for the feature
+
+### Task-level files
+
+Each task folder should contain:
+
+- `TASK.md`
+  - canonical task metadata and workflow state file
 - `developer_handoff.md`
   - written by `planner`
-  - defines what `developer` should implement
 - `implementation_summary.md`
   - written by `developer`
-  - records what was implemented, how it was validated, and what needs higher-level testing
 - `testing_results.md`
   - written by `tester`
-  - records integration testing, Playwright testing, manual UI verification when needed, and any failures or blockers
 - `review_results.md`
   - written by `reviewer`
-  - records code review findings, testing activity review findings, and readiness assessment
 - `artifacts/`
-  - optional supporting material such as screenshots, logs, exported reports, or temporary evidence worth preserving
+  - optional supporting evidence such as screenshots or logs
 
-## Workflow lifecycle
+## Workflow ownership
 
-Recommended stage flow:
+### Orchestrator
 
-1. Intake
-2. Planning
-3. Development
-4. Testing
-5. Review
-6. Ready or Rework
+- Selects the feature, or uses the feature specified by the user.
+- Owns the workflow loop, not implementation.
+- Asks `planner` for the next task that should be worked on.
+- Routes the selected task through `developer` -> `tester` -> `reviewer`.
+- After each completed task cycle, asks `planner` whether another task is ready.
+- Repeats until there are no more required tasks ready to implement, or the feature is blocked.
+- When no more required tasks remain, asks `Architect` to create or update `ACCEPTANCE.md`.
 
-Detailed lifecycle:
+### Planner
 
-### 1. Intake
+- Owns task selection and sequencing within a feature.
+- Decides which task is ready based on task status, dependencies, and blockers.
+- Creates or updates task-level `developer_handoff.md`.
+- Updates feature and task planning metadata as needed.
+- Does not implement code, testing, or review.
+
+### Developer
+
+- Works on one task only.
+- Implements code and unit tests.
+- Writes task-level `implementation_summary.md`.
+- Does not write integration tests or UI-automated tests.
+
+### Tester
+
+- Works on one task only.
+- Writes and runs integration tests when needed.
+- Writes and runs Playwright tests when UI automation is needed and practical.
+- May use manual UI verification only when automation is not yet practical.
+- Writes task-level `testing_results.md`.
+
+### Reviewer
+
+- Works on one task only.
+- Reviews implementation and testing activity.
+- Confirms constitution alignment, coding standards, and testing sufficiency.
+- Writes task-level `review_results.md`.
+
+### Architect
+
+- Owns Markdown workflow and planning documents under `.work/`.
+- Owns feature-level `ACCEPTANCE.md`.
+- Produces final user-facing acceptance guidance after the task loop is complete.
+- Does not take over implementation, testing, or review execution.
+
+## Workflow loop
+
+### 1. Feature intake
 
 - `orchestrator` creates or selects the feature folder.
-- `feature.md` is created and initialized.
-- Original request, goal, and initial constraints are captured.
+- `feature.md` is created or updated.
+- The feature objective, scope, and task index are established.
 
-### 2. Planning
+### 2. Task selection
 
-- `planner` reads the request and relevant repository context.
-- `planner` creates or updates `developer_handoff.md`.
-- The handoff must define scope, assumptions, out-of-scope items, unit-test expectations, and follow-on testing notes for `tester`.
+- `orchestrator` asks `planner` for the next task to work on.
+- `planner` inspects `feature.md`, task statuses, task dependencies, and blockers.
+- `planner` either:
+  - selects the next ready task and prepares its `developer_handoff.md`, or
+  - reports that no more tasks are ready, or
+  - reports a blocker that prevents progress.
 
 ### 3. Development
 
-- `developer` works from `developer_handoff.md`.
-- `developer` writes production code and unit tests only.
-- `developer` does not write integration tests or UI-automated tests.
-- `developer` creates or updates `implementation_summary.md`.
+- `developer` works from the selected task folder.
+- `developer` reads `TASK.md` and `developer_handoff.md`.
+- `developer` implements the task and writes `implementation_summary.md`.
 
 ### 4. Testing
 
-- `tester` consumes `implementation_summary.md`.
-- `tester` writes and runs integration tests when required.
-- `tester` writes and runs Playwright tests when UI automation is needed and practical.
-- `tester` may use manual UI verification only when automation is not yet practical.
-- `tester` records outcomes in `testing_results.md`.
+- `tester` reads the selected task's `implementation_summary.md`.
+- `tester` performs required integration testing and UI verification.
+- `tester` writes `testing_results.md`.
 
 ### 5. Review
 
-- `reviewer` reviews `developer` output against `docs/CONSTITUTION.md`, repository conventions, scope discipline, and unit-test expectations.
-- `reviewer` reviews `tester` output to confirm that the implemented code received the necessary higher-level testing.
-- For behavior-changing features, `reviewer` is required.
-- `reviewer` records findings in `review_results.md`.
+- `reviewer` reads the selected task's artifacts.
+- `reviewer` assesses code quality, constitution alignment, and testing sufficiency.
+- `reviewer` writes `review_results.md`.
 
-### 6. Ready or Rework
+### 6. Loop decision
 
-- `orchestrator` reads all feature artifacts and determines the next workflow action.
-- If review identifies gaps, work returns to `developer` or `tester` as appropriate.
-- If review is satisfactory and required evidence exists, the feature can move to `ready`.
+- `orchestrator` inspects the task result.
+- If rework is needed, the task stays active and the loop routes back appropriately.
+- If the task is ready, `planner` is asked for the next task.
+- The loop repeats until there are no more required tasks ready to implement.
+
+### 7. Acceptance document
+
+- When `planner` reports that no more required tasks remain, `orchestrator` asks `Architect` to create or update feature-level `ACCEPTANCE.md`.
+- `ACCEPTANCE.md` should tell the user:
+  - how to run the app
+  - what prerequisites are required
+  - what to test manually
+  - what outcomes to expect
+  - any known limitations or caveats
 
 ## Status model
 
-`feature.md` is the canonical source of status.
+### Feature status
 
-Allowed statuses:
+Feature status is tracked in `feature.md` and represents overall feature state.
+
+Allowed feature statuses:
+
+- `draft`
+- `in_progress`
+- `blocked`
+- `ready_for_acceptance`
+- `closed`
+
+Recommended meaning:
+
+- `draft`: feature exists but task execution has not started
+- `in_progress`: one or more tasks are active or not yet complete
+- `blocked`: progress cannot continue because required work is blocked
+- `ready_for_acceptance`: required tasks are complete and the feature is ready for `ACCEPTANCE.md`
+- `closed`: acceptance is complete and no further workflow is expected
+
+### Task status
+
+Task status is tracked in `TASK.md` and represents execution state for the leaf-level unit.
+
+Allowed task statuses:
 
 - `draft`
 - `planned`
@@ -151,80 +262,24 @@ Allowed statuses:
 
 Recommended meaning:
 
-- `draft`: feature exists but planning has not started
-- `planned`: developer handoff is ready
-- `in_development`: `developer` is implementing
-- `in_testing`: `tester` is validating
-- `in_review`: `reviewer` is assessing implementation and testing activity
-- `rework_required`: review or testing found gaps that must be fixed
-- `ready`: workflow evidence is present and the feature is ready for the next product or delivery decision
-- `blocked`: progress cannot continue due to an unresolved dependency, ambiguity, or missing prerequisite
-- `closed`: feature is finished and no further workflow activity is expected
+- `draft`: task exists but has not been prepared for execution
+- `planned`: task handoff is ready for `developer`
+- `in_development`: `developer` is implementing the task
+- `in_testing`: `tester` is validating the task
+- `in_review`: `reviewer` is assessing the task
+- `rework_required`: the task needs more implementation or testing
+- `ready`: the task has passed the execution loop and is done from a workflow perspective
+- `blocked`: the task cannot proceed
+- `closed`: the task is fully complete and no further work is expected
 
-## Agent responsibilities
+## Feature rollup expectations
 
-### Orchestrator
+- `feature.md` should index all tasks and their current statuses.
+- `feature.md` should identify the current active task when one exists.
+- Feature status should usually be derived from its tasks.
+- A feature can move to `ready_for_acceptance` when all required tasks are `ready` or `closed` and no mandatory task is blocked.
 
-- Owns workflow sequencing and status transitions.
-- Chooses the active feature folder.
-- Routes work between `planner`, `developer`, `tester`, and `reviewer`.
-- Decides whether a feature advances, loops back for rework, or becomes blocked.
-- May route Markdown workflow or planning document updates to `Architect` when those updates are outside the normal feature execution handoff chain.
-
-### Architect
-
-- Owns repository planning and documentation work that should live in Markdown.
-- Is the primary owner for `.work/*.md` planning docs and workflow docs, including feature-level planning documents when requested.
-- May update Markdown guidance, process docs, and planning artifacts without taking over implementation, testing, or review execution.
-
-### Planner
-
-- Works only with tasks and work-items.
-- Produces `developer_handoff.md`.
-- Does not write code, tests, or reviews.
-
-### Developer
-
-- Implements code changes and unit tests only.
-- Produces `implementation_summary.md`.
-- Must not write integration tests or UI-automated tests.
-
-### Tester
-
-- Owns integration testing and UI verification activity.
-- Prefers Playwright when UI automation is practical.
-- May use manual UI verification when automation is not yet practical.
-- Produces `testing_results.md`.
-
-### Reviewer
-
-- Reviews both implementation and testing activity.
-- Confirms code quality and constitution alignment.
-- Confirms the implemented behavior received appropriate testing depth.
-- Produces `review_results.md`.
-
-## Testing policy inside the workflow
-
-- `developer` owns unit tests.
-- `tester` owns integration tests.
-- `tester` should prefer Playwright for UI-affected behavior when automation is practical.
-- Manual UI verification is an allowed fallback only when Playwright coverage is not yet practical.
-- `reviewer` must verify that testing depth matches the implemented behavior.
-
-## Recommended status transitions
-
-- `draft` -> `planned`
-- `planned` -> `in_development`
-- `in_development` -> `in_testing`
-- `in_testing` -> `in_review`
-- `in_review` -> `ready`
-- `in_review` -> `rework_required`
-- `rework_required` -> `in_development`
-- `rework_required` -> `in_testing`
-- any status -> `blocked`
-- `ready` -> `closed`
-
-## Minimum artifact expectations
+## Minimum template expectations
 
 ### `feature.md`
 
@@ -232,24 +287,39 @@ Should capture at least:
 
 - feature id
 - feature title
-- status
-- priority
-- source request
-- current stage
-- current owner
-- blockers
+- overall status
+- objective
+- feature-level blockers
+- current active task
+- task index with statuses and dependencies
 - next action
-- linked artifacts
+- linked artifacts including `ACCEPTANCE.md`
+
+### `TASK.md`
+
+Should capture at least:
+
+- feature id
+- task id
+- task title
+- task status
+- task objective
+- scope
+- dependencies
+- blockers
+- current owner
+- next action
+- linked task artifacts
 
 ### `developer_handoff.md`
 
 Should capture at least:
 
-- objective
-- scope
-- assumptions
-- out-of-scope items
-- likely implementation surfaces
+- task objective
+- task scope
+- requirements
+- acceptance criteria
+- implementation surfaces
 - unit-test expectations
 - follow-on testing notes for `tester`
 
@@ -261,20 +331,20 @@ Should capture at least:
 - behavior changed
 - unit tests added or updated
 - validation performed
-- known limitations
-- testing areas that still need `tester`
+- limitations or risks
+- remaining testing expectations for `tester`
 
 ### `testing_results.md`
 
 Should capture at least:
 
-- test scope selected
+- selected test scope
 - integration tests created or updated
 - Playwright tests created or updated when applicable
-- manual UI verification performed when used as fallback
+- manual UI verification when used as fallback
 - commands executed
 - pass or fail outcomes
-- blockers, failures, and follow-up recommendations
+- blockers or failures
 
 ### `review_results.md`
 
@@ -284,12 +354,24 @@ Should capture at least:
 - testing activity review findings
 - missing evidence
 - required fixes
-- readiness recommendation for `orchestrator`
+- readiness recommendation
+
+### `ACCEPTANCE.md`
+
+Should capture at least:
+
+- feature summary
+- prerequisites
+- how to run the app
+- what to test
+- expected outcomes
+- known limitations or caveats
 
 ## Initial policy
 
 - Use `.work/WORKFLOW.md` as the canonical workflow document.
-- Use `.work/features/` for all feature tracking going forward.
-- Keep one feature folder per feature.
-- Allow multiple smaller work-items inside the same feature folder when they belong to the same feature.
-- Use `feature.md` as the canonical metadata and status file.
+- Use feature folders as containers and task folders as leaf-level execution units.
+- Keep one `ACCEPTANCE.md` per feature at the feature root.
+- Run the execution loop per task.
+- Let `planner` choose the next task to work on.
+- Let `Architect` own final acceptance guidance once task execution is complete.

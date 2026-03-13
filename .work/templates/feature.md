@@ -5,8 +5,8 @@ Feature ID: {{feature_id}}
 Feature Folder: {{feature_folder}}
 Title: {{feature_title}}
 Priority: {{priority}}
-Status: {{status}}
-Current Stage: {{current_stage}}
+Status: {{feature_status}}
+Current Active Task: {{current_task_or_none}}
 Current Owner: {{current_owner}}
 Created Date: {{created_date}}
 Last Updated: {{last_updated}}
@@ -21,21 +21,22 @@ Requested By: {{requested_by}}
 ## Scope
 {{scope}}
 
-## Work-Items
-- {{work_item_1}}
-- {{work_item_2}}
+## Feature-Level Blockers
+- {{feature_blocker_or_none}}
 
-## Blockers
-- {{blocker_or_none}}
+## Task Index
+- `task-001-{{task_1_slug}}` - {{task_1_title}} - {{task_1_status}} - depends on: {{task_1_dependencies_or_none}}
+- `task-002-{{task_2_slug}}` - {{task_2_title}} - {{task_2_status}} - depends on: {{task_2_dependencies_or_none}}
 
 ## Next Action
 {{next_action}}
 
+## Planning Notes
+{{planning_notes}}
+
 ## Linked Artifacts
-- `developer_handoff.md`
-- `implementation_summary.md`
-- `testing_results.md`
-- `review_results.md`
+- `ACCEPTANCE.md`
+- `tasks/`
 
 ## Notes
 {{notes}}

@@ -1,9 +1,12 @@
 # Implementation Summary
 
-## Feature Information
+## Task Information
 Feature ID: {{feature_id}}
 Feature Title: {{feature_title}}
 Feature Folder: {{feature_folder}}
+Task ID: {{task_id}}
+Task Title: {{task_title}}
+Task Folder: {{task_folder}}
 
 Implemented By: Developer Agent
 Date: {{date}}
@@ -12,7 +15,7 @@ Date: {{date}}
 
 ## 1. Objective Implemented
 
-Summarize the requested work that was implemented.
+Summarize the requested task work that was implemented.
 
 {{objective_implemented}}
 
@@ -47,8 +50,6 @@ Summarize the requested work that was implemented.
 ---
 
 ## 6. Implementation Notes
-
-High-level technical notes useful for testing and review.
 
 - {{implementation_note_1}}
 - {{implementation_note_2}}
@@ -105,5 +106,3 @@ If none:
 
 - {{not_covered_1}}
 - {{not_covered_2}}
-
-This section should describe what belongs to `tester`, such as integration coverage, Playwright coverage, or manual UI fallback when needed.

@@ -1,9 +1,12 @@
 # Developer Handoff
 
-## Feature Information
+## Task Information
 Feature ID: {{feature_id}}
 Feature Title: {{feature_title}}
 Feature Folder: {{feature_folder}}
+Task ID: {{task_id}}
+Task Title: {{task_title}}
+Task Folder: {{task_folder}}
 
 Prepared By: Planner Agent
 Date: {{date}}
@@ -12,30 +15,26 @@ Date: {{date}}
 
 ## 1. Objective
 
-Describe the implementation goal for this feature or work-item.
+Describe the implementation goal for this task.
 
 {{objective}}
 
 ---
 
-## 2. Work-Items In Scope
+## 2. Task Scope
 
-- {{work_item_1}}
-- {{work_item_2}}
+- {{task_scope_item_1}}
+- {{task_scope_item_2}}
 
 ---
 
 ## 3. Business and Product Context
-
-Why this work matters.
 
 {{business_context}}
 
 ---
 
 ## 4. Requirements
-
-List the concrete requirements `developer` must satisfy.
 
 1. {{requirement_1}}
 2. {{requirement_2}}
@@ -64,8 +63,6 @@ Out of scope:
 ---
 
 ## 7. Repository Context
-
-Relevant modules, files, or architecture notes.
 
 - {{context_1}}
 - {{context_2}}
@@ -99,8 +96,6 @@ Assumptions:
 ---
 
 ## 10. Unit Test Expectations
-
-`developer` owns unit tests for the implemented behavior.
 
 - {{unit_test_expectation_1}}
 - {{unit_test_expectation_2}}
