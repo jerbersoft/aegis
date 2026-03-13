@@ -1,0 +1,54 @@
+{
+  "baseUrl": "http://127.0.0.1:3001",
+  "executionWatchlistId": "f37e41ce-63a1-41b4-9a0c-8a97ace2db19",
+  "addSymbolStatus": 409,
+  "preBootstrap": {
+    "rollup": {
+      "readinessState": "ready",
+      "reasonCode": "none",
+      "totalSymbolCount": 1,
+      "readySymbolCount": 1,
+      "notReadySymbolCount": 0,
+      "activeRepairSymbolCount": 0,
+      "pendingRecomputeSymbolCount": 0,
+      "earliestAffectedBarUtc": null
+    },
+    "symbol": {
+      "status": 200,
+      "readinessState": "ready",
+      "reasonCode": "none",
+      "hasActiveRepair": false,
+      "pendingRecompute": false,
+      "activeGapType": null,
+      "earliestAffectedBarUtc": null,
+      "error": null
+    },
+    "widgetText": "MARKETDATA BOOTSTRAP\n\nREADINESS\n\nready\n\nREADY SYMBOLS\n\n2\n\nNOT READY SYMBOLS\n\n0\n\nDEMAND SYMBOLS\n\n2\n\nPERSISTED BARS\n\n5590\n\nREASON\n\nnone\n\nDEMAND SCOPE\n\nAMD, SPY\n\nINTRADAY READINESS\n\n1 ready / 0 not ready (1min)\n\nState: ready\n\nAMD: ready (780/100) • indicators ready • buzz 105.1%\n\nDAILY READINESS DETAIL\n\nAMD: ready (260/200) • benchmark SPY: ready • indicators ready\n\nSPY: ready (260/200) • indicators ready\n\nLast warmup: 2026-03-13T21:01:03.537145Z\n\nRefresh"
+  },
+  "postBootstrap": {
+    "rollup": {
+      "readinessState": "ready",
+      "reasonCode": "none",
+      "totalSymbolCount": 1,
+      "readySymbolCount": 1,
+      "notReadySymbolCount": 0,
+      "activeRepairSymbolCount": 0,
+      "pendingRecomputeSymbolCount": 0,
+      "earliestAffectedBarUtc": null
+    },
+    "symbol": {
+      "symbol": "AMD",
+      "readinessState": "ready",
+      "reasonCode": "none",
+      "hasActiveRepair": false,
+      "pendingRecompute": false,
+      "activeGapType": null,
+      "earliestAffectedBarUtc": null
+    },
+    "widgetText": "MARKETDATA BOOTSTRAP\n\nREADINESS\n\nready\n\nREADY SYMBOLS\n\n2\n\nNOT READY SYMBOLS\n\n0\n\nDEMAND SYMBOLS\n\n2\n\nPERSISTED BARS\n\n5590\n\nREASON\n\nnone\n\nDEMAND SCOPE\n\nAMD, SPY\n\nINTRADAY READINESS\n\n1 ready / 0 not ready (1min)\n\nState: ready\n\nAMD: ready (780/100) • indicators ready • buzz 105.1%\n\nDAILY READINESS DETAIL\n\nAMD: ready (260/200) • benchmark SPY: ready • indicators ready\n\nSPY: ready (260/200) • indicators ready\n\nLast warmup: 2026-03-13T21:01:31.266241Z\n\nRefresh"
+  },
+  "screenshots": [
+    "/Users/herbertsabanal/Projects/aegis/.work/features/feature-001-market_data_intraday_repair_recompute/tasks/task-003-intraday_repair_visibility/browser-home-pre-bootstrap.png",
+    "/Users/herbertsabanal/Projects/aegis/.work/features/feature-001-market_data_intraday_repair_recompute/tasks/task-003-intraday_repair_visibility/browser-home-post-bootstrap.png"
+  ]
+}

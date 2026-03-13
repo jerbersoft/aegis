@@ -16,7 +16,8 @@ public sealed record IntradaySymbolRuntimeSnapshot(
     IntradayComputedIndicatorState IndicatorState,
     IReadOnlyList<DailyBarView> Bars,
     string? ActiveGapType,
-    Instant? ActiveGapStartUtc)
+    Instant? ActiveGapStartUtc,
+    IntradayRepairState? ActiveRepair)
 {
     public IntradaySymbolReadinessView ToView(Instant asOfUtc) =>
         new(
@@ -37,5 +38,8 @@ public sealed record IntradaySymbolRuntimeSnapshot(
             LastFinalizedBarUtc,
             LastStateChangedUtc,
             ActiveGapType,
-            ActiveGapStartUtc);
+            ActiveGapStartUtc,
+            ActiveRepair is not null,
+            ActiveRepair?.PendingRecompute ?? false,
+            ActiveRepair?.EarliestAffectedBarUtc);
 }

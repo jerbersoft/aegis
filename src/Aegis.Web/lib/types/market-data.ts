@@ -60,6 +60,9 @@ export type IntradaySymbolReadinessView = {
   lastStateChangedUtc: string;
   activeGapType?: string | null;
   activeGapStartUtc?: string | null;
+  hasActiveRepair: boolean;
+  pendingRecompute: boolean;
+  earliestAffectedBarUtc?: string | null;
 };
 
 export type IntradayUniverseReadinessView = {
@@ -71,6 +74,9 @@ export type IntradayUniverseReadinessView = {
   totalSymbolCount: number;
   readySymbolCount: number;
   notReadySymbolCount: number;
+  activeRepairSymbolCount: number;
+  pendingRecomputeSymbolCount: number;
+  earliestAffectedBarUtc?: string | null;
   symbols: IntradaySymbolReadinessView[];
 };
 

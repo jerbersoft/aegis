@@ -6,9 +6,9 @@ Feature Folder: feature-001-market_data_intraday_repair_recompute
 Task ID: task-002
 Task Folder: task-002-intraday_recompute_execution
 Title: Define intraday recompute execution and readiness restoration
-Status: draft
-Current Owner: architect
-Acceptance Status: not_covered
+Status: closed
+Current Owner: reviewer
+Acceptance Status: covered_in_acceptance
 Acceptance Document: ../ACCEPTANCE.md
 Created Date: 2026-03-13
 Last Updated: 2026-03-13
@@ -35,7 +35,7 @@ Define how repaired or corrected `1-min` bars drive persistence, recompute, vali
 - none
 
 ## Next Action
-Use the repair-state model from task `001` to define the concrete recompute and readiness-restoration rules for implementation.
+Task approved. Keep this task ready for feature-level acceptance coverage, then proceed to dependent task `task-003-intraday_repair_visibility`.
 
 ## Linked Artifacts
 - `developer_handoff.md`

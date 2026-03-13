@@ -5,9 +5,9 @@ Feature ID: feature-001
 Feature Folder: feature-001-market_data_intraday_repair_recompute
 Title: MarketData intraday repair and recompute progression
 Priority: high
-Status: draft
+Status: closed
 Current Active Task: none
-Current Owner: architect
+Current Owner: orchestrator
 Created Date: 2026-03-13
 Last Updated: 2026-03-13
 
@@ -34,12 +34,12 @@ Define and track the next `MarketData` implementation slice: explicit intraday r
 - none
 
 ## Task Index
-- `task-001-intraday_repair_state_model` - Define intraday repair state model and orchestration semantics - draft - depends on: none
+- `task-001-intraday_repair_state_model` - Define intraday repair state model and orchestration semantics - ready - depends on: none
 - `task-002-intraday_recompute_execution` - Define intraday recompute execution and readiness restoration - draft - depends on: task-001-intraday_repair_state_model
 - `task-003-intraday_repair_visibility` - Define intraday repair visibility and verification surfaces - draft - depends on: task-001-intraday_repair_state_model, task-002-intraday_recompute_execution
 
 ## Next Action
-Review this feature/task breakdown, then prepare the first planner/developer handoff starting with `task-001-intraday_repair_state_model`.
+Feature workflow is complete.
 
 ## Recommended Execution Sequence
 1. Complete `task-001-intraday_repair_state_model` first so repair lifecycle, queueing, deduplication, and rollup-state rules are fixed before implementation details spread across runtime code.
@@ -62,7 +62,8 @@ Review this feature/task breakdown, then prepare the first planner/developer han
 - Legacy planning references should continue to mention this feature until the repository fully transitions from backlog/status-driven planning to `.work/` tracking.
 
 ## Planner Readiness Notes
-- This feature is ready for `planner` to begin with `task-001-intraday_repair_state_model`.
+- `task-001-intraday_repair_state_model` is approved and should not be re-selected.
+- The next ready task is `task-002-intraday_recompute_execution` because its dependency on `task-001` is satisfied.
 - No known cross-module decisions remain open for this feature; accepted defaults are already captured in scope and task notes.
 - Planner should preserve the current dependency order and avoid parallel execution of these tasks because the later tasks depend on finalized repair-state semantics from earlier work.
-- The first task should produce a handoff that keeps implementation limited to `MarketData` application/runtime/readiness surfaces and avoids `SignalR` or non-`MarketData` module work.
+- The active handoff should keep implementation limited to `MarketData` application/runtime/readiness surfaces and avoid `SignalR` or non-`MarketData` module work.

@@ -6,9 +6,9 @@ Feature Folder: feature-001-market_data_intraday_repair_recompute
 Task ID: task-003
 Task Folder: task-003-intraday_repair_visibility
 Title: Define intraday repair visibility and verification surfaces
-Status: draft
-Current Owner: architect
-Acceptance Status: not_covered
+Status: closed
+Current Owner: reviewer
+Acceptance Status: covered_in_acceptance
 Acceptance Document: ../ACCEPTANCE.md
 Created Date: 2026-03-13
 Last Updated: 2026-03-13
@@ -32,10 +32,9 @@ Define the minimum backend/UI-visible repair progression and verification guidan
 
 ## Blockers
 - none
-- none
 
 ## Next Action
-After the repair lifecycle and recompute semantics are defined, shape the observable API/UI surface and validation expectations that make the feature verifiable.
+Task approved. Keep this task ready for feature-level acceptance coverage.
 
 ## Linked Artifacts
 - `developer_handoff.md`

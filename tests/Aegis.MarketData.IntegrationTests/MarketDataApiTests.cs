@@ -113,11 +113,57 @@ public sealed class MarketDataApiTests : IClassFixture<WebApplicationFactory<Pro
                 services.AddScoped<IHistoricalBarProvider, BenchmarkBlockedHistoricalBarProvider>();
             });
         });
+
+        _repairFetchFailingFactory = factory.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureAppConfiguration((_, configBuilder) =>
+            {
+                configBuilder.AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["ConnectionStrings:DefaultConnection"] = postgres.ConnectionString,
+                    ["ConnectionStrings:Universe"] = postgres.ConnectionString,
+                    ["ConnectionStrings:MarketData"] = postgres.ConnectionString,
+                    ["Alpaca:SymbolReference:UseFakeProvider"] = "true"
+                });
+            });
+
+            builder.ConfigureServices(services =>
+            {
+                services.RemoveAll<ISymbolReferenceProvider>();
+                services.AddScoped<ISymbolReferenceProvider, FakeSymbolReferenceProvider>();
+                services.RemoveAll<IHistoricalBarProvider>();
+                services.AddScoped<IHistoricalBarProvider, RepairFetchFailingHistoricalBarProvider>();
+            });
+        });
+
+        _repairValidationFailingFactory = factory.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureAppConfiguration((_, configBuilder) =>
+            {
+                configBuilder.AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["ConnectionStrings:DefaultConnection"] = postgres.ConnectionString,
+                    ["ConnectionStrings:Universe"] = postgres.ConnectionString,
+                    ["ConnectionStrings:MarketData"] = postgres.ConnectionString,
+                    ["Alpaca:SymbolReference:UseFakeProvider"] = "true"
+                });
+            });
+
+            builder.ConfigureServices(services =>
+            {
+                services.RemoveAll<ISymbolReferenceProvider>();
+                services.AddScoped<ISymbolReferenceProvider, FakeSymbolReferenceProvider>();
+                services.RemoveAll<IHistoricalBarProvider>();
+                services.AddScoped<IHistoricalBarProvider, RepairValidationFailingHistoricalBarProvider>();
+            });
+        });
     }
 
     private readonly WebApplicationFactory<Program> _readyFactory;
     private readonly WebApplicationFactory<Program> _backfillFactory;
     private readonly WebApplicationFactory<Program> _benchmarkBlockedFactory;
+    private readonly WebApplicationFactory<Program> _repairFetchFailingFactory;
+    private readonly WebApplicationFactory<Program> _repairValidationFailingFactory;
 
     [Fact]
     public async Task RunBootstrap_ShouldWarmPersistedBars_ForUniverseSymbols()
@@ -258,10 +304,13 @@ public sealed class MarketDataApiTests : IClassFixture<WebApplicationFactory<Pro
         intradayReadiness.VolumeBuzzPercent.ShouldNotBeNull();
         intradayReadiness.AvailableBarCount.ShouldBeGreaterThanOrEqualTo(IntradayMarketDataHydrationService.IntradayRequiredBarCount);
         intradayReadiness.ActiveGapType.ShouldBeNull();
+        intradayReadiness.HasActiveRepair.ShouldBeFalse();
+        intradayReadiness.PendingRecompute.ShouldBeFalse();
+        intradayReadiness.EarliestAffectedBarUtc.ShouldBeNull();
     }
 
     [Fact]
-    public async Task IntradayReadiness_ShouldExposeGapReason_WhenPersistedExecutionHistoryHasInternalGap()
+    public async Task IntradayReadiness_ShouldRepairInternalGap_AndRestoreReadyState()
     {
         await ResetStateAsync(_readyFactory);
         using var client = await CreateAuthenticatedClientAsync(_readyFactory);
@@ -282,10 +331,125 @@ public sealed class MarketDataApiTests : IClassFixture<WebApplicationFactory<Pro
 
         var intradayReadiness = await client.GetAegisJsonAsync<IntradaySymbolReadinessView>("/api/market-data/intraday/readiness/AMD");
         intradayReadiness.ShouldNotBeNull();
-        intradayReadiness.ReadinessState.ShouldBe("not_ready");
-        intradayReadiness.ReasonCode.ShouldBe("gap_internal");
+        intradayReadiness.ReadinessState.ShouldBe("ready");
+        intradayReadiness.ReasonCode.ShouldBe("none");
+        intradayReadiness.HasRequiredIntradayBars.ShouldBeTrue();
+        intradayReadiness.HasRequiredIndicatorState.ShouldBeTrue();
+        intradayReadiness.ActiveGapType.ShouldBeNull();
+        intradayReadiness.ActiveGapStartUtc.ShouldBeNull();
+
+        var rollupReadiness = await client.GetAegisJsonAsync<IntradayUniverseReadinessView>("/api/market-data/intraday/readiness");
+        rollupReadiness.ShouldNotBeNull();
+        rollupReadiness.ReadinessState.ShouldBe("ready");
+        rollupReadiness.ReasonCode.ShouldBe("none");
+        rollupReadiness.Symbols.ShouldContain(x => x.Symbol == "AMD" && x.ReadinessState == "ready");
+
+        await AssertIntradayBarExistsAsync(_readyFactory, "AMD", Instant.FromUtc(2026, 3, 12, 15, 0));
+    }
+
+    [Fact]
+    public async Task IntradayReadiness_ShouldNormalizeCorrectedBar_AndRestoreReadyState()
+    {
+        await ResetStateAsync(_readyFactory);
+        using var client = await CreateAuthenticatedClientAsync(_readyFactory);
+
+        var watchlists = await client.GetAegisJsonAsync<List<WatchlistSummaryView>>("/api/universe/watchlists");
+        watchlists.ShouldNotBeNull();
+        var execution = watchlists.Single(x => x.IsExecution);
+
+        var addSymbol = await client.PostAsJsonAsync($"/api/universe/watchlists/{execution.WatchlistId}/symbols", new AddSymbolToWatchlistRequest("AMD"));
+        addSymbol.StatusCode.ShouldBe(HttpStatusCode.Created);
+
+        var bootstrapResponse = await client.PostAsync("/api/market-data/bootstrap/run", null);
+        bootstrapResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        var correctedBarTimeUtc = Instant.FromUtc(2026, 3, 12, 15, 0);
+        await MarkIntradayBarCorrectedAsync(_readyFactory, "AMD", correctedBarTimeUtc);
+
+        var statusRefresh = await client.GetAsync("/api/market-data/bootstrap/status");
+        statusRefresh.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        var intradayReadiness = await client.GetAegisJsonAsync<IntradaySymbolReadinessView>("/api/market-data/intraday/readiness/AMD");
+        intradayReadiness.ShouldNotBeNull();
+        intradayReadiness.ReadinessState.ShouldBe("ready");
+        intradayReadiness.ReasonCode.ShouldBe("none");
+        intradayReadiness.HasRequiredIndicatorState.ShouldBeTrue();
+        intradayReadiness.ActiveGapType.ShouldBeNull();
+        intradayReadiness.ActiveGapStartUtc.ShouldBeNull();
+
+        await AssertIntradayBarReconciledAsync(_readyFactory, "AMD", correctedBarTimeUtc);
+    }
+
+    [Fact]
+    public async Task IntradayReadiness_ShouldRemainRepairing_WhenRepairValidationFails()
+    {
+        await ResetStateAsync(_repairValidationFailingFactory);
+        using var client = await CreateAuthenticatedClientAsync(_repairValidationFailingFactory);
+
+        var watchlists = await client.GetAegisJsonAsync<List<WatchlistSummaryView>>("/api/universe/watchlists");
+        watchlists.ShouldNotBeNull();
+        var execution = watchlists.Single(x => x.IsExecution);
+
+        var addSymbol = await client.PostAsJsonAsync($"/api/universe/watchlists/{execution.WatchlistId}/symbols", new AddSymbolToWatchlistRequest("AMD"));
+        addSymbol.StatusCode.ShouldBe(HttpStatusCode.Created);
+
+        var bootstrapResponse = await client.PostAsync("/api/market-data/bootstrap/run", null);
+        bootstrapResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        await RemoveIntradayBarAsync(_repairValidationFailingFactory, "AMD", Instant.FromUtc(2026, 3, 12, 15, 0));
+        var statusRefresh = await client.GetAsync("/api/market-data/bootstrap/status");
+        statusRefresh.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        var intradayReadiness = await client.GetAegisJsonAsync<IntradaySymbolReadinessView>("/api/market-data/intraday/readiness/AMD");
+        intradayReadiness.ShouldNotBeNull();
+        intradayReadiness.ReadinessState.ShouldBe("repairing");
+        intradayReadiness.ReasonCode.ShouldBe(IntradayRepairState.RepairValidationFailedReasonCode);
+        intradayReadiness.HasRequiredIndicatorState.ShouldBeFalse();
         intradayReadiness.ActiveGapType.ShouldBe("internal");
         intradayReadiness.ActiveGapStartUtc.ShouldBe(Instant.FromUtc(2026, 3, 12, 15, 0));
+        intradayReadiness.HasActiveRepair.ShouldBeTrue();
+        intradayReadiness.PendingRecompute.ShouldBeFalse();
+        intradayReadiness.EarliestAffectedBarUtc.ShouldBe(Instant.FromUtc(2026, 3, 12, 15, 0));
+
+        var rollupReadiness = await client.GetAegisJsonAsync<IntradayUniverseReadinessView>("/api/market-data/intraday/readiness");
+        rollupReadiness.ShouldNotBeNull();
+        rollupReadiness.ReadinessState.ShouldBe("repairing");
+        rollupReadiness.ReasonCode.ShouldBe(IntradayRepairState.RepairValidationFailedReasonCode);
+        rollupReadiness.ActiveRepairSymbolCount.ShouldBe(1);
+        rollupReadiness.PendingRecomputeSymbolCount.ShouldBe(0);
+        rollupReadiness.EarliestAffectedBarUtc.ShouldBe(Instant.FromUtc(2026, 3, 12, 15, 0));
+    }
+
+    [Fact]
+    public async Task IntradayReadiness_ShouldRemainRepairing_WhenRepairFetchFails()
+    {
+        await ResetStateAsync(_repairFetchFailingFactory);
+        using var client = await CreateAuthenticatedClientAsync(_repairFetchFailingFactory);
+
+        var watchlists = await client.GetAegisJsonAsync<List<WatchlistSummaryView>>("/api/universe/watchlists");
+        watchlists.ShouldNotBeNull();
+        var execution = watchlists.Single(x => x.IsExecution);
+
+        var addSymbol = await client.PostAsJsonAsync($"/api/universe/watchlists/{execution.WatchlistId}/symbols", new AddSymbolToWatchlistRequest("AMD"));
+        addSymbol.StatusCode.ShouldBe(HttpStatusCode.Created);
+
+        var bootstrapResponse = await client.PostAsync("/api/market-data/bootstrap/run", null);
+        bootstrapResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        await RemoveIntradayBarAsync(_repairFetchFailingFactory, "AMD", Instant.FromUtc(2026, 3, 12, 15, 0));
+        var statusRefresh = await client.GetAsync("/api/market-data/bootstrap/status");
+        statusRefresh.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        var intradayReadiness = await client.GetAegisJsonAsync<IntradaySymbolReadinessView>("/api/market-data/intraday/readiness/AMD");
+        intradayReadiness.ShouldNotBeNull();
+        intradayReadiness.ReadinessState.ShouldBe("repairing");
+        intradayReadiness.ReasonCode.ShouldBe(IntradayRepairState.RepairFetchFailedReasonCode);
+        intradayReadiness.HasRequiredIndicatorState.ShouldBeFalse();
+        intradayReadiness.ActiveGapType.ShouldBe("internal");
+        intradayReadiness.ActiveGapStartUtc.ShouldBe(Instant.FromUtc(2026, 3, 12, 15, 0));
+        intradayReadiness.HasActiveRepair.ShouldBeTrue();
+        intradayReadiness.PendingRecompute.ShouldBeFalse();
+        intradayReadiness.EarliestAffectedBarUtc.ShouldBe(Instant.FromUtc(2026, 3, 12, 15, 0));
     }
 
     private async Task<HttpClient> CreateAuthenticatedClientAsync(WebApplicationFactory<Program>? factory = null)
@@ -319,6 +483,33 @@ public sealed class MarketDataApiTests : IClassFixture<WebApplicationFactory<Pro
         var row = await marketDataDbContext.Bars.SingleAsync(x => x.Symbol == symbol && x.Interval == IntradayMarketDataHydrationService.IntradayInterval && x.BarTimeUtc == barTimeUtc);
         marketDataDbContext.Bars.Remove(row);
         await marketDataDbContext.SaveChangesAsync();
+    }
+
+    private static async Task MarkIntradayBarCorrectedAsync(WebApplicationFactory<Program> factory, string symbol, Instant barTimeUtc)
+    {
+        using var scope = factory.Services.CreateScope();
+        var marketDataDbContext = scope.ServiceProvider.GetRequiredService<MarketDataDbContext>();
+        var row = await marketDataDbContext.Bars.SingleAsync(x => x.Symbol == symbol && x.Interval == IntradayMarketDataHydrationService.IntradayInterval && x.BarTimeUtc == barTimeUtc);
+        row.RuntimeState = "corrected";
+        row.IsReconciled = false;
+        await marketDataDbContext.SaveChangesAsync();
+    }
+
+    private static async Task AssertIntradayBarExistsAsync(WebApplicationFactory<Program> factory, string symbol, Instant barTimeUtc)
+    {
+        using var scope = factory.Services.CreateScope();
+        var marketDataDbContext = scope.ServiceProvider.GetRequiredService<MarketDataDbContext>();
+        var exists = await marketDataDbContext.Bars.AnyAsync(x => x.Symbol == symbol && x.Interval == IntradayMarketDataHydrationService.IntradayInterval && x.BarTimeUtc == barTimeUtc);
+        exists.ShouldBeTrue();
+    }
+
+    private static async Task AssertIntradayBarReconciledAsync(WebApplicationFactory<Program> factory, string symbol, Instant barTimeUtc)
+    {
+        using var scope = factory.Services.CreateScope();
+        var marketDataDbContext = scope.ServiceProvider.GetRequiredService<MarketDataDbContext>();
+        var row = await marketDataDbContext.Bars.SingleAsync(x => x.Symbol == symbol && x.Interval == IntradayMarketDataHydrationService.IntradayInterval && x.BarTimeUtc == barTimeUtc);
+        row.RuntimeState.ShouldBe("reconciled");
+        row.IsReconciled.ShouldBeTrue();
     }
 
     private sealed class TestHistoricalBarProvider : IHistoricalBarProvider
@@ -397,6 +588,43 @@ public sealed class MarketDataApiTests : IClassFixture<WebApplicationFactory<Pro
         public Task<HistoricalBarBatchResult> GetIntradayBarsAsync(IntradayBarRequest request, CancellationToken cancellationToken) =>
             Task.FromResult(HistoricalBarBatchResult.Success(request.Symbol, request.Interval, BuildIntradayBars(request.Symbol, request.Interval), "fake", "iex"));
     }
+
+    private sealed class RepairFetchFailingHistoricalBarProvider : IHistoricalBarProvider
+    {
+        public Task<HistoricalBarBatchResult> GetDailyBarsAsync(HistoricalBarRequest request, CancellationToken cancellationToken) =>
+            new DailyHistoryHistoricalBarProvider().GetDailyBarsAsync(request, cancellationToken);
+
+        public Task<HistoricalBarBatchResult> GetIntradayBarsAsync(IntradayBarRequest request, CancellationToken cancellationToken)
+        {
+            if (IsRepairRequest(request))
+            {
+                return Task.FromResult(HistoricalBarBatchResult.Failure(request.Symbol, request.Interval, "fake", "iex", "repair_failed", "repair fetch failed"));
+            }
+
+            return Task.FromResult(HistoricalBarBatchResult.Success(request.Symbol, request.Interval, BuildIntradayBars(request.Symbol, request.Interval), "fake", "iex"));
+        }
+    }
+
+    private sealed class RepairValidationFailingHistoricalBarProvider : IHistoricalBarProvider
+    {
+        public Task<HistoricalBarBatchResult> GetDailyBarsAsync(HistoricalBarRequest request, CancellationToken cancellationToken) =>
+            new DailyHistoryHistoricalBarProvider().GetDailyBarsAsync(request, cancellationToken);
+
+        public Task<HistoricalBarBatchResult> GetIntradayBarsAsync(IntradayBarRequest request, CancellationToken cancellationToken)
+        {
+            var bars = BuildIntradayBars(request.Symbol, request.Interval);
+
+            if (IsRepairRequest(request) && request.FromUtc.HasValue)
+            {
+                bars = bars.Where(bar => bar.BarTimeUtc != request.FromUtc.Value).ToArray();
+            }
+
+            return Task.FromResult(HistoricalBarBatchResult.Success(request.Symbol, request.Interval, bars, "fake", "iex"));
+        }
+    }
+
+    private static bool IsRepairRequest(IntradayBarRequest request) =>
+        request.FromUtc.HasValue && request.FromUtc.Value >= Instant.FromUtc(2026, 3, 12, 14, 30);
 
     private static HistoricalBarRecord[] BuildIntradayBars(string symbol, string interval) =>
         Enumerable.Range(0, 11)

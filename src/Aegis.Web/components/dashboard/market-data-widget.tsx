@@ -4,11 +4,74 @@ import { WidgetCard } from "./widget-card";
 import { Button } from "@/components/ui/button";
 import { useMarketDataBootstrap } from "@/hooks/use-market-data-bootstrap";
 
+function formatUtc(timestamp?: string | null) {
+  if (!timestamp) {
+    return null;
+  }
+
+  return `${timestamp.replace("T", " ").replace("Z", " UTC")}`;
+}
+
+function describeIntradayRepair(symbol: {
+  reasonCode: string;
+  hasActiveRepair: boolean;
+  pendingRecompute: boolean;
+  activeGapType?: string | null;
+  activeGapStartUtc?: string | null;
+  earliestAffectedBarUtc?: string | null;
+}) {
+  if (!symbol.hasActiveRepair) {
+    return null;
+  }
+
+  const details: string[] = [];
+
+  if (symbol.pendingRecompute || symbol.reasonCode === "awaiting_recompute") {
+    details.push("awaiting recompute");
+  }
+
+  if (symbol.activeGapType) {
+    details.push(`gap ${symbol.activeGapType}`);
+  }
+
+  const affectedAt = formatUtc(symbol.earliestAffectedBarUtc ?? symbol.activeGapStartUtc);
+  if (affectedAt) {
+    details.push(`affected from ${affectedAt}`);
+  }
+
+  if (details.length === 0) {
+    details.push(symbol.reasonCode);
+  }
+
+  return details.join(" • ");
+}
+
 export function MarketDataWidget() {
   const { status, dailyReadiness, intradayReadiness, isLoading, isRefreshing, error, runBootstrap } = useMarketDataBootstrap();
   // Surface degraded symbols first so the top-level rollup and the visible detail rows stay easy to reconcile.
   const readinessSymbols = dailyReadiness
     ? [...dailyReadiness.symbols].sort((left, right) => {
+        if (left.readinessState === right.readinessState) {
+          return left.symbol.localeCompare(right.symbol);
+        }
+
+        if (left.readinessState === "not_ready") {
+          return -1;
+        }
+
+        if (right.readinessState === "not_ready") {
+          return 1;
+        }
+
+        return left.symbol.localeCompare(right.symbol);
+      })
+    : [];
+  const intradaySymbols = intradayReadiness
+    ? [...intradayReadiness.symbols].sort((left, right) => {
+        if (left.hasActiveRepair !== right.hasActiveRepair) {
+          return left.hasActiveRepair ? -1 : 1;
+        }
+
         if (left.readinessState === right.readinessState) {
           return left.symbol.localeCompare(right.symbol);
         }
@@ -69,18 +132,31 @@ export function MarketDataWidget() {
           {intradayReadiness && intradayReadiness.totalSymbolCount > 0 ? (
             <div>
               <p className="text-xs uppercase tracking-wide text-slate-500">Intraday Readiness</p>
-              <p className="text-sm text-slate-300">
-                {intradayReadiness.readySymbolCount} ready / {intradayReadiness.notReadySymbolCount} not ready ({intradayReadiness.interval})
-              </p>
+              <div className="space-y-1 text-sm text-slate-300">
+                <p>
+                  {intradayReadiness.readySymbolCount} ready / {intradayReadiness.notReadySymbolCount} not ready ({intradayReadiness.interval})
+                </p>
+                <p>
+                  State: <span className="font-semibold text-slate-100">{intradayReadiness.readinessState}</span>
+                  {intradayReadiness.reasonCode !== "none" ? ` • ${intradayReadiness.reasonCode}` : ""}
+                </p>
+                {intradayReadiness.activeRepairSymbolCount > 0 ? (
+                  <p>
+                    {intradayReadiness.activeRepairSymbolCount} repairing
+                    {intradayReadiness.pendingRecomputeSymbolCount > 0 ? ` • ${intradayReadiness.pendingRecomputeSymbolCount} awaiting recompute` : ""}
+                    {intradayReadiness.earliestAffectedBarUtc ? ` • earliest affected ${formatUtc(intradayReadiness.earliestAffectedBarUtc)}` : ""}
+                  </p>
+                ) : null}
+              </div>
               <div className="mt-2 space-y-1 text-sm text-slate-300">
-                {intradayReadiness.symbols.slice(0, 3).map((symbol) => (
+                {intradaySymbols.slice(0, 5).map((symbol) => (
                   <p key={`${symbol.symbol}-${symbol.interval}`}>
                     <span className="font-semibold text-slate-100">{symbol.symbol}</span>: {symbol.readinessState} ({symbol.availableBarCount}/{symbol.requiredBarCount})
                     {symbol.hasRequiredIndicatorState ? " • indicators ready" : ` • ${symbol.reasonCode}`}
                     {typeof symbol.volumeBuzzPercent === "number"
                       ? ` • buzz ${symbol.volumeBuzzPercent.toFixed(1)}%`
                       : ` • buzz ref ${symbol.availableVolumeBuzzReferenceSessionCount}/${symbol.requiredVolumeBuzzReferenceSessionCount}`}
-                    {symbol.activeGapType ? ` • gap ${symbol.activeGapType}` : ""}
+                    {describeIntradayRepair(symbol) ? ` • ${describeIntradayRepair(symbol)}` : symbol.activeGapType ? ` • gap ${symbol.activeGapType}` : ""}
                   </p>
                 ))}
               </div>

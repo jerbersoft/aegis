@@ -15,7 +15,17 @@ public sealed record IntradayUniverseRuntimeSnapshot(
 
     public int ReadySymbolCount => Symbols.Count(x => x.ReadinessState == "ready");
 
-    public int NotReadySymbolCount => Symbols.Count(x => x.ReadinessState == "not_ready");
+    public int NotReadySymbolCount => Symbols.Count(x => x.ReadinessState != "ready");
+
+    public int ActiveRepairSymbolCount => Symbols.Count(x => x.ActiveRepair is not null);
+
+    public int PendingRecomputeSymbolCount => Symbols.Count(x => x.ActiveRepair?.PendingRecompute == true);
+
+    public Instant? EarliestAffectedBarUtc => Symbols
+        .Select(x => x.ActiveRepair is null ? (Instant?)null : x.ActiveRepair.EarliestAffectedBarUtc)
+        .Where(x => x.HasValue)
+        .DefaultIfEmpty(null)
+        .Min();
 
     public IntradayUniverseReadinessView ToView() =>
         new(
@@ -27,6 +37,9 @@ public sealed record IntradayUniverseRuntimeSnapshot(
             TotalSymbolCount,
             ReadySymbolCount,
             NotReadySymbolCount,
+            ActiveRepairSymbolCount,
+            PendingRecomputeSymbolCount,
+            EarliestAffectedBarUtc,
             Symbols.Select(x => x.ToView(AsOfUtc)).ToArray());
 
     public static IntradayUniverseRuntimeSnapshot Empty(Instant asOfUtc, string interval = "1min", string profileKey = "intraday_core") =>

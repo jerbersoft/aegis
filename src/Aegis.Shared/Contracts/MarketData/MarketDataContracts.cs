@@ -60,7 +60,10 @@ public sealed record IntradaySymbolReadinessView(
     Instant? LastFinalizedBarUtc,
     Instant LastStateChangedUtc,
     string? ActiveGapType,
-    Instant? ActiveGapStartUtc);
+    Instant? ActiveGapStartUtc,
+    bool HasActiveRepair,
+    bool PendingRecompute,
+    Instant? EarliestAffectedBarUtc);
 
 public sealed record IntradayUniverseReadinessView(
     string Interval,
@@ -71,6 +74,9 @@ public sealed record IntradayUniverseReadinessView(
     int TotalSymbolCount,
     int ReadySymbolCount,
     int NotReadySymbolCount,
+    int ActiveRepairSymbolCount,
+    int PendingRecomputeSymbolCount,
+    Instant? EarliestAffectedBarUtc,
     IReadOnlyList<IntradaySymbolReadinessView> Symbols);
 
 public sealed record DailyBarView(

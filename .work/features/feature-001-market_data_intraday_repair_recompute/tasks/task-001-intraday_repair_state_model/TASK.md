@@ -6,9 +6,9 @@ Feature Folder: feature-001-market_data_intraday_repair_recompute
 Task ID: task-001
 Task Folder: task-001-intraday_repair_state_model
 Title: Define intraday repair state model and orchestration semantics
-Status: draft
-Current Owner: architect
-Acceptance Status: not_covered
+Status: closed
+Current Owner: reviewer
+Acceptance Status: covered_in_acceptance
 Acceptance Document: ../ACCEPTANCE.md
 Created Date: 2026-03-13
 Last Updated: 2026-03-13
@@ -36,7 +36,7 @@ Define the first implementation task for explicit `1-min` intraday repair progre
 - none
 
 ## Next Action
-Review and refine the proposed repair lifecycle semantics, then hand this task to `planner` for a developer-ready handoff.
+Task approved. Keep this task ready for feature-level acceptance coverage, then proceed to dependent task `task-002-intraday_recompute_execution`.
 
 ## Linked Artifacts
 - `developer_handoff.md`
