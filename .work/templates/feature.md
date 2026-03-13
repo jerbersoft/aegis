@@ -8,6 +8,11 @@ Priority: {{priority}}
 Status: {{feature_status}}
 Current Active Task: {{current_task_or_none}}
 Current Owner: {{current_owner}}
+Recorded Base Branch: {{recorded_base_branch}}
+Recorded Worktree Branch: {{recorded_worktree_branch}}
+Recorded Worktree Path: {{recorded_worktree_path}}
+Environment Status: {{environment_status}}
+Last Prepared At: {{last_prepared_at}}
 Created Date: {{created_date}}
 Last Updated: {{last_updated}}
 
@@ -23,6 +28,10 @@ Requested By: {{requested_by}}
 
 ## Feature-Level Blockers
 - {{feature_blocker_or_none}}
+
+## Started Processes
+- {{started_process_1_or_none}}
+- {{started_process_2_or_none}}
 
 ## Task Index
 - Repeat this pattern for as many tasks as needed.
@@ -50,3 +59,4 @@ Workflow status notes:
 
 - Keep `Current Active Task`, task statuses, and `Next Action` aligned with the actual execution loop state.
 - Keep the feature `in_progress` until acceptance work is complete, even if all tasks are already `ready`.
+- Keep environment metadata aligned with the currently prepared worktree state and only list processes started or tracked by `orchestrator`.

@@ -28,7 +28,7 @@ This repository uses `.work/` as the source of truth for internal feature tracki
 ### Implementation worktrees
 
 - Implementation worktrees are separate sibling checkouts outside the repository folder.
-- Recommended worktree root: `/Users/herbertsabanal/Projects/aegis-worktrees/`.
+- Required hidden sibling worktree root: `/Users/herbertsabanal/Projects/.aegis-worktrees/`.
 - Each implementation worktree is a full checkout of the repository, not just `src/` and `tests/`.
 - `developer`, `tester`, and `reviewer` operate in an assigned implementation worktree.
 - Worktree-local copies of `.work/` are not authoritative and must not be treated as the source of truth for workflow state.
@@ -43,7 +43,7 @@ This repository uses `.work/` as the source of truth for internal feature tracki
 
 ### Worktree naming and location
 
-- Worktree folders should live under the sibling worktree root, for example `/Users/herbertsabanal/Projects/aegis-worktrees/`.
+- Worktree folders must live under the hidden sibling worktree root `/Users/herbertsabanal/Projects/.aegis-worktrees/`.
 - Worktree folders must use this format:
 
 ```text
@@ -65,6 +65,39 @@ Examples:
 - `developer`, `tester`, and `reviewer` should read canonical task/feature docs from the main workspace, even when executing inside a worktree.
 - Code, tests, runtime verification, and review inspection happen in the assigned worktree.
 - Acceptance and final summaries are written in the main workspace.
+- `orchestrator` must record the full hidden worktree path in feature metadata so acceptance preparation, cleanup, and PR creation operate on the correct worktree.
+
+### Environment and process tracking
+
+- `orchestrator` must record environment and process-tracking metadata in `feature.md` for each active implementation lane.
+- This metadata is used for acceptance preparation, cleanup, and close-feature PR creation.
+- `orchestrator` must only stop processes that it started or explicitly tracked for that feature.
+- Owner-started or unrelated processes must not be terminated by workflow automation.
+
+Minimum environment/process metadata:
+
+- `environment_status`
+- `recorded_base_branch`
+- `recorded_worktree_branch`
+- `recorded_worktree_path`
+- `started_processes`
+- `last_prepared_at`
+
+Suggested `environment_status` values:
+
+- `not_prepared`
+- `prepared`
+- `running`
+- `stopped`
+- `blocked`
+
+`started_processes` should capture enough detail to stop only the correct processes later, such as:
+
+- logical process name
+- command used
+- pid when available
+- worktree path
+- started by `orchestrator`
 
 ## Directory structure
 
@@ -186,7 +219,8 @@ Each task folder should contain:
 - Requires feature and task tracking to be complete before task execution begins.
 - For new planning work, routing to `Architect` happens before the execution loop starts, not inside it.
 - When beginning work on a feature, creates or reuses an implementation worktree from the current branch.
-- Uses a sibling worktree folder outside the repository, typically under `/Users/herbertsabanal/Projects/aegis-worktrees/`.
+- Uses a hidden sibling worktree folder outside the repository under `/Users/herbertsabanal/Projects/.aegis-worktrees/`.
+- Records environment and process-tracking metadata for the active feature.
 - Asks `planner` for the next task that should be worked on.
 - Routes the selected task through `developer` -> `tester` -> `reviewer`.
 - After each completed task cycle, asks `planner` whether another task is ready.
@@ -264,6 +298,8 @@ Each task folder should contain:
 - Before task execution begins, the owner or user selects the base branch in the main workspace.
 - `orchestrator` then creates or reuses an implementation worktree from the current branch.
 - The worktree branch and worktree folder must use the same implementation-lane name, for example `feature-001-market_data_implementation-impl-01`.
+- `orchestrator` must record the full hidden worktree path in feature metadata before delegating task execution.
+- `orchestrator` must also initialize environment status and process-tracking metadata before acceptance preparation begins.
 
 ### 2. Task selection
 
@@ -317,7 +353,9 @@ Each task folder should contain:
 - When `planner` reports that no more required tasks remain, `orchestrator` asks `acceptance` to create or update feature-level `ACCEPTANCE.md`.
 - `acceptance` does not need a separate user confirmation when this work is explicitly delegated by `Orchestrator` as part of the internal workflow.
 - `ACCEPTANCE.md` should explicitly cover the tasks that are being accepted so `Orchestrator` can close them.
-- The owner validates the accepted feature against the implementation worktree state; merge or PR is not required before local acceptance testing.
+- `orchestrator` prepares the environment from the recorded hidden worktree path and shows the preview of `ACCEPTANCE.md` so the owner does not need to manually navigate into the worktree directory.
+- `orchestrator` should record the prepared environment status, preparation timestamp, and any started processes before presenting the acceptance preview.
+- The owner validates the accepted feature against the prepared implementation worktree state; merge or PR is not required before local acceptance testing.
 - `ACCEPTANCE.md` should tell the user:
   - how to run the app
   - what prerequisites are required
@@ -495,6 +533,12 @@ Should capture at least:
 - objective
 - feature-level blockers
 - current active task
+- recorded base branch
+- recorded worktree branch
+- recorded worktree path
+- environment status
+- started processes
+- last prepared at
 - task index with statuses and dependencies
 - next action
 - linked artifacts including `ACCEPTANCE.md`
