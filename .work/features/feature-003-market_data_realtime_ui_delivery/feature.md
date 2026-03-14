@@ -5,21 +5,21 @@ Feature ID: feature-003
 Feature Folder: feature-003-market_data_realtime_ui_delivery
 Title: MarketData realtime UI delivery
 Priority: high
-Status: draft
+Status: in_progress
 Current Active Task: none
-Current Owner: architect
+Current Owner: orchestrator
 Main Workspace Path: /Users/herbertsabanal/Projects/aegis
 Main Workspace Branch: master
-Main Workspace Branch Verified: unknown
-Recorded Base Branch: not_recorded
-Recorded Worktree Branch: not_recorded
-Recorded Worktree Path: not_recorded
-PR Status: not_requested
+Main Workspace Branch Verified: yes
+Recorded Base Branch: master
+Recorded Worktree Branch: feature-003-market_data_realtime_ui_delivery
+Recorded Worktree Path: /Users/herbertsabanal/Projects/.aegis-worktrees/feature-003-market_data_realtime_ui_delivery-impl-01
+PR Status: ready_to_create
 PR URL: none
-Environment Status: not_prepared
-Last Prepared At: not_prepared
+Environment Status: stopped
+Last Prepared At: 2026-03-14T09:40:00Z
 Created Date: 2026-03-13
-Last Updated: 2026-03-13
+Last Updated: 2026-03-14
 
 ## Source
 Request Source: next implementation priority after feature-002 completion
@@ -47,16 +47,16 @@ Define and track the next `MarketData` feature after intraday repair progression
 - none
 
 ## Task Index
-- `task-001-signalr_contract_and_delivery_model` - Define SignalR contract, topology, and delivery semantics - draft - depends on: none
-- `task-002-backend_marketdata_realtime_publishers` - Implement backend MarketData realtime publishers and hub wiring - draft - depends on: task-001-signalr_contract_and_delivery_model
-- `task-003-web_realtime_consumers` - Implement web realtime consumers for Home and Watchlists surfaces - draft - depends on: task-001-signalr_contract_and_delivery_model, task-002-backend_marketdata_realtime_publishers
+- `task-001-signalr_contract_and_delivery_model` - Define SignalR contract, topology, and delivery semantics - closed - depends on: none
+- `task-002-backend_marketdata_realtime_publishers` - Implement backend MarketData realtime publishers and hub wiring - closed - depends on: task-001-signalr_contract_and_delivery_model
+- `task-003-web_realtime_consumers` - Implement web realtime consumers for Home and Watchlists surfaces - closed - depends on: task-001-signalr_contract_and_delivery_model, task-002-backend_marketdata_realtime_publishers
 
 Status note:
 
 - Keep task index statuses aligned with each task's `TASK.md` so `planner` does not re-select already approved work.
 
 ## Next Action
-Planner should prepare `developer_handoff.md` for `task-001-signalr_contract_and_delivery_model` first.
+Create the publication commit, push `feature-003-market_data_realtime_ui_delivery`, and open the PR against `master`.
 
 ## Recommended Execution Sequence
 1. Complete `task-001-signalr_contract_and_delivery_model` first so the hub contract, authoritative-state model, and fan-out rules are fixed before implementation spreads across backend and web clients.
@@ -70,6 +70,7 @@ Planner should prepare `developer_handoff.md` for `task-001-signalr_contract_and
 - The current Home `MarketData` widget already exposes meaningful `MarketData` state through pull/refresh behavior, so it is an appropriate first realtime consumer surface alongside Watchlists.
 - `docs/ARCHITECTURE.md` and `docs/CONSTITUTION.md` already approve `SignalR` for realtime UI updates, but the delivery contract, scope boundaries, and verification approach still need to be made implementation-ready.
 - Push notifications must not become the only source of truth; the architecture still expects authoritative current truth from pull-style query services.
+- Workflow note: repository workflow docs describe worktree branches matching the worktree folder name, but orchestrator startup instructions require the feature branch to match the feature folder name; this feature is using the feature-folder branch name per orchestrator instruction while recording the distinct worktree path.
 
 ## Linked Artifacts
 - `ACCEPTANCE.md`

@@ -6,12 +6,12 @@ Feature Folder: feature-003-market_data_realtime_ui_delivery
 Task ID: task-002
 Task Folder: task-002-backend_marketdata_realtime_publishers
 Title: Implement backend MarketData realtime publishers and hub wiring
-Status: draft
-Current Owner: architect
-Acceptance Status: not_covered
+Status: closed
+Current Owner: orchestrator
+Acceptance Status: covered_in_acceptance
 Acceptance Document: ../ACCEPTANCE.md
 Created Date: 2026-03-13
-Last Updated: 2026-03-13
+Last Updated: 2026-03-14
 
 Allowed Acceptance Status Values: `not_covered | covered_in_acceptance | not_applicable`
 Recommended Task Status Values: `draft | in_progress | ready | blocked | closed`
@@ -42,7 +42,11 @@ Status note:
 - Use `closed` only after the task is represented in feature-level `ACCEPTANCE.md`.
 
 ## Next Action
-Wait for `task-001-signalr_contract_and_delivery_model` to complete, then planner can prepare the handoff for this task.
+Task is covered in feature acceptance and closed.
+
+## Rework Notes
+- Reviewer requested that `MarketDataWatchlistSubscriptionRequest` honor the approved `snake_case` wire contract for SignalR request binding.
+- Reviewer requested true watchlist coalescing with deferred flush behavior so in-window updates are not dropped when the throttle window expires without another publish.
 
 ## Linked Artifacts
 - `developer_handoff.md`

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { getDailyReadiness, getIntradayReadiness, getMarketDataBootstrapStatus, runMarketDataBootstrap } from "@/lib/api/market-data";
 import { DailyUniverseReadinessView, IntradayUniverseReadinessView, MarketDataBootstrapStatusView } from "@/lib/types/market-data";
 
@@ -12,7 +12,7 @@ export function useMarketDataBootstrap() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function refresh() {
+  const refresh = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
@@ -26,9 +26,9 @@ export function useMarketDataBootstrap() {
     } finally {
       setIsLoading(false);
     }
-  }
+  }, []);
 
-  async function runBootstrap() {
+  const runBootstrap = useCallback(async () => {
     setIsRefreshing(true);
     setError(null);
     try {
@@ -42,11 +42,11 @@ export function useMarketDataBootstrap() {
     } finally {
       setIsRefreshing(false);
     }
-  }
+  }, []);
 
   useEffect(() => {
     void refresh();
-  }, []);
+  }, [refresh]);
 
   return { status, dailyReadiness, intradayReadiness, isLoading, isRefreshing, error, refresh, runBootstrap };
 }

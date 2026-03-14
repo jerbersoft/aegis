@@ -31,6 +31,7 @@ builder.Services
 
 builder.Services.AddAuthorization();
 builder.Services.ConfigureHttpJsonOptions(options => AegisJson.Configure(options.SerializerOptions));
+builder.Services.Configure<MarketDataRealtimeOptions>(builder.Configuration.GetSection(MarketDataRealtimeOptions.SectionName));
 builder.Services.AddCors(options =>
 {
     var configuredOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
@@ -98,6 +99,10 @@ builder.Services.AddScoped<DailyMarketDataHydrationService>();
 builder.Services.AddScoped<IntradayMarketDataHydrationService>();
 builder.Services.AddScoped<MarketDataBootstrapService>();
 builder.Services.AddScoped<UniverseService>();
+builder.Services.AddSingleton<IMarketDataRealtimeOrchestrator, MarketDataRealtimeOrchestrator>();
+builder.Services.AddSingleton<IMarketDataWatchlistSnapshotBuilder, MarketDataWatchlistSnapshotBuilder>();
+builder.Services.AddSingleton<MarketDataRealtimeNotifier>();
+builder.Services.AddSignalR().AddJsonProtocol(options => AegisJson.Configure(options.PayloadSerializerOptions));
 if (alpacaSymbolReferenceOptions.UseFakeProvider)
 {
     builder.Services.AddScoped<ISymbolReferenceProvider, FakeSymbolReferenceProvider>();
@@ -156,6 +161,7 @@ using (var scope = app.Services.CreateScope())
 app.MapAuthEndpoints();
 app.MapMarketDataEndpoints();
 app.MapUniverseEndpoints();
+app.MapHub<MarketDataHub>(Aegis.Shared.Contracts.MarketData.MarketDataRealtimeContract.HubPath).RequireAuthorization();
 app.MapDefaultEndpoints();
 
 app.Run();
