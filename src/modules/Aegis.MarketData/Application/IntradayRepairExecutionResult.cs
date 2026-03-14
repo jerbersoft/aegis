@@ -14,8 +14,11 @@ internal sealed record IntradayRepairExecutionResult(
     public static IntradayRepairExecutionResult NoRepairRequired() =>
         new(true, null, null, null, null, null);
 
-    public static IntradayRepairExecutionResult AwaitingRecompute(IntradayRepairState repairState) =>
-        new(false, repairState with { PendingRecompute = true }, null, null, null, IntradayRepairState.AwaitingRecomputeReasonCode);
+    public static IntradayRepairExecutionResult AwaitingRecompute(
+        IReadOnlyList<DailyBarView> repairedBars,
+        IntradayRepairState repairState,
+        Instant recomputedFromUtc) =>
+        new(false, repairState with { PendingRecompute = true }, repairedBars, recomputedFromUtc, null, IntradayRepairState.AwaitingRecomputeReasonCode);
 
     public static IntradayRepairExecutionResult Completed(
         IReadOnlyList<DailyBarView> repairedBars,

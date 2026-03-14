@@ -15,12 +15,20 @@ public sealed record IntradayRepairState(
     string PrimaryReasonCode,
     IReadOnlyList<string> CauseCodes,
     string PriorityTier,
+    string OrchestrationState,
     Instant EarliestAffectedBarUtc,
     bool PendingRecompute,
+    int AttemptCount,
     Instant LastDetectedUtc,
+    Instant? LastAttemptStartedUtc,
+    Instant? NextEligibleAttemptUtc,
     int MaxConcurrentJobs)
 {
     public const string RepairingState = "repairing";
+    public const string QueuedOrchestrationState = "queued";
+    public const string RunningOrchestrationState = "running";
+    public const string RetryBackoffOrchestrationState = "retry_backoff";
+    public const string AwaitingRecomputeOrchestrationState = "awaiting_recompute";
     public const string GapTrailingReasonCode = "gap_trailing";
     public const string GapInternalReasonCode = "gap_internal";
     public const string CorrectedFinalizedBarReasonCode = "corrected_finalized_bar";
@@ -32,6 +40,8 @@ public sealed record IntradayRepairState(
     public const string HighPriorityTier = "high";
     public const string NormalPriorityTier = "normal";
     public const int DefaultMaxConcurrentJobs = 4;
+    private static readonly Duration BaseRetryBackoff = Duration.FromMinutes(1);
+    private static readonly Duration MaxRetryBackoff = Duration.FromMinutes(15);
 
     public static IntradayRepairState? Create(
         string symbol,
@@ -69,10 +79,87 @@ public sealed record IntradayRepairState(
             primaryTrigger.CauseCode,
             normalizedTriggers.Select(trigger => trigger.CauseCode).ToArray(),
             primaryTrigger.PriorityTier,
+            QueuedOrchestrationState,
             earliestAffectedBarUtc,
-            true,
+            false,
+            0,
+            detectedAtUtc,
+            null,
             detectedAtUtc,
             maxConcurrentJobs);
+    }
+
+    public bool CanStartAttempt(Instant now) => !NextEligibleAttemptUtc.HasValue || NextEligibleAttemptUtc.Value <= now;
+
+    public IntradayRepairState MergeDetectedRepair(IntradayRepairState detectedRepair, Instant detectedAtUtc)
+    {
+        if (!string.Equals(JobKey, detectedRepair.JobKey, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("Cannot merge repair state for different repair jobs.");
+        }
+
+        var mergedTriggers = CauseCodes
+            .Select(causeCode => new IntradayRepairTrigger(causeCode, EarliestAffectedBarUtc, PriorityTier))
+            .Concat(detectedRepair.CauseCodes.Select(causeCode => new IntradayRepairTrigger(causeCode, detectedRepair.EarliestAffectedBarUtc, detectedRepair.PriorityTier)));
+        var merged = Create(Symbol, Interval, ProfileKey, mergedTriggers, detectedAtUtc, MaxConcurrentJobs);
+        if (merged is null)
+        {
+            return this;
+        }
+
+        var widenedEarlier = merged.EarliestAffectedBarUtc < EarliestAffectedBarUtc;
+        var raisedPriority = GetPriorityRank(merged.PriorityTier) > GetPriorityRank(PriorityTier);
+
+        return merged with
+        {
+            OrchestrationState = widenedEarlier || raisedPriority ? QueuedOrchestrationState : OrchestrationState,
+            PendingRecompute = PendingRecompute,
+            AttemptCount = AttemptCount,
+            LastAttemptStartedUtc = LastAttemptStartedUtc,
+            NextEligibleAttemptUtc = widenedEarlier || raisedPriority ? detectedAtUtc : NextEligibleAttemptUtc,
+            LastDetectedUtc = detectedAtUtc
+        };
+    }
+
+    public IntradayRepairState MarkAttemptStarted(Instant startedAtUtc) =>
+        this with
+        {
+            OrchestrationState = RunningOrchestrationState,
+            PendingRecompute = false,
+            AttemptCount = AttemptCount + 1,
+            LastAttemptStartedUtc = startedAtUtc,
+            LastDetectedUtc = startedAtUtc,
+            NextEligibleAttemptUtc = null
+        };
+
+    public IntradayRepairState MarkAwaitingRecompute(Instant detectedAtUtc) =>
+        this with
+        {
+            OrchestrationState = AwaitingRecomputeOrchestrationState,
+            PendingRecompute = true,
+            LastDetectedUtc = detectedAtUtc,
+            NextEligibleAttemptUtc = detectedAtUtc
+        };
+
+    public IntradayRepairState MarkFailed(Instant failedAtUtc) =>
+        this with
+        {
+            OrchestrationState = RetryBackoffOrchestrationState,
+            PendingRecompute = false,
+            LastDetectedUtc = failedAtUtc,
+            NextEligibleAttemptUtc = failedAtUtc + ComputeRetryBackoff(AttemptCount)
+        };
+
+    private static Duration ComputeRetryBackoff(int attemptCount)
+    {
+        if (attemptCount <= 0)
+        {
+            return BaseRetryBackoff;
+        }
+
+        var multiplier = 1 << Math.Min(attemptCount - 1, 4);
+        var computed = Duration.FromMinutes(BaseRetryBackoff.TotalMinutes * multiplier);
+        return computed > MaxRetryBackoff ? MaxRetryBackoff : computed;
     }
 
     public static string BuildJobKey(string symbol, string interval, string profileKey) =>

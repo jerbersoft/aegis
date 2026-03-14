@@ -268,9 +268,16 @@ public sealed class MarketDataBootstrapServiceTests
         await service.GetStatusAsync(CancellationToken.None);
         await RemoveIntradayBarsAsync(dbContext, "AAPL", [Instant.FromUtc(2026, 3, 12, 15, 59), Instant.FromUtc(2026, 3, 12, 16, 0)]);
         await service.GetStatusAsync(CancellationToken.None);
+        var awaitingRecompute = await service.GetIntradayReadinessAsync("AAPL", CancellationToken.None);
+        await service.GetStatusAsync(CancellationToken.None);
         var readiness = await service.GetIntradayReadinessAsync("AAPL", CancellationToken.None);
         var snapshot = intradayRuntimeStore.GetSymbol("AAPL");
 
+        awaitingRecompute.ShouldNotBeNull();
+        awaitingRecompute.ReadinessState.ShouldBe("repairing");
+        awaitingRecompute.ReasonCode.ShouldBe(IntradayRepairState.AwaitingRecomputeReasonCode);
+        awaitingRecompute.HasActiveRepair.ShouldBeTrue();
+        awaitingRecompute.PendingRecompute.ShouldBeTrue();
         readiness.ShouldNotBeNull();
         readiness.ReadinessState.ShouldBe("ready");
         readiness.ReasonCode.ShouldBe("none");
@@ -315,9 +322,16 @@ public sealed class MarketDataBootstrapServiceTests
         await service.GetStatusAsync(CancellationToken.None);
         await RemoveIntradayBarsAsync(dbContext, "AAPL", [Instant.FromUtc(2026, 3, 12, 14, 40)]);
         await service.GetStatusAsync(CancellationToken.None);
+        var awaitingRecompute = await service.GetIntradayReadinessAsync("AAPL", CancellationToken.None);
+        await service.GetStatusAsync(CancellationToken.None);
         var readiness = await service.GetIntradayReadinessAsync("AAPL", CancellationToken.None);
         var snapshot = intradayRuntimeStore.GetSymbol("AAPL");
 
+        awaitingRecompute.ShouldNotBeNull();
+        awaitingRecompute.ReadinessState.ShouldBe("repairing");
+        awaitingRecompute.ReasonCode.ShouldBe(IntradayRepairState.AwaitingRecomputeReasonCode);
+        awaitingRecompute.HasActiveRepair.ShouldBeTrue();
+        awaitingRecompute.PendingRecompute.ShouldBeTrue();
         readiness.ShouldNotBeNull();
         readiness.ReadinessState.ShouldBe("ready");
         readiness.ReasonCode.ShouldBe("none");
@@ -418,10 +432,17 @@ public sealed class MarketDataBootstrapServiceTests
         correctedBar.IsReconciled = false;
         await dbContext.SaveChangesAsync();
         await service.GetStatusAsync(CancellationToken.None);
+        var awaitingRecompute = await service.GetIntradayReadinessAsync("AAPL", CancellationToken.None);
+        await service.GetStatusAsync(CancellationToken.None);
         var readiness = await service.GetIntradayReadinessAsync("AAPL", CancellationToken.None);
         var runtimeSnapshot = intradayRuntimeStore.GetSymbol("AAPL");
         var repairedBar = await dbContext.Bars.SingleAsync(x => x.Symbol == "AAPL" && x.Interval == IntradayMarketDataHydrationService.IntradayInterval && x.BarTimeUtc == correctedBarTime);
 
+        awaitingRecompute.ShouldNotBeNull();
+        awaitingRecompute.ReadinessState.ShouldBe("repairing");
+        awaitingRecompute.ReasonCode.ShouldBe(IntradayRepairState.AwaitingRecomputeReasonCode);
+        awaitingRecompute.HasActiveRepair.ShouldBeTrue();
+        awaitingRecompute.PendingRecompute.ShouldBeTrue();
         readiness.ShouldNotBeNull();
         readiness.ReadinessState.ShouldBe("ready");
         readiness.ReasonCode.ShouldBe("none");
@@ -471,6 +492,107 @@ public sealed class MarketDataBootstrapServiceTests
     }
 
     [Fact]
+    public async Task GetStatusAsync_ShouldKeepFailedRepairInBackoff_WithoutStartingDuplicateAttempt()
+    {
+        await using var dbContext = CreateDbContext();
+        var dailyRuntimeStore = new MarketDataDailyRuntimeStore();
+        var intradayRuntimeStore = new MarketDataIntradayRuntimeStore();
+        var demandReader = new StubDemandReader(["AAPL"], ["AAPL"]);
+        var clock = new FakeClock(Instant.FromUtc(2026, 3, 12, 15, 0));
+        var provider = new RepairFailingHistoricalBarProvider();
+
+        SeedIntradayBars(dbContext, "AAPL", 11, 390, clock.GetCurrentInstant(), skippedBars: [new IntradaySkippedBar(10, 10)]);
+        await dbContext.SaveChangesAsync();
+
+        var service = new MarketDataBootstrapService(
+            dbContext,
+            demandReader,
+            provider,
+            new MarketDataBootstrapStateStore(),
+            new DailyMarketDataHydrationService(dbContext, demandReader, dailyRuntimeStore, clock),
+            dailyRuntimeStore,
+            CreateIntradayHydrationService(dbContext, demandReader, intradayRuntimeStore, clock, provider),
+            intradayRuntimeStore,
+            clock);
+
+        await service.GetStatusAsync(CancellationToken.None);
+        provider.IntradayAttemptCount.ShouldBe(1);
+
+        await service.GetStatusAsync(CancellationToken.None);
+        provider.IntradayAttemptCount.ShouldBe(1);
+
+        var readiness = await service.GetIntradayReadinessAsync("AAPL", CancellationToken.None);
+        readiness.ShouldNotBeNull();
+        readiness.ReadinessState.ShouldBe("repairing");
+        readiness.ReasonCode.ShouldBe(IntradayRepairState.RepairFetchFailedReasonCode);
+        readiness.HasActiveRepair.ShouldBeTrue();
+        readiness.PendingRecompute.ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task GetStatusAsync_ShouldRespectBoundedConcurrency_AndPreferHigherPriorityRepairs()
+    {
+        await using var dbContext = CreateDbContext();
+        var dailyRuntimeStore = new MarketDataDailyRuntimeStore();
+        var intradayRuntimeStore = new MarketDataIntradayRuntimeStore();
+        var demandReader = new StubDemandReader(["AAPL", "MSFT", "AMD", "TSLA", "NVDA"], ["AAPL", "MSFT", "AMD", "TSLA", "NVDA"]);
+        var clock = new FakeClock(Instant.FromUtc(2026, 3, 12, 15, 0));
+        var provider = new BoundedConcurrencyHistoricalBarProvider();
+
+        SeedIntradayBars(dbContext, "AAPL", 11, 390, clock.GetCurrentInstant(), skippedBars: [new IntradaySkippedBar(10, 20)]);
+        SeedIntradayBars(dbContext, "MSFT", 11, 390, clock.GetCurrentInstant(), skippedBars: [new IntradaySkippedBar(10, 10)]);
+        SeedIntradayBars(dbContext, "AMD", 11, 390, clock.GetCurrentInstant(), skippedBars: [new IntradaySkippedBar(10, 25)]);
+        SeedIntradayBars(dbContext, "TSLA", 11, 390, clock.GetCurrentInstant(), skippedBars: [new IntradaySkippedBar(10, 15)]);
+        SeedIntradayBars(dbContext, "NVDA", 11, 390, clock.GetCurrentInstant());
+        await dbContext.SaveChangesAsync();
+
+        var correctedBar = await dbContext.Bars.SingleAsync(x => x.Symbol == "NVDA" && x.Interval == IntradayMarketDataHydrationService.IntradayInterval && x.BarTimeUtc == Instant.FromUtc(2026, 3, 12, 14, 55));
+        correctedBar.RuntimeState = "corrected";
+        correctedBar.IsReconciled = false;
+        await dbContext.SaveChangesAsync();
+
+        var service = new MarketDataBootstrapService(
+            dbContext,
+            demandReader,
+            provider,
+            new MarketDataBootstrapStateStore(),
+            new DailyMarketDataHydrationService(dbContext, demandReader, dailyRuntimeStore, clock),
+            dailyRuntimeStore,
+            CreateIntradayHydrationService(dbContext, demandReader, intradayRuntimeStore, clock, provider),
+            intradayRuntimeStore,
+            clock);
+
+        await service.GetStatusAsync(CancellationToken.None);
+
+        provider.IntradayRequests.Count.ShouldBe(IntradayRepairState.DefaultMaxConcurrentJobs);
+        provider.IntradayRequests.Select(x => x.Symbol).ShouldBe(["MSFT", "TSLA", "AAPL", "AMD"]);
+
+        var aapl = await service.GetIntradayReadinessAsync("AAPL", CancellationToken.None);
+        var msft = await service.GetIntradayReadinessAsync("MSFT", CancellationToken.None);
+        var amd = await service.GetIntradayReadinessAsync("AMD", CancellationToken.None);
+        var tsla = await service.GetIntradayReadinessAsync("TSLA", CancellationToken.None);
+        var nvda = await service.GetIntradayReadinessAsync("NVDA", CancellationToken.None);
+
+        aapl.ShouldNotBeNull();
+        msft.ShouldNotBeNull();
+        amd.ShouldNotBeNull();
+        tsla.ShouldNotBeNull();
+        nvda.ShouldNotBeNull();
+        aapl.ReadinessState.ShouldBe("repairing");
+        msft.ReadinessState.ShouldBe("repairing");
+        amd.ReadinessState.ShouldBe("repairing");
+        tsla.ReadinessState.ShouldBe("repairing");
+        aapl.PendingRecompute.ShouldBeTrue();
+        msft.PendingRecompute.ShouldBeTrue();
+        amd.PendingRecompute.ShouldBeTrue();
+        tsla.PendingRecompute.ShouldBeTrue();
+        nvda.ReadinessState.ShouldBe("repairing");
+        nvda.ReasonCode.ShouldBe(IntradayRepairState.CorrectedFinalizedBarReasonCode);
+        nvda.HasActiveRepair.ShouldBeTrue();
+        nvda.PendingRecompute.ShouldBeFalse();
+    }
+
+    [Fact]
     public async Task GetIntradayReadinessAsync_ShouldRestoreReadinessOnlyAfterValidationSucceeds()
     {
         await using var dbContext = CreateDbContext();
@@ -495,8 +617,14 @@ public sealed class MarketDataBootstrapServiceTests
             clock);
 
         await service.GetStatusAsync(CancellationToken.None);
+        var awaitingRecompute = await service.GetIntradayReadinessAsync("AAPL", CancellationToken.None);
+        await service.GetStatusAsync(CancellationToken.None);
         var readiness = await service.GetIntradayReadinessAsync("AAPL", CancellationToken.None);
 
+        awaitingRecompute.ShouldNotBeNull();
+        awaitingRecompute.ReadinessState.ShouldBe("repairing");
+        awaitingRecompute.ReasonCode.ShouldBe(IntradayRepairState.AwaitingRecomputeReasonCode);
+        awaitingRecompute.PendingRecompute.ShouldBeTrue();
         readiness.ShouldNotBeNull();
         readiness.ReadinessState.ShouldBe("repairing");
         readiness.ReasonCode.ShouldBe(IntradayRepairState.RepairValidationFailedReasonCode);
@@ -831,11 +959,41 @@ public sealed class MarketDataBootstrapServiceTests
 
     private sealed class RepairFailingHistoricalBarProvider : IHistoricalBarProvider
     {
+        public int IntradayAttemptCount { get; private set; }
+
         public Task<HistoricalBarBatchResult> GetDailyBarsAsync(HistoricalBarRequest request, CancellationToken cancellationToken) =>
             new StubHistoricalBarProvider().GetDailyBarsAsync(request, cancellationToken);
 
-        public Task<HistoricalBarBatchResult> GetIntradayBarsAsync(IntradayBarRequest request, CancellationToken cancellationToken) =>
-            Task.FromResult(HistoricalBarBatchResult.Failure(request.Symbol, request.Interval, "fake", "iex", "repair_failed", "repair fetch failed"));
+        public Task<HistoricalBarBatchResult> GetIntradayBarsAsync(IntradayBarRequest request, CancellationToken cancellationToken)
+        {
+            IntradayAttemptCount++;
+            return Task.FromResult(HistoricalBarBatchResult.Failure(request.Symbol, request.Interval, "fake", "iex", "repair_failed", "repair fetch failed"));
+        }
+    }
+
+    private sealed class BoundedConcurrencyHistoricalBarProvider : IHistoricalBarProvider
+    {
+        public List<IntradayBarRequest> IntradayRequests { get; } = [];
+
+        public Task<HistoricalBarBatchResult> GetDailyBarsAsync(HistoricalBarRequest request, CancellationToken cancellationToken) =>
+            new StubHistoricalBarProvider().GetDailyBarsAsync(request, cancellationToken);
+
+        public Task<HistoricalBarBatchResult> GetIntradayBarsAsync(IntradayBarRequest request, CancellationToken cancellationToken)
+        {
+            IntradayRequests.Add(request);
+
+            if (string.Equals(request.Symbol, "NVDA", StringComparison.OrdinalIgnoreCase))
+            {
+                return Task.FromResult(HistoricalBarBatchResult.Success(request.Symbol, request.Interval, [], "fake", "iex"));
+            }
+
+            var bars = BuildIntradayBars(request.Symbol, request.Interval, 11, 390)
+                .Where(bar => (!request.FromUtc.HasValue || bar.BarTimeUtc >= request.FromUtc.Value)
+                              && (!request.ToUtc.HasValue || bar.BarTimeUtc <= request.ToUtc.Value))
+                .ToArray();
+
+            return Task.FromResult(HistoricalBarBatchResult.Success(request.Symbol, request.Interval, bars, "fake", "iex"));
+        }
     }
 
     private sealed class ValidationFailingHistoricalBarProvider : IHistoricalBarProvider
