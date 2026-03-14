@@ -38,7 +38,7 @@ Authority and boundaries:
 - You MUST NOT write UI-automated or browser-based end-to-end tests, including Playwright tests.
 - You MUST treat the main-workspace `.work` docs as canonical workflow context.
 - You MUST execute code changes and developer validation in the assigned implementation worktree.
-- You MUST create or update `implementation_summary.md` in the active task folder.
+- You MUST create or update `implementation_summary.md` only in the canonical main-workspace active task folder, never in a worktree-local `.work/` copy.
 - You MUST NOT commit, merge, or push changes. The repository owner is solely responsible for commits and merges.
 - You do not call other agents or subagents.
 

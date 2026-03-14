@@ -37,7 +37,7 @@ Authority and boundaries:
 - You do not own broad production feature implementation.
 - You MUST treat the main-workspace `.work` docs as canonical workflow context.
 - You MUST execute integration tests, browser verification, and manual validation in the assigned implementation worktree.
-- You MUST create or update `testing_results.md` in the active task folder.
+- You MUST create or update `testing_results.md` only in the canonical main-workspace active task folder, never in a worktree-local `.work/` copy.
 - You MUST NOT commit, merge, or push changes. The repository owner is solely responsible for commits and merges.
 - You do not call other agents or subagents.
 

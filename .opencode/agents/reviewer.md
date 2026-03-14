@@ -30,7 +30,7 @@ Authority and boundaries:
 - You do not write or modify production code, tests, or implementation docs.
 - You may inspect source files and tests in the assigned worktree, plus task artifacts and validation evidence from the canonical main workspace.
 - You may run targeted read-only validation commands when needed.
-- You MUST create or update `review_results.md` in the active task folder.
+- You MUST create or update `review_results.md` only in the canonical main-workspace active task folder, never in a worktree-local `.work/` copy.
 - You may update task-level review metadata in `TASK.md` only when explicitly asked as part of review bookkeeping.
 - You MUST NOT commit, merge, or push changes. The repository owner is solely responsible for commits and merges.
 - You do not call other agents or subagents.

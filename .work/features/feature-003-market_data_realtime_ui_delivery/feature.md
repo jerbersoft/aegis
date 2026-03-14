@@ -5,7 +5,7 @@ Feature ID: feature-003
 Feature Folder: feature-003-market_data_realtime_ui_delivery
 Title: MarketData realtime UI delivery
 Priority: high
-Status: in_progress
+Status: closed
 Current Active Task: none
 Current Owner: orchestrator
 Main Workspace Path: /Users/herbertsabanal/Projects/aegis
@@ -14,8 +14,8 @@ Main Workspace Branch Verified: yes
 Recorded Base Branch: master
 Recorded Worktree Branch: feature-003-market_data_realtime_ui_delivery
 Recorded Worktree Path: /Users/herbertsabanal/Projects/.aegis-worktrees/feature-003-market_data_realtime_ui_delivery-impl-01
-PR Status: ready_to_create
-PR URL: none
+PR Status: merged
+PR URL: https://github.com/jerbersoft/aegis/pull/1
 Environment Status: stopped
 Last Prepared At: 2026-03-14T09:40:00Z
 Created Date: 2026-03-13
@@ -56,7 +56,7 @@ Status note:
 - Keep task index statuses aligned with each task's `TASK.md` so `planner` does not re-select already approved work.
 
 ## Next Action
-Create the publication commit, push `feature-003-market_data_realtime_ui_delivery`, and open the PR against `master`.
+Feature is merged; no further workflow action is required.
 
 ## Recommended Execution Sequence
 1. Complete `task-001-signalr_contract_and_delivery_model` first so the hub contract, authoritative-state model, and fan-out rules are fixed before implementation spreads across backend and web clients.
@@ -96,4 +96,4 @@ Workflow status notes:
 - Keep environment metadata aligned with the currently prepared worktree state and only list processes started or tracked by `orchestrator`.
 - After `ACCEPTANCE.md` is created, `orchestrator` should ask `runtime` to proactively prepare the acceptance environment from the recorded worktree, record the resulting environment/process state here, and present an owner-facing preview of the acceptance guide.
 - When the owner says `accept this feature` or `reject this feature`, `orchestrator` should immediately ask `runtime` to stop the prepared acceptance environment before updating acceptance state or routing follow-up work.
-- When the owner says `accept this feature` or equivalent, `orchestrator` should treat that as the close-flow command and, per `docs/CONSTITUTION.md`, as the owner command that authorizes publication: stop the prepared acceptance environment if needed via `runtime`, finalize feature closure bookkeeping, and then commit/push/create the PR from the recorded worktree branch to the recorded base branch unless blocked; PR merge or rejection remains with the owner.
+- When the owner says `accept this feature` or equivalent, `orchestrator` should treat that as the close-flow command and, per `docs/CONSTITUTION.md`, as the owner command that authorizes publication: stop the prepared acceptance environment if needed via `runtime`, finalize feature closure bookkeeping, and then commit/push/create the PR from the recorded worktree branch to the recorded base branch unless blocked; after PR creation, owner merge or rejection remains with the owner.
