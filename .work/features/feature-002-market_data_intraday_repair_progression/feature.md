@@ -5,19 +5,19 @@ Feature ID: feature-002
 Feature Folder: feature-002-market_data_intraday_repair_progression
 Title: MarketData intraday repair progression
 Priority: high
-Status: draft
+Status: closed
 Current Active Task: none
-Current Owner: architect
+Current Owner: orchestrator
 Main Workspace Path: /Users/herbertsabanal/Projects/aegis
 Main Workspace Branch: master
 Main Workspace Branch Verified: yes
-Recorded Base Branch: not_recorded
-Recorded Worktree Branch: not_recorded
-Recorded Worktree Path: not_recorded
-PR Status: not_requested
+Recorded Base Branch: master
+Recorded Worktree Branch: feature-002-market_data_intraday_repair_progression-impl-01
+Recorded Worktree Path: /Users/herbertsabanal/Projects/.aegis-worktrees/feature-002-market_data_intraday_repair_progression-impl-01
+PR Status: blocked
 PR URL: none
-Environment Status: not_prepared
-Last Prepared At: not_prepared
+Environment Status: stopped
+Last Prepared At: 2026-03-13
 Created Date: 2026-03-13
 Last Updated: 2026-03-13
 
@@ -47,16 +47,16 @@ Define and track the next `MarketData` implementation slice after gap-aware `1-m
 - none
 
 ## Task Index
-- `task-001-intraday_repair_state_model` - Define intraday repair state model and orchestration semantics - draft - depends on: none
-- `task-002-intraday_recompute_execution` - Define intraday recompute execution and readiness restoration - draft - depends on: task-001-intraday_repair_state_model
-- `task-003-intraday_repair_visibility` - Define intraday repair visibility and verification surfaces - draft - depends on: task-001-intraday_repair_state_model, task-002-intraday_recompute_execution
+- `task-001-intraday_repair_state_model` - Define intraday repair state model and orchestration semantics - closed - depends on: none
+- `task-002-intraday_recompute_execution` - Define intraday recompute execution and readiness restoration - closed - depends on: task-001-intraday_repair_state_model
+- `task-003-intraday_repair_visibility` - Define intraday repair visibility and verification surfaces - closed - depends on: task-001-intraday_repair_state_model, task-002-intraday_recompute_execution
 
 Status note:
 
 - Keep task index statuses aligned with each task's `TASK.md` so `planner` does not re-select already approved work.
 
 ## Next Action
-Planner should prepare `developer_handoff.md` for `task-001-intraday_repair_state_model` first.
+PR creation is blocked until the owner commits the worktree changes on `feature-002-market_data_intraday_repair_progression-impl-01` and pushes that branch to `origin`.
 
 ## Recommended Execution Sequence
 1. Complete `task-001-intraday_repair_state_model` first so repair lifecycle, queueing, deduplication, and rollup-state rules are fixed before implementation details spread across runtime code.

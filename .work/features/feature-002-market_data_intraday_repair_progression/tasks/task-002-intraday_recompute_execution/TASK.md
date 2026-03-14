@@ -6,9 +6,9 @@ Feature Folder: feature-002-market_data_intraday_repair_progression
 Task ID: task-002
 Task Folder: task-002-intraday_recompute_execution
 Title: Define intraday recompute execution and readiness restoration
-Status: draft
-Current Owner: architect
-Acceptance Status: not_covered
+Status: closed
+Current Owner: orchestrator
+Acceptance Status: covered_in_acceptance
 Acceptance Document: ../ACCEPTANCE.md
 Created Date: 2026-03-13
 Last Updated: 2026-03-13
@@ -43,7 +43,7 @@ Status note:
 - Use `closed` only after the task is represented in feature-level `ACCEPTANCE.md`.
 
 ## Next Action
-Wait for `task-001-intraday_repair_state_model` to complete, then planner can prepare the handoff for this task.
+Planner may select the next dependent task or wait for feature-level acceptance once all required tasks are ready.
 
 ## Linked Artifacts
 - `developer_handoff.md`

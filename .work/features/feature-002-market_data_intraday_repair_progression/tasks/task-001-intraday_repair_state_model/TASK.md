@@ -6,9 +6,9 @@ Feature Folder: feature-002-market_data_intraday_repair_progression
 Task ID: task-001
 Task Folder: task-001-intraday_repair_state_model
 Title: Define intraday repair state model and orchestration semantics
-Status: draft
-Current Owner: architect
-Acceptance Status: not_covered
+Status: closed
+Current Owner: orchestrator
+Acceptance Status: covered_in_acceptance
 Acceptance Document: ../ACCEPTANCE.md
 Created Date: 2026-03-13
 Last Updated: 2026-03-13
@@ -44,7 +44,7 @@ Status note:
 - Use `closed` only after the task is represented in feature-level `ACCEPTANCE.md`.
 
 ## Next Action
-Planner should prepare `developer_handoff.md` for this task as the first execution unit in the feature.
+Planner may select the next dependent task or wait for feature-level acceptance once all required tasks are ready.
 
 ## Linked Artifacts
 - `developer_handoff.md`
