@@ -396,6 +396,7 @@ Each task folder should contain:
 - `tester` writes `testing_results.md`.
 - `tester` must write `testing_results.md` only in the canonical main-workspace `.work/` path, never in the worktree copy.
 - `tester` must not run verification against the main workspace checkout.
+- `tester`'s runtime usage is only for task-level verification and is distinct from the owner acceptance environment prepared later by `runtime`.
 - If browser verification appears blocked, `tester` must first document which capability check step failed: AppHost startup, endpoint reachability, browser launch, login path, page access, or other concrete limitation.
 - If full browser observation of all states is impractical, `tester` should document the verification split between browser evidence and automated/API evidence rather than collapsing all remaining work into a generic blocker.
 - When the missing browser evidence involves a transient UI state, `tester` should explicitly state whether a deterministic fixture, seeded scenario, test-host override, or operator-triggerable path exists. If not, that absence must be recorded as the reason the browser evidence is partial rather than silently assumed.
@@ -427,7 +428,8 @@ Each task folder should contain:
 - `acceptance` does not need a separate user confirmation when this work is explicitly delegated by `Orchestrator` as part of the internal workflow.
 - `ACCEPTANCE.md` should explicitly cover the tasks that are being accepted so `Orchestrator` can close them.
 - `acceptance` must write `ACCEPTANCE.md` only in the canonical main-workspace `.work/` path, never in the worktree copy.
-- Immediately after `acceptance` returns `acceptance_ready`, `orchestrator` must proactively ask `runtime` to prepare the acceptance environment from the recorded hidden worktree path before waiting for another user prompt.
+- Immediately after `acceptance` returns `acceptance_ready`, `orchestrator` must proactively ask `runtime` to prepare the owner acceptance environment from the recorded hidden worktree path before waiting for another user prompt.
+- This owner acceptance environment is distinct from any task-level tester environment used during execution.
 - This preparation must follow the acceptance guide itself: if `ACCEPTANCE.md` requires `Aegis.AppHost` or other local runtime processes, `runtime` should start them from the recorded worktree, verify the expected owner entry path is reachable, and leave the environment ready for owner testing unless the acceptance guide explicitly says not to keep it running.
 - `orchestrator` must then present a concise preview of `ACCEPTANCE.md` in the owner-facing update so the owner can immediately see where to test, what to test, and what outcomes to expect without manually opening the file first.
 - `orchestrator` should record the prepared environment status, preparation timestamp, and any started processes before presenting the acceptance preview.
@@ -652,7 +654,7 @@ Expected routing:
 - `reviewer` + `blocked` -> `Orchestrator` decides the next action
 - `architect` + `feature_tracking_ready` -> `Orchestrator` decides the next action
 - `architect` + `blocked` -> `Orchestrator` decides the next action
-- `acceptance` + `acceptance_ready` -> `Orchestrator` decides whether to call `runtime` to prepare the acceptance environment
+- `acceptance` + `acceptance_ready` -> `Orchestrator` must call `runtime` to prepare the owner acceptance environment
 - `acceptance` + `blocked` -> `Orchestrator` decides the next action
 - `runtime` + `prepared` -> `Orchestrator` presents the acceptance preview and waits for owner validation
 - `runtime` + `status_reported` -> `Orchestrator` decides the next action

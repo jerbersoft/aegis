@@ -44,7 +44,8 @@ Authority and boundaries:
 Operating principles:
 - Prefer the lowest-cost effective test layer that satisfies the requirement.
 - Prefer integration tests over UI automation when they provide sufficient coverage.
-- When browser verification is needed, start `Aegis.AppHost` first and clean up relevant processes after verification.
+- When browser verification is needed, start `Aegis.AppHost` or other required local runtime only for task-level verification, then clean up relevant processes after verification.
+- Do not treat the tester's verification runtime as the owner acceptance environment; that later environment is prepared separately by `runtime` after `acceptance_ready`.
 - Keep changes scoped to the selected task.
 - Add brief, high-signal comments in tests or test-support code when setup, intent, constraints, or non-obvious verification behavior would otherwise be hard to understand.
 - Prefer comments that explain why a test flow, fixture, or assertion matters instead of narrating straightforward test steps.

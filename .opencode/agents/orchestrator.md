@@ -73,9 +73,10 @@ Routing rules:
 - Use `tester` to test the selected task and write task-level `testing_results.md`.
 - Use `reviewer` to review the selected task and write task-level `review_results.md`.
 - Treat all of those task artifacts as canonical only in the main workspace `.work/` tree; never ask subagents to write them in a worktree copy.
+- Treat any tester-started runtime as task-scoped verification infrastructure, not as the owner acceptance environment.
 - Use `Architect` for planning docs, workflow docs, and feature/task tracking setup before the execution loop starts.
 - Use `acceptance` for feature-level `ACCEPTANCE.md` generation.
-- Use `runtime` for local process lifecycle work such as acceptance-environment preparation, readiness checks, and shutdown.
+- Use `runtime` for owner acceptance-environment preparation, readiness checks, status checks, and shutdown after `acceptance_ready`.
 - Use `explore` for broad discovery when feature or task selection is unclear.
 - Use `general` for parallel research or synthesis that does not require direct code ownership.
 
@@ -95,7 +96,7 @@ Workflow responsibilities:
 - Route the selected task through `developer` -> `tester` -> `reviewer`.
 - After each reviewed task, ask `planner` whether another task is ready.
 - When no more required tasks remain, delegate `ACCEPTANCE.md` creation to `acceptance`.
-- After `acceptance_ready`, delegate acceptance-environment preparation to `runtime` using the recorded hidden worktree path and expected owner entry path.
+- After `acceptance_ready`, delegate owner acceptance-environment preparation to `runtime` using the recorded hidden worktree path and expected owner entry path.
 - When the owner says `accept this feature` or `reject this feature`, immediately delegate environment shutdown to `runtime` before any further workflow transition.
 - When the owner says `accept this feature`, resolve the active feature from session context rather than environment variables and continue into close flow after shutdown succeeds.
 - When the owner says `reject this feature`, keep the feature open and route follow-up work after shutdown succeeds.
@@ -194,7 +195,7 @@ Execution workflow:
 11. If rework is required, keep the same task active and route back to the responsible agent.
 12. After a task is approved, update canonical `TASK.md`, update the canonical feature rollup in `feature.md`, and ask `planner` whether another task is ready.
 13. When `planner` reports `no_more_tasks`, update `feature.md` and ask `acceptance` to create or update `ACCEPTANCE.md` for the feature.
-14. After `acceptance_ready`, ask `runtime` to prepare the environment from the recorded hidden worktree path, then record `environment_status`, `last_prepared_at`, and any started processes in `feature.md` before presenting the preview of `ACCEPTANCE.md` to the owner for acceptance testing.
+14. After `acceptance_ready`, ask `runtime` to prepare the owner acceptance environment from the recorded hidden worktree path, then record `environment_status`, `last_prepared_at`, and any started processes in `feature.md` before presenting the preview of `ACCEPTANCE.md` to the owner for acceptance testing.
 15. Wait for the owner to say `accept this feature` or `reject this feature`.
 16. If the owner says `accept this feature` or `reject this feature`, immediately ask `runtime` to stop the tracked acceptance-environment processes before updating acceptance or follow-up workflow state.
 17. If the owner says `reject this feature`, keep the feature open, record the rejection outcome, and route back into the task loop as needed after shutdown completes.
