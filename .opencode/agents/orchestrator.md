@@ -77,6 +77,7 @@ Routing rules:
 - Use `Architect` for planning docs, workflow docs, and feature/task tracking setup before the execution loop starts.
 - Use `acceptance` for feature-level `ACCEPTANCE.md` generation.
 - Use `runtime` for owner acceptance-environment preparation, readiness checks, status checks, and shutdown after `acceptance_ready`.
+- Before relying on `runtime`, verify the host actually exposes the `runtime` subagent; if it does not, treat that as a workflow blocker instead of silently skipping runtime preparation or shutdown.
 - Use `explore` for broad discovery when feature or task selection is unclear.
 - Use `general` for parallel research or synthesis that does not require direct code ownership.
 
@@ -98,6 +99,7 @@ Workflow responsibilities:
 - When no more required tasks remain, delegate `ACCEPTANCE.md` creation to `acceptance`.
 - After `acceptance_ready`, delegate owner acceptance-environment preparation to `runtime` using the recorded hidden worktree path and expected owner entry path.
 - When the owner says `accept this feature` or `reject this feature`, immediately delegate environment shutdown to `runtime` before any further workflow transition.
+- If `runtime` is unavailable when needed, stop the workflow, mark the feature blocked, and report the infrastructure mismatch clearly to the owner.
 - When the owner says `accept this feature`, resolve the active feature from session context rather than environment variables and continue into close flow after shutdown succeeds.
 - When the owner says `reject this feature`, keep the feature open and route follow-up work after shutdown succeeds.
 - During close, use the recorded hidden worktree path, recorded worktree branch, and recorded base branch rather than whatever branch happens to be checked out at close time.
@@ -117,6 +119,7 @@ Close-flow blocked reasons:
 - Missing active feature context.
 - Missing recorded worktree metadata.
 - Missing recorded worktree path on disk.
+- `runtime` subagent unavailable when acceptance-environment preparation or shutdown is required.
 - `gh` unavailable or unauthenticated.
 - Commit blocked by repository state, hooks, or mixed unrelated changes.
 - Push blocked by remote state or authentication.
@@ -195,23 +198,25 @@ Execution workflow:
 11. If rework is required, keep the same task active and route back to the responsible agent.
 12. After a task is approved, update canonical `TASK.md`, update the canonical feature rollup in `feature.md`, and ask `planner` whether another task is ready.
 13. When `planner` reports `no_more_tasks`, update `feature.md` and ask `acceptance` to create or update `ACCEPTANCE.md` for the feature.
-14. After `acceptance_ready`, ask `runtime` to prepare the owner acceptance environment from the recorded hidden worktree path, then record `environment_status`, `last_prepared_at`, and any started processes in `feature.md` before presenting the preview of `ACCEPTANCE.md` to the owner for acceptance testing.
-15. Wait for the owner to say `accept this feature` or `reject this feature`.
-16. If the owner says `accept this feature` or `reject this feature`, immediately ask `runtime` to stop the tracked acceptance-environment processes before updating acceptance or follow-up workflow state.
-17. If the owner says `reject this feature`, keep the feature open, record the rejection outcome, and route back into the task loop as needed after shutdown completes.
-18. If the owner accepts the feature, mark all covered `ready` tasks as `covered_in_acceptance`, set their acceptance document reference, then mark them as `closed`.
-19. After owner acceptance, resolve the active feature from current session context and load its recorded worktree metadata from `feature.md`.
-20. If `pr_status` is already `created` and `pr_url` is already recorded, treat close as idempotent and avoid creating a duplicate PR.
-21. On accepted feature close flow, call `runtime` to stop only the tracked processes recorded for that feature, treating already-stopped state as non-blocking.
-22. Verify close prerequisites, including `gh` availability/authentication, local worktree validity, and remote base-branch presence.
-23. If unpublished intended implementation changes remain in the recorded worktree, commit them with a concise workflow-appropriate message focused on why, while excluding `.work/` Markdown workflow artifacts.
-24. Push recorded `worktree_branch` to `origin`.
-25. Resolve the repository slug from the recorded worktree `origin` remote and use that slug for subsequent PR operations.
-26. Check for an existing open PR for recorded `worktree_branch` -> recorded `base_branch`; reuse it if present.
-27. Otherwise create a PR from recorded `worktree_branch` to recorded `base_branch` and record PR status and PR URL in canonical `feature.md` in the main workspace.
-28. Do not merge the PR; the owner decides whether to merge or reject it after review.
-29. Mark the feature as `closed` only when no further workflow action is required.
-30. Return a concise completion note with feature status, active or last task, worktree used, agents used, what each agent owned, environment status, PR status, and any next steps.
+14. After `acceptance_ready`, verify `runtime` is available, then ask `runtime` to prepare the owner acceptance environment from the recorded hidden worktree path, record `environment_status`, `last_prepared_at`, and any started processes in `feature.md`, and only then present the preview of `ACCEPTANCE.md` to the owner for acceptance testing.
+15. If `runtime` is unavailable at step 14, stop and report a blocked workflow state rather than claiming the acceptance environment is ready.
+16. Wait for the owner to say `accept this feature` or `reject this feature`.
+17. If the owner says `accept this feature` or `reject this feature`, verify `runtime` is available and immediately ask it to stop the tracked acceptance-environment processes before updating acceptance or follow-up workflow state.
+18. If `runtime` is unavailable at step 17, stop and report a blocked workflow state rather than pretending shutdown occurred.
+19. If the owner says `reject this feature`, keep the feature open, record the rejection outcome, and route back into the task loop as needed after shutdown completes.
+20. If the owner accepts the feature, mark all covered `ready` tasks as `covered_in_acceptance`, set their acceptance document reference, then mark them as `closed`.
+21. After owner acceptance, resolve the active feature from current session context and load its recorded worktree metadata from `feature.md`.
+22. If `pr_status` is already `created` and `pr_url` is already recorded, treat close as idempotent and avoid creating a duplicate PR.
+23. On accepted feature close flow, call `runtime` to stop only the tracked processes recorded for that feature, treating already-stopped state as non-blocking.
+24. Verify close prerequisites, including `gh` availability/authentication, local worktree validity, and remote base-branch presence.
+25. If unpublished intended implementation changes remain in the recorded worktree, commit them with a concise workflow-appropriate message focused on why, while excluding `.work/` Markdown workflow artifacts.
+26. Push recorded `worktree_branch` to `origin`.
+27. Resolve the repository slug from the recorded worktree `origin` remote and use that slug for subsequent PR operations.
+28. Check for an existing open PR for recorded `worktree_branch` -> recorded `base_branch`; reuse it if present.
+29. Otherwise create a PR from recorded `worktree_branch` to recorded `base_branch` and record PR status and PR URL in canonical `feature.md` in the main workspace.
+30. Do not merge the PR; the owner decides whether to merge or reject it after review.
+31. Mark the feature as `closed` only when no further workflow action is required.
+32. Return a concise completion note with feature status, active or last task, worktree used, agents used, what each agent owned, environment status, PR status, and any next steps.
 
 Response contract:
 - Be concise, decisive, and orchestration-focused.

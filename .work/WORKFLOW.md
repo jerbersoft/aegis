@@ -628,14 +628,14 @@ Agent-specific outcomes:
 
 Suggested `reason_code` values:
 
-- Shared: `missing_decision`, `missing_dependency`, `environment_blocked`, `artifact_missing`
+- Shared: `missing_decision`, `missing_dependency`, `environment_blocked`, `artifact_missing`, `agent_unavailable`
 - `planner`: `task_tracking_missing`, `dependency_blocked`, `task_not_ready`
 - `developer`: `handoff_gap`, `implementation_incomplete`, `unit_validation_blocked`
 - `tester`: `defect_found`, `verification_gap`, `test_env_blocked`, `apphost_start_failed`, `endpoint_unreachable`, `browser_launch_failed`, `login_flow_blocked`, `page_access_blocked`
 - `reviewer`: `code_gap`, `test_gap`, `missing_evidence`, `standards_gap`
 - `architect`: `planning_incomplete`
 - `acceptance`: `acceptance_incomplete`
-- `runtime`: `process_start_failed`, `process_stop_failed`, `apphost_start_failed`, `endpoint_unreachable`
+- `runtime`: `agent_unavailable`, `process_start_failed`, `process_stop_failed`, `apphost_start_failed`, `endpoint_unreachable`
 
 Expected routing:
 
@@ -654,12 +654,13 @@ Expected routing:
 - `reviewer` + `blocked` -> `Orchestrator` decides the next action
 - `architect` + `feature_tracking_ready` -> `Orchestrator` decides the next action
 - `architect` + `blocked` -> `Orchestrator` decides the next action
-- `acceptance` + `acceptance_ready` -> `Orchestrator` must call `runtime` to prepare the owner acceptance environment
+- `acceptance` + `acceptance_ready` -> `Orchestrator` must verify `runtime` is available, then call it to prepare the owner acceptance environment
 - `acceptance` + `blocked` -> `Orchestrator` decides the next action
 - `runtime` + `prepared` -> `Orchestrator` presents the acceptance preview and waits for owner validation
 - `runtime` + `status_reported` -> `Orchestrator` decides the next action
 - `runtime` + `stopped` -> `Orchestrator` updates feature state or continues close flow
 - `runtime` + `blocked` -> `Orchestrator` decides the next action
+- missing `runtime` availability when required -> `Orchestrator` blocks workflow and reports infrastructure mismatch explicitly
 
 ## Status model
 
