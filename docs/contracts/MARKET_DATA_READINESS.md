@@ -378,3 +378,4 @@ Recommended v1 `operating_mode_reason_codes` values:
 - `docs/modules/MARKET_DATA.md`: MarketData module design and policy
 - `docs/FLOWS.md`: readiness refresh and repair flow behavior
 - `docs/ARCHITECTURE.md`: system-level ownership and query/notification model
+- `docs/contracts/MARKET_DATA_REALTIME_UI_DELIVERY.md`: v1 SignalR hub topology and UI delivery contract

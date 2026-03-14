@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Net;
 using System.Net.Http.Json;
 using System.Net.Sockets;
+using System.Text.Json;
 using Aegis.Adapters.Alpaca.Services;
 using Aegis.MarketData.Application;
 using Aegis.MarketData.Infrastructure;
@@ -10,6 +11,8 @@ using Aegis.Shared.Contracts.MarketData;
 using Aegis.Shared.Contracts.Universe;
 using Aegis.Shared.Ports.MarketData;
 using Aegis.Universe.Infrastructure;
+using Microsoft.AspNetCore.Http.Connections;
+using Microsoft.AspNetCore.SignalR.Client;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -542,6 +545,170 @@ public sealed class MarketDataApiTests : IClassFixture<WebApplicationFactory<Pro
         restoredReadiness.PendingRecompute.ShouldBeFalse();
     }
 
+    [Fact]
+    public async Task MarketDataHub_ShouldRejectUnauthenticatedConnections()
+    {
+        await ResetStateAsync(_factory);
+
+        await using var connection = CreateHubConnection(_factory, new HttpClientHandler());
+
+        await Should.ThrowAsync<Exception>(async () => await connection.StartAsync());
+    }
+
+    [Fact]
+    public async Task MarketDataHub_ShouldDeliverWatchlistSnapshot_AndHomeRefreshHint_ForAuthenticatedClient()
+    {
+        await ResetStateAsync(_readyFactory);
+        using var client = await CreateAuthenticatedClientAsync(_readyFactory);
+
+        var watchlistResponse = await client.PostAsJsonAsync("/api/universe/watchlists", new CreateWatchlistRequest("RealtimeWatchlist"));
+        watchlistResponse.StatusCode.ShouldBe(HttpStatusCode.Created);
+        var watchlist = await watchlistResponse.Content.ReadAegisJsonAsync<WatchlistDetailView>();
+        watchlist.ShouldNotBeNull();
+
+        var addSymbolResponse = await client.PostAsJsonAsync($"/api/universe/watchlists/{watchlist.WatchlistId}/symbols", new AddSymbolToWatchlistRequest("AAPL"));
+        addSymbolResponse.StatusCode.ShouldBe(HttpStatusCode.Created);
+
+        await using var connection = CreateHubConnection(_readyFactory, await CreateAuthenticatedHubHandlerAsync(_readyFactory));
+        var rawWatchlistEvents = new List<JsonElement>();
+        var rawHomeEvents = new List<JsonElement>();
+
+        connection.On<JsonElement>(MarketDataRealtimeContract.EventNames.WatchlistSnapshot, payload => rawWatchlistEvents.Add(payload));
+        connection.On<JsonElement>(MarketDataRealtimeContract.EventNames.HomeRefreshHint, payload => rawHomeEvents.Add(payload));
+
+        await connection.StartAsync();
+
+        var homeAck = await connection.InvokeAsync<MarketDataSubscriptionAck>("SubscribeHome");
+        homeAck.ScopeKind.ShouldBe(MarketDataRealtimeContract.ScopeKinds.Home);
+        homeAck.RequiresAuthoritativeRefresh.ShouldBeTrue();
+
+        var watchlistAck = await connection.InvokeAsync<MarketDataSubscriptionAck>("SubscribeWatchlist", new MarketDataWatchlistSubscriptionRequest(watchlist.WatchlistId));
+        watchlistAck.ScopeKind.ShouldBe(MarketDataRealtimeContract.ScopeKinds.Watchlist);
+        watchlistAck.ScopeKey.ShouldBe(watchlist.WatchlistId.ToString("D"));
+
+        var bootstrapResponse = await client.PostAsync("/api/market-data/bootstrap/run", null);
+        bootstrapResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        await WaitForAsync(() => rawWatchlistEvents.Count >= 2 && rawHomeEvents.Count >= 1);
+
+        var watchlistEvents = rawWatchlistEvents
+            .Select(payload => JsonSerializer.Deserialize<MarketDataWatchlistSnapshotEvent>(payload.GetRawText(), Aegis.Shared.Serialization.AegisJson.CreateSerializerOptions()))
+            .ToList();
+        var homeEvents = rawHomeEvents
+            .Select(payload => JsonSerializer.Deserialize<MarketDataHomeRefreshEvent>(payload.GetRawText(), Aegis.Shared.Serialization.AegisJson.CreateSerializerOptions()))
+            .ToList();
+
+        watchlistEvents.All(x => x is not null).ShouldBeTrue();
+        homeEvents.All(x => x is not null).ShouldBeTrue();
+
+        watchlistEvents[0]!.WatchlistId.ShouldBe(watchlist.WatchlistId);
+        watchlistEvents[^1]!.Symbols.ShouldContain(x => x.Symbol == "AAPL");
+        watchlistEvents[^1]!.RequiresRefresh.ShouldBeTrue();
+
+        homeEvents[^1]!.ChangedScopes.ShouldContain(MarketDataRealtimeContract.ChangeScopes.BootstrapStatus);
+        homeEvents[^1]!.ChangedScopes.ShouldContain(MarketDataRealtimeContract.ChangeScopes.DailyReadiness);
+        homeEvents[^1]!.ChangedScopes.ShouldContain(MarketDataRealtimeContract.ChangeScopes.IntradayReadiness);
+
+        AssertSnakeCaseHomeRefreshEvent(rawHomeEvents[^1]);
+        AssertSnakeCaseWatchlistSnapshotEvent(rawWatchlistEvents[^1]);
+    }
+
+    [Fact]
+    public async Task MarketDataHub_ShouldRejectUnknownWatchlistSubscription_ForAuthenticatedClient()
+    {
+        await ResetStateAsync(_factory);
+
+        await using var connection = CreateHubConnection(_factory, await CreateAuthenticatedHubHandlerAsync(_factory));
+        await connection.StartAsync();
+
+        var error = await Should.ThrowAsync<Exception>(async () =>
+            await connection.InvokeAsync<MarketDataSubscriptionAck>(
+                "SubscribeWatchlist",
+                new MarketDataWatchlistSubscriptionRequest(Guid.NewGuid())));
+
+        error.Message.ShouldContain("watchlist_not_found");
+    }
+
+    [Fact]
+    public async Task MarketDataHub_ShouldBindSnakeCaseWatchlistSubscriptionRequest_ForAuthenticatedClient()
+    {
+        await ResetStateAsync(_factory);
+        using var client = await CreateAuthenticatedClientAsync(_factory);
+
+        var watchlistResponse = await client.PostAsJsonAsync("/api/universe/watchlists", new CreateWatchlistRequest("SnakeCaseBindingWatchlist"));
+        watchlistResponse.StatusCode.ShouldBe(HttpStatusCode.Created);
+        var watchlist = await watchlistResponse.Content.ReadAegisJsonAsync<WatchlistDetailView>();
+        watchlist.ShouldNotBeNull();
+
+        await using var connection = CreateHubConnection(_factory, await CreateAuthenticatedHubHandlerAsync(_factory));
+        var watchlistEvents = new List<JsonElement>();
+        connection.On<JsonElement>(MarketDataRealtimeContract.EventNames.WatchlistSnapshot, payload => watchlistEvents.Add(payload));
+
+        await connection.StartAsync();
+
+        var snakeCaseRequest = JsonSerializer.SerializeToElement(new { watchlist_id = watchlist.WatchlistId });
+        var ack = await connection.InvokeAsync<MarketDataSubscriptionAck>("SubscribeWatchlist", snakeCaseRequest);
+
+        ack.ScopeKind.ShouldBe(MarketDataRealtimeContract.ScopeKinds.Watchlist);
+        ack.ScopeKey.ShouldBe(watchlist.WatchlistId.ToString("D"));
+
+        await WaitForAsync(() => watchlistEvents.Count >= 1);
+        watchlistEvents[0].TryGetProperty("watchlist_id", out var watchlistIdProperty).ShouldBeTrue();
+        watchlistIdProperty.GetGuid().ShouldBe(watchlist.WatchlistId);
+    }
+
+    [Fact]
+    public async Task MarketDataHub_ShouldSendInitialWatchlistSnapshot_AlignedWithAuthoritativeDailyBars()
+    {
+        await ResetStateAsync(_readyFactory);
+        using var client = await CreateAuthenticatedClientAsync(_readyFactory);
+
+        var watchlistResponse = await client.PostAsJsonAsync("/api/universe/watchlists", new CreateWatchlistRequest("InitialSnapshotWatchlist"));
+        watchlistResponse.StatusCode.ShouldBe(HttpStatusCode.Created);
+        var watchlist = await watchlistResponse.Content.ReadAegisJsonAsync<WatchlistDetailView>();
+        watchlist.ShouldNotBeNull();
+
+        var addSymbolResponse = await client.PostAsJsonAsync($"/api/universe/watchlists/{watchlist.WatchlistId}/symbols", new AddSymbolToWatchlistRequest("AAPL"));
+        addSymbolResponse.StatusCode.ShouldBe(HttpStatusCode.Created);
+
+        var bootstrapResponse = await client.PostAsync("/api/market-data/bootstrap/run", null);
+        bootstrapResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        var dailyBars = await client.GetAegisJsonAsync<DailyBarsView>("/api/market-data/daily-bars/AAPL");
+        dailyBars.ShouldNotBeNull();
+        dailyBars.Items.Count.ShouldBeGreaterThanOrEqualTo(2);
+
+        var expectedCurrentPrice = dailyBars.Items[0].Close;
+        var expectedPercentChange = ((dailyBars.Items[0].Close / dailyBars.Items[1].Close) - 1m) * 100m;
+
+        await using var connection = CreateHubConnection(_readyFactory, await CreateAuthenticatedHubHandlerAsync(_readyFactory));
+        var watchlistEvents = new List<MarketDataWatchlistSnapshotEvent>();
+        connection.On<MarketDataWatchlistSnapshotEvent>(MarketDataRealtimeContract.EventNames.WatchlistSnapshot, payload => watchlistEvents.Add(payload));
+
+        await connection.StartAsync();
+
+        var ack = await connection.InvokeAsync<MarketDataSubscriptionAck>(
+            "SubscribeWatchlist",
+            new MarketDataWatchlistSubscriptionRequest(watchlist.WatchlistId));
+
+        ack.ScopeKind.ShouldBe(MarketDataRealtimeContract.ScopeKinds.Watchlist);
+        ack.ScopeKey.ShouldBe(watchlist.WatchlistId.ToString("D"));
+        ack.DeliveryStrategy.ShouldBe(MarketDataRealtimeContract.DeliveryStrategies.CoalescedSnapshotDelta);
+        ack.RequiresAuthoritativeRefresh.ShouldBeTrue();
+
+        await WaitForAsync(() => watchlistEvents.Count >= 1);
+
+        watchlistEvents[0].ContractVersion.ShouldBe(MarketDataRealtimeContract.ContractVersion);
+        watchlistEvents[0].WatchlistId.ShouldBe(watchlist.WatchlistId);
+        watchlistEvents[0].BatchSequence.ShouldBe(1);
+        watchlistEvents[0].RequiresRefresh.ShouldBeTrue();
+
+        var symbol = watchlistEvents[0].Symbols.ShouldHaveSingleItem();
+        symbol.Symbol.ShouldBe("AAPL");
+        symbol.CurrentPrice.ShouldBe(expectedCurrentPrice);
+        symbol.PercentChange.ShouldBe(expectedPercentChange);
+    }
+
     private async Task<HttpClient> CreateAuthenticatedClientAsync(WebApplicationFactory<Program>? factory = null)
     {
         var client = (factory ?? _factory).CreateClient(new WebApplicationFactoryClientOptions
@@ -553,6 +720,95 @@ public sealed class MarketDataApiTests : IClassFixture<WebApplicationFactory<Pro
         var loginResponse = await client.PostAsJsonAsync("/api/auth/login", new LoginRequest("demo", "demo"));
         loginResponse.EnsureSuccessStatusCode();
         return client;
+    }
+
+    private static HubConnection CreateHubConnection(WebApplicationFactory<Program> factory, HttpMessageHandler handler) =>
+        new HubConnectionBuilder()
+            .WithUrl(new Uri(factory.Server.BaseAddress, MarketDataRealtimeContract.HubPath), options =>
+            {
+                options.Transports = HttpTransportType.LongPolling;
+                options.HttpMessageHandlerFactory = _ => handler;
+            })
+            .AddJsonProtocol(options => Aegis.Shared.Serialization.AegisJson.Configure(options.PayloadSerializerOptions))
+            .Build();
+
+    private static async Task<HttpMessageHandler> CreateAuthenticatedHubHandlerAsync(WebApplicationFactory<Program> factory)
+    {
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = false,
+            HandleCookies = false
+        });
+
+        var loginResponse = await client.PostAsJsonAsync("/api/auth/login", new LoginRequest("demo", "demo"));
+        loginResponse.EnsureSuccessStatusCode();
+        var cookieHeader = loginResponse.Headers.TryGetValues("Set-Cookie", out var values)
+            ? string.Join("; ", values.Select(x => x.Split(';', 2)[0]))
+            : throw new InvalidOperationException("Login response did not include an auth cookie.");
+
+        return new CookieHeaderHandler(cookieHeader, factory.Server.CreateHandler());
+    }
+
+    private static async Task WaitForAsync(Func<bool> condition)
+    {
+        for (var attempt = 0; attempt < 30; attempt++)
+        {
+            if (condition())
+            {
+                return;
+            }
+
+            await Task.Delay(100);
+        }
+
+        throw new TimeoutException("Timed out waiting for SignalR event delivery.");
+    }
+
+    private static void AssertSnakeCaseHomeRefreshEvent(JsonElement payload)
+    {
+        payload.TryGetProperty("contract_version", out _).ShouldBeTrue();
+        payload.TryGetProperty("event_id", out _).ShouldBeTrue();
+        payload.TryGetProperty("occurred_utc", out _).ShouldBeTrue();
+        payload.TryGetProperty("requires_refresh", out _).ShouldBeTrue();
+        payload.TryGetProperty("changed_scopes", out _).ShouldBeTrue();
+        payload.TryGetProperty("contractVersion", out _).ShouldBeFalse();
+        payload.TryGetProperty("eventId", out _).ShouldBeFalse();
+        payload.TryGetProperty("occurredUtc", out _).ShouldBeFalse();
+        payload.TryGetProperty("requiresRefresh", out _).ShouldBeFalse();
+        payload.TryGetProperty("changedScopes", out _).ShouldBeFalse();
+    }
+
+    private static void AssertSnakeCaseWatchlistSnapshotEvent(JsonElement payload)
+    {
+        payload.TryGetProperty("contract_version", out _).ShouldBeTrue();
+        payload.TryGetProperty("event_id", out _).ShouldBeTrue();
+        payload.TryGetProperty("watchlist_id", out _).ShouldBeTrue();
+        payload.TryGetProperty("batch_sequence", out _).ShouldBeTrue();
+        payload.TryGetProperty("occurred_utc", out _).ShouldBeTrue();
+        payload.TryGetProperty("as_of_utc", out _).ShouldBeTrue();
+        payload.TryGetProperty("requires_refresh", out _).ShouldBeTrue();
+        payload.TryGetProperty("symbols", out var symbols).ShouldBeTrue();
+        payload.TryGetProperty("watchlistId", out _).ShouldBeFalse();
+        payload.TryGetProperty("batchSequence", out _).ShouldBeFalse();
+        payload.TryGetProperty("occurredUtc", out _).ShouldBeFalse();
+        payload.TryGetProperty("asOfUtc", out _).ShouldBeFalse();
+        payload.TryGetProperty("requiresRefresh", out _).ShouldBeFalse();
+
+        var symbol = symbols.EnumerateArray().First();
+        symbol.TryGetProperty("symbol", out _).ShouldBeTrue();
+        symbol.TryGetProperty("current_price", out _).ShouldBeTrue();
+        symbol.TryGetProperty("percent_change", out _).ShouldBeTrue();
+        symbol.TryGetProperty("currentPrice", out _).ShouldBeFalse();
+        symbol.TryGetProperty("percentChange", out _).ShouldBeFalse();
+    }
+
+    private sealed class CookieHeaderHandler(string cookieHeader, HttpMessageHandler innerHandler) : DelegatingHandler(innerHandler)
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            request.Headers.Add("Cookie", cookieHeader);
+            return base.SendAsync(request, cancellationToken);
+        }
     }
 
     private static async Task ResetStateAsync(WebApplicationFactory<Program> factory)

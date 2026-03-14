@@ -6,12 +6,12 @@ Feature Folder: feature-003-market_data_realtime_ui_delivery
 Task ID: task-003
 Task Folder: task-003-web_realtime_consumers
 Title: Implement web realtime consumers for Home and Watchlists surfaces
-Status: draft
-Current Owner: architect
-Acceptance Status: not_covered
+Status: closed
+Current Owner: orchestrator
+Acceptance Status: covered_in_acceptance
 Acceptance Document: ../ACCEPTANCE.md
 Created Date: 2026-03-13
-Last Updated: 2026-03-13
+Last Updated: 2026-03-14
 
 Allowed Acceptance Status Values: `not_covered | covered_in_acceptance | not_applicable`
 Recommended Task Status Values: `draft | in_progress | ready | blocked | closed`
@@ -41,8 +41,12 @@ Status note:
 - Use `ready` only after development, testing, and review are complete.
 - Use `closed` only after the task is represented in feature-level `ACCEPTANCE.md`.
 
+## Rework / Validation Notes
+- Developer reported `implementation_partial` because higher-confidence browser proof for Home widget visibility and deterministic live snapshot rendering remained for tester confirmation.
+- Tester found and then validated the fix for a blocking browser-path defect where Watchlists initially rendered `OFFLINE` fallback state and `— / —` market values after bootstrap instead of live realtime values.
+
 ## Next Action
-Wait for `task-001-signalr_contract_and_delivery_model` and `task-002-backend_marketdata_realtime_publishers` to complete, then planner can prepare the handoff for this task.
+Task is covered in feature acceptance and closed.
 
 ## Linked Artifacts
 - `developer_handoff.md`
