@@ -1,6 +1,7 @@
 ---
 description: Selects the next ready task within a feature and prepares task-level developer handoffs
 mode: subagent
+model: github-copilot/gpt-5.4
 temperature: 0.1
 tools:
   write: true

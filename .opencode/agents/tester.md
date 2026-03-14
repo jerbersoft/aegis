@@ -1,6 +1,7 @@
 ---
 description: Performs integration and UI verification for one selected task
 mode: subagent
+model: github-copilot/gpt-5.4
 temperature: 0.15
 tools:
   write: true

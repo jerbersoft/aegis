@@ -1,6 +1,7 @@
 ---
 description: Creates feature-level ACCEPTANCE.md guidance from completed feature and task artifacts
 mode: subagent
+model: github-copilot/gpt-5.4
 temperature: 0.1
 tools:
   write: true

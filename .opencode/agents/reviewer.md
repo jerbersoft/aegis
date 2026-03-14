@@ -1,6 +1,7 @@
 ---
 description: Reviews implementation and testing activity for one selected task
 mode: subagent
+model: github-copilot/gpt-5.4
 temperature: 0.1
 tools:
   bash: true
