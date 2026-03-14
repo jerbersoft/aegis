@@ -266,6 +266,8 @@ Each task folder should contain:
 - After each completed task cycle, asks `planner` whether another task is ready.
 - Repeats until there are no more required tasks ready to implement, or the feature is blocked.
 - When no more required tasks remain, asks `acceptance` to create or update `ACCEPTANCE.md`.
+- May commit and push the recorded worktree branch when publication is part of the approved close flow.
+- May create the PR during close flow and may merge only when the owner explicitly requests merge.
 
 ### Planner
 
@@ -418,18 +420,18 @@ Each task folder should contain:
 - `orchestrator` must stop only the processes it started or explicitly tracked for that feature.
 - `orchestrator` must use the recorded `recorded_worktree_path`, `recorded_worktree_branch`, and `recorded_base_branch` from `feature.md`.
 - The currently checked-out branch in the main workspace at close time must not be used to infer PR source or target.
-- `orchestrator` may create the PR but must not merge it.
-- Because no agent may push, the recorded worktree branch must already exist on the remote before PR creation.
-- If the branch has not been pushed by the owner, close becomes blocked until the owner pushes it.
+- `orchestrator` may commit eligible changes in the recorded worktree, push the recorded worktree branch, create the PR, and merge only when the owner explicitly requests merge.
+- `orchestrator` must not force-push and must not merge directly to the base branch outside the PR flow.
+- This publication authority is specific to `orchestrator`; subagents keep their existing no-commit, no-push, no-merge boundary.
 - `orchestrator` must verify these close prerequisites before attempting PR creation:
   - active feature context exists
   - recorded worktree path exists on disk
   - recorded worktree branch is present in `feature.md`
   - recorded base branch is present in `feature.md`
   - `gh` is installed and authenticated
-  - the recorded worktree branch already exists on the remote
+  - the recorded worktree can be safely committed without including unrelated changes
 - If any prerequisite fails, `orchestrator` must record a blocked close state and report the exact reason.
-- On success, `orchestrator` creates the PR from recorded worktree branch to recorded base branch, records `pr_status` and `pr_url` in `feature.md`, and then may mark the feature `closed` when no further workflow action is required.
+- On success, `orchestrator` commits unpublished feature changes when needed, pushes recorded worktree branch to recorded remote, creates the PR from recorded worktree branch to recorded base branch, records `pr_status` and `pr_url` in `feature.md`, and then may mark the feature `closed` when no further workflow action is required.
 
 Exact close-flow command and check sequence:
 
@@ -458,34 +460,54 @@ git -C "<recorded_worktree_path>" branch --show-current
 git -C "<recorded_worktree_path>" rev-parse --verify "<recorded_worktree_branch>"
 ```
 
-9. Check that the recorded base branch exists on the remote:
+9. Resolve the repository slug from the recorded worktree `origin` remote and use that slug for PR operations.
+
+```text
+git -C "<recorded_worktree_path>" remote get-url origin
+```
+
+10. Check that the recorded base branch exists on the remote:
 
 ```text
 git ls-remote --heads origin "<recorded_base_branch>"
 ```
 
-10. Check that the recorded worktree branch has already been pushed to the remote by the owner:
+11. Inspect the recorded worktree for unpublished changes and confirm they are eligible for commit as feature changes rather than unrelated workspace noise:
 
 ```text
-git ls-remote --heads origin "<recorded_worktree_branch>"
+git -C "<recorded_worktree_path>" status --short
+git -C "<recorded_worktree_path>" diff --stat
 ```
 
-11. If the remote worktree branch is missing, set `pr_status` to `blocked`, keep the feature open, and report that the owner must push `recorded_worktree_branch` before close can continue.
-12. Before creating a PR, check whether one already exists for `recorded_worktree_branch` against `recorded_base_branch`:
+12. If eligible unpublished feature changes remain, stage and commit them from the recorded worktree branch using a concise message focused on why the change exists:
 
 ```text
-gh pr list --repo jerbersoft/aegis --head "<recorded_worktree_branch>" --base "<recorded_base_branch>" --state open --json url,number,headRefName,baseRefName
+git -C "<recorded_worktree_path>" add <intended-paths>
+git -C "<recorded_worktree_path>" commit -m "<message>"
 ```
 
-13. If an open PR already exists, record its URL in `feature.md`, set `pr_status` to `created`, and treat close as idempotently complete.
-14. If no PR exists, create one from the recorded branch pair:
+13. Push the recorded worktree branch to the remote:
 
 ```text
-gh pr create --repo jerbersoft/aegis --head "<recorded_worktree_branch>" --base "<recorded_base_branch>" --title "<title>" --body "<body>"
+git -C "<recorded_worktree_path>" push -u origin "<recorded_worktree_branch>"
 ```
 
-15. Record the returned PR URL in `feature.md`, set `pr_status` to `created`, and only then mark the feature `closed` if no further workflow action remains.
-16. If any shell command or GitHub operation fails, record `pr_status` as `blocked`, preserve the feature state for retry, and report the exact failed check or command category.
+14. Before creating a PR, check whether one already exists for `recorded_worktree_branch` against `recorded_base_branch`:
+
+```text
+gh pr list --repo "<repo_slug>" --head "<recorded_worktree_branch>" --base "<recorded_base_branch>" --state open --json url,number,headRefName,baseRefName
+```
+
+15. If an open PR already exists, record its URL in `feature.md`, set `pr_status` to `created`, and treat close as idempotently complete.
+16. If no PR exists, create one from the recorded branch pair:
+
+```text
+gh pr create --repo "<repo_slug>" --head "<recorded_worktree_branch>" --base "<recorded_base_branch>" --title "<title>" --body "<body>"
+```
+
+17. Record the returned PR URL in `feature.md`, set `pr_status` to `created`, and only then mark the feature `closed` if no further workflow action remains.
+18. If the owner explicitly requests merge, verify the PR is mergeable and merge it through the PR path rather than directly to the base branch, using squash merge by default unless the owner explicitly requests another supported merge strategy.
+19. If any shell command or GitHub operation fails, record `pr_status` as `blocked`, preserve the feature state for retry, and report the exact failed check or command category.
 
 ## Machine-readable agent result contracts
 
