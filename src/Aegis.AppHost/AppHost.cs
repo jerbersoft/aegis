@@ -22,6 +22,7 @@ var backend = builder.AddProject<Projects.Aegis_Backend>("backend")
     .WithEnvironment("Cors__AllowedOrigins__0", "http://localhost:3001")
     .WithEnvironment("Alpaca__SymbolReference__UseFakeProvider", "true")
     .WithEnvironment("Alpaca__HistoricalData__UseFakeProvider", "true")
+    .WithEnvironment("MarketData__Realtime__EnableProviderRuntime", "false")
     .WaitFor(universeDatabase)
     .WaitFor(marketDataDatabase)
     .WithExternalHttpEndpoints();
