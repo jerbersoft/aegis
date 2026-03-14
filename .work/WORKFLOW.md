@@ -401,12 +401,15 @@ Each task folder should contain:
 - When `planner` reports that no more required tasks remain, `orchestrator` asks `acceptance` to create or update feature-level `ACCEPTANCE.md`.
 - `acceptance` does not need a separate user confirmation when this work is explicitly delegated by `Orchestrator` as part of the internal workflow.
 - `ACCEPTANCE.md` should explicitly cover the tasks that are being accepted so `Orchestrator` can close them.
-- Immediately after `acceptance` returns `acceptance_ready`, `orchestrator` must proactively prepare the acceptance environment from the recorded hidden worktree path before waiting for another user prompt.
-- This preparation must follow the acceptance guide itself: if `ACCEPTANCE.md` requires `Aegis.AppHost` or other local runtime processes, `orchestrator` should start them from the recorded worktree, verify the expected owner entry path is reachable, and leave the environment ready for owner testing unless the acceptance guide explicitly says not to keep it running.
+- Immediately after `acceptance` returns `acceptance_ready`, `orchestrator` must proactively ask `runtime` to prepare the acceptance environment from the recorded hidden worktree path before waiting for another user prompt.
+- This preparation must follow the acceptance guide itself: if `ACCEPTANCE.md` requires `Aegis.AppHost` or other local runtime processes, `runtime` should start them from the recorded worktree, verify the expected owner entry path is reachable, and leave the environment ready for owner testing unless the acceptance guide explicitly says not to keep it running.
 - `orchestrator` must then present a concise preview of `ACCEPTANCE.md` in the owner-facing update so the owner can immediately see where to test, what to test, and what outcomes to expect without manually opening the file first.
 - `orchestrator` should record the prepared environment status, preparation timestamp, and any started processes before presenting the acceptance preview.
 - The owner-facing acceptance handoff should explicitly state whether the environment is now running or stopped, which worktree path is active, which URL or entry command to use, and any cleanup expectation after testing.
 - The owner validates the accepted feature against the prepared implementation worktree state; merge or PR is not required before local acceptance testing.
+- After the owner says `accept this feature` or `reject this feature`, `orchestrator` must immediately ask `runtime` to stop all tracked acceptance-environment processes before any further workflow transition.
+- Immediate shutdown after `accept this feature` or `reject this feature` is the default behavior; do not leave the acceptance environment running unless the workflow is explicitly changed later.
+- `accept this feature` is the owner command that both confirms acceptance and starts feature close flow; a separate `close this feature` command is no longer required.
 - `ACCEPTANCE.md` should tell the user:
   - how to run the app
   - what prerequisites are required
@@ -416,12 +419,12 @@ Each task folder should contain:
 - `ACCEPTANCE.md` should also summarize feature-level outcomes task by task so users can see what was delivered, what was directly browser-verified, and what remains as a documented non-blocking follow-up.
 - When helpful for final reporting, `orchestrator` may also ask `acceptance` to create `FEATURE_SUMMARY.md` with a concise implementation-oriented summary suitable for user updates or PR drafting.
 
-### 8. Close feature
+### 8. Accept and close feature
 
-- After owner validation, the owner may later say `close this feature`.
+- After owner validation, the owner may say `accept this feature`.
 - `orchestrator` resolves the feature from the active session context; no environment-variable-based feature identity is required.
-- A `close this feature` request means `orchestrator` should treat the feature as entering close flow immediately: shut down the acceptance-testing environment it prepared, finish feature/workflow closure, and then publish the worktree branch through the normal PR path.
-- `orchestrator` must stop only the processes it started or explicitly tracked for that feature.
+- An `accept this feature` request means `orchestrator` should treat the feature as entering close flow immediately: shut down the acceptance-testing environment it prepared, finish feature/workflow closure, and then publish the worktree branch through the normal PR path.
+- `orchestrator` must ask `runtime` to stop only the processes tracked for that feature.
 - `orchestrator` must use the recorded `recorded_worktree_path`, `recorded_worktree_branch`, and `recorded_base_branch` from `feature.md`.
 - The currently checked-out branch in the main workspace at close time must not be used to infer PR source or target.
 - During close flow, `orchestrator` should commit eligible unpublished feature changes in the recorded worktree when needed, push the recorded worktree branch, and create the PR against the recorded base branch without requiring a second user prompt.
@@ -439,9 +442,9 @@ Each task folder should contain:
 - If any prerequisite fails, `orchestrator` must record a blocked close state and report the exact reason.
 - On success, `orchestrator` commits unpublished feature changes when needed, pushes recorded worktree branch to recorded remote, creates the PR from recorded worktree branch to recorded base branch, records `pr_status` and `pr_url` in `feature.md`, and then may mark the feature `closed` when no further workflow action is required.
 
-Exact close-flow command and check sequence:
+Exact accepted-close-flow command and check sequence:
 
-1. Resolve the active feature from session context and load its canonical `feature.md` from the main workspace.
+1. Resolve the active feature from session context after the owner says `accept this feature` and load its canonical `feature.md` from the main workspace.
 2. Read `recorded_worktree_path`, `recorded_worktree_branch`, `recorded_base_branch`, `started_processes`, `pr_status`, and `pr_url`.
 3. If `pr_status` is already `created` and `pr_url` is present, treat close as idempotent: do not create another PR, confirm the existing PR, and only finish any remaining workflow bookkeeping.
 4. Validate required metadata before running shell commands:
@@ -450,7 +453,7 @@ Exact close-flow command and check sequence:
    - recorded worktree branch is non-empty
    - recorded base branch is non-empty
 5. Confirm the recorded worktree path exists on disk.
-6. Stop only tracked processes recorded in `started_processes`; never stop untracked processes. This is the required first operational step of close flow so the acceptance environment is shut down before publication begins.
+6. Ask `runtime` to stop only tracked processes recorded in `started_processes`; never stop untracked processes. This is the required first operational step of close flow so the acceptance environment is shut down before publication begins.
 7. Check GitHub CLI availability:
 
 ```text
@@ -517,7 +520,7 @@ gh pr create --repo "<repo_slug>" --head "<recorded_worktree_branch>" --base "<r
 
 ## Machine-readable agent result contracts
 
-Task execution, planning-setup, and acceptance agents should return a single compact JSON object for orchestration decisions.
+Task execution, planning-setup, acceptance, and runtime agents should return a single compact JSON object for orchestration decisions.
 
 Shared envelope:
 
@@ -527,7 +530,7 @@ Shared envelope:
   "feature_folder": "string",
   "task_id": "string | null",
   "task_folder": "string | null",
-  "agent": "planner | developer | tester | reviewer | architect | acceptance",
+  "agent": "planner | developer | tester | reviewer | architect | acceptance | runtime",
   "agent_status": "complete | partial | blocked | failed",
   "artifact": "string",
   "result": "string",
@@ -537,7 +540,7 @@ Shared envelope:
 
 Rules:
 
-- Use `task_id` and `task_folder` for task-scoped work; use `null` only when the outcome is feature-level, such as `no_more_tasks`, `feature_tracking_ready`, or `acceptance_ready`.
+- Use `task_id` and `task_folder` for task-scoped work; use `null` only when the outcome is feature-level, such as `no_more_tasks`, `feature_tracking_ready`, `acceptance_ready`, `prepared`, `status_reported`, or `stopped`.
 - `artifact` is the primary file created or updated by the agent, or `none` when no artifact changed.
 - Detailed evidence belongs in the artifact document, not in the JSON.
 - Only `Orchestrator` decides actual routing; subagents do not return routing instructions.
@@ -567,6 +570,11 @@ Agent-specific outcomes:
 - `acceptance`
   - `complete + acceptance_ready`
   - `blocked + blocked`
+- `runtime`
+  - `complete + prepared`
+  - `complete + status_reported`
+  - `complete + stopped`
+  - `blocked + blocked`
 
 Suggested `reason_code` values:
 
@@ -577,6 +585,7 @@ Suggested `reason_code` values:
 - `reviewer`: `code_gap`, `test_gap`, `missing_evidence`, `standards_gap`
 - `architect`: `planning_incomplete`
 - `acceptance`: `acceptance_incomplete`
+- `runtime`: `process_start_failed`, `process_stop_failed`, `apphost_start_failed`, `endpoint_unreachable`
 
 Expected routing:
 
@@ -595,8 +604,12 @@ Expected routing:
 - `reviewer` + `blocked` -> `Orchestrator` decides the next action
 - `architect` + `feature_tracking_ready` -> `Orchestrator` decides the next action
 - `architect` + `blocked` -> `Orchestrator` decides the next action
-- `acceptance` + `acceptance_ready` -> `Orchestrator` closes covered tasks and the feature when appropriate
+- `acceptance` + `acceptance_ready` -> `Orchestrator` decides whether to call `runtime` to prepare the acceptance environment
 - `acceptance` + `blocked` -> `Orchestrator` decides the next action
+- `runtime` + `prepared` -> `Orchestrator` presents the acceptance preview and waits for owner validation
+- `runtime` + `status_reported` -> `Orchestrator` decides the next action
+- `runtime` + `stopped` -> `Orchestrator` updates feature state or continues close flow
+- `runtime` + `blocked` -> `Orchestrator` decides the next action
 
 ## Status model
 
