@@ -3,48 +3,7 @@
 import { WidgetCard } from "./widget-card";
 import { Button } from "@/components/ui/button";
 import { useMarketDataBootstrap } from "@/hooks/use-market-data-bootstrap";
-
-function formatUtc(timestamp?: string | null) {
-  if (!timestamp) {
-    return null;
-  }
-
-  return `${timestamp.replace("T", " ").replace("Z", " UTC")}`;
-}
-
-function describeIntradayRepair(symbol: {
-  reasonCode: string;
-  hasActiveRepair: boolean;
-  pendingRecompute: boolean;
-  activeGapType?: string | null;
-  activeGapStartUtc?: string | null;
-  earliestAffectedBarUtc?: string | null;
-}) {
-  if (!symbol.hasActiveRepair) {
-    return null;
-  }
-
-  const details: string[] = [];
-
-  if (symbol.pendingRecompute || symbol.reasonCode === "awaiting_recompute") {
-    details.push("awaiting recompute");
-  }
-
-  if (symbol.activeGapType) {
-    details.push(`gap ${symbol.activeGapType}`);
-  }
-
-  const affectedAt = formatUtc(symbol.earliestAffectedBarUtc ?? symbol.activeGapStartUtc);
-  if (affectedAt) {
-    details.push(`affected from ${affectedAt}`);
-  }
-
-  if (details.length === 0) {
-    details.push(symbol.reasonCode);
-  }
-
-  return details.join(" • ");
-}
+import { describeIntradayRepair, formatUtc } from "./market-data-widget.helpers";
 
 export function MarketDataWidget() {
   const { status, dailyReadiness, intradayReadiness, isLoading, isRefreshing, error, runBootstrap } = useMarketDataBootstrap();

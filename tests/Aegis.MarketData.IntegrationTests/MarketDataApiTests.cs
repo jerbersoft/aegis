@@ -157,6 +157,28 @@ public sealed class MarketDataApiTests : IClassFixture<WebApplicationFactory<Pro
                 services.AddScoped<IHistoricalBarProvider, RepairValidationFailingHistoricalBarProvider>();
             });
         });
+
+        _materiallyCorrectedFactory = factory.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureAppConfiguration((_, configBuilder) =>
+            {
+                configBuilder.AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["ConnectionStrings:DefaultConnection"] = postgres.ConnectionString,
+                    ["ConnectionStrings:Universe"] = postgres.ConnectionString,
+                    ["ConnectionStrings:MarketData"] = postgres.ConnectionString,
+                    ["Alpaca:SymbolReference:UseFakeProvider"] = "true"
+                });
+            });
+
+            builder.ConfigureServices(services =>
+            {
+                services.RemoveAll<ISymbolReferenceProvider>();
+                services.AddScoped<ISymbolReferenceProvider, FakeSymbolReferenceProvider>();
+                services.RemoveAll<IHistoricalBarProvider>();
+                services.AddScoped<IHistoricalBarProvider, MateriallyCorrectedHistoricalBarProvider>();
+            });
+        });
     }
 
     private readonly WebApplicationFactory<Program> _readyFactory;
@@ -164,6 +186,7 @@ public sealed class MarketDataApiTests : IClassFixture<WebApplicationFactory<Pro
     private readonly WebApplicationFactory<Program> _benchmarkBlockedFactory;
     private readonly WebApplicationFactory<Program> _repairFetchFailingFactory;
     private readonly WebApplicationFactory<Program> _repairValidationFailingFactory;
+    private readonly WebApplicationFactory<Program> _materiallyCorrectedFactory;
 
     [Fact]
     public async Task RunBootstrap_ShouldWarmPersistedBars_ForUniverseSymbols()
@@ -329,6 +352,15 @@ public sealed class MarketDataApiTests : IClassFixture<WebApplicationFactory<Pro
         var statusRefresh = await client.GetAsync("/api/market-data/bootstrap/status");
         statusRefresh.StatusCode.ShouldBe(HttpStatusCode.OK);
 
+        var awaitingRecompute = await client.GetAegisJsonAsync<IntradaySymbolReadinessView>("/api/market-data/intraday/readiness/AMD");
+        awaitingRecompute.ShouldNotBeNull();
+        awaitingRecompute.ReadinessState.ShouldBe("repairing");
+        awaitingRecompute.ReasonCode.ShouldBe("awaiting_recompute");
+        awaitingRecompute.PendingRecompute.ShouldBeTrue();
+
+        var finalRefresh = await client.GetAsync("/api/market-data/bootstrap/status");
+        finalRefresh.StatusCode.ShouldBe(HttpStatusCode.OK);
+
         var intradayReadiness = await client.GetAegisJsonAsync<IntradaySymbolReadinessView>("/api/market-data/intraday/readiness/AMD");
         intradayReadiness.ShouldNotBeNull();
         intradayReadiness.ReadinessState.ShouldBe("ready");
@@ -400,6 +432,15 @@ public sealed class MarketDataApiTests : IClassFixture<WebApplicationFactory<Pro
         var statusRefresh = await client.GetAsync("/api/market-data/bootstrap/status");
         statusRefresh.StatusCode.ShouldBe(HttpStatusCode.OK);
 
+        var awaitingRecompute = await client.GetAegisJsonAsync<IntradaySymbolReadinessView>("/api/market-data/intraday/readiness/AMD");
+        awaitingRecompute.ShouldNotBeNull();
+        awaitingRecompute.ReadinessState.ShouldBe("repairing");
+        awaitingRecompute.ReasonCode.ShouldBe(IntradayRepairState.AwaitingRecomputeReasonCode);
+        awaitingRecompute.PendingRecompute.ShouldBeTrue();
+
+        var validationRefresh = await client.GetAsync("/api/market-data/bootstrap/status");
+        validationRefresh.StatusCode.ShouldBe(HttpStatusCode.OK);
+
         var intradayReadiness = await client.GetAegisJsonAsync<IntradaySymbolReadinessView>("/api/market-data/intraday/readiness/AMD");
         intradayReadiness.ShouldNotBeNull();
         intradayReadiness.ReadinessState.ShouldBe("repairing");
@@ -450,6 +491,55 @@ public sealed class MarketDataApiTests : IClassFixture<WebApplicationFactory<Pro
         intradayReadiness.HasActiveRepair.ShouldBeTrue();
         intradayReadiness.PendingRecompute.ShouldBeFalse();
         intradayReadiness.EarliestAffectedBarUtc.ShouldBe(Instant.FromUtc(2026, 3, 12, 15, 0));
+    }
+
+    [Fact]
+    public async Task IntradayReadiness_ShouldExposeAwaitingRecompute_BeforeRestoredReadyState()
+    {
+        await ResetStateAsync(_materiallyCorrectedFactory);
+        using var client = await CreateAuthenticatedClientAsync(_materiallyCorrectedFactory);
+
+        var watchlists = await client.GetAegisJsonAsync<List<WatchlistSummaryView>>("/api/universe/watchlists");
+        watchlists.ShouldNotBeNull();
+        var execution = watchlists.Single(x => x.IsExecution);
+
+        var addSymbol = await client.PostAsJsonAsync($"/api/universe/watchlists/{execution.WatchlistId}/symbols", new AddSymbolToWatchlistRequest("AMD"));
+        addSymbol.StatusCode.ShouldBe(HttpStatusCode.Created);
+
+        var bootstrapResponse = await client.PostAsync("/api/market-data/bootstrap/run", null);
+        bootstrapResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        var correctedBarTimeUtc = Instant.FromUtc(2026, 3, 12, 15, 0);
+        await MarkIntradayBarCorrectedAsync(_materiallyCorrectedFactory, "AMD", correctedBarTimeUtc);
+
+        var statusRefresh = await client.GetAsync("/api/market-data/bootstrap/status");
+        statusRefresh.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        var intradayReadiness = await client.GetAegisJsonAsync<IntradaySymbolReadinessView>("/api/market-data/intraday/readiness/AMD");
+        intradayReadiness.ShouldNotBeNull();
+        intradayReadiness.ReadinessState.ShouldBe("repairing");
+        intradayReadiness.ReasonCode.ShouldBe("awaiting_recompute");
+        intradayReadiness.HasActiveRepair.ShouldBeTrue();
+        intradayReadiness.PendingRecompute.ShouldBeTrue();
+        intradayReadiness.EarliestAffectedBarUtc.ShouldBe(correctedBarTimeUtc);
+
+        var rollupReadiness = await client.GetAegisJsonAsync<IntradayUniverseReadinessView>("/api/market-data/intraday/readiness");
+        rollupReadiness.ShouldNotBeNull();
+        rollupReadiness.ReadinessState.ShouldBe("repairing");
+        rollupReadiness.ReasonCode.ShouldBe("awaiting_recompute");
+        rollupReadiness.ActiveRepairSymbolCount.ShouldBe(1);
+        rollupReadiness.PendingRecomputeSymbolCount.ShouldBe(1);
+        rollupReadiness.EarliestAffectedBarUtc.ShouldBe(correctedBarTimeUtc);
+
+        var finalRefresh = await client.GetAsync("/api/market-data/bootstrap/status");
+        finalRefresh.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        var restoredReadiness = await client.GetAegisJsonAsync<IntradaySymbolReadinessView>("/api/market-data/intraday/readiness/AMD");
+        restoredReadiness.ShouldNotBeNull();
+        restoredReadiness.ReadinessState.ShouldBe("ready");
+        restoredReadiness.ReasonCode.ShouldBe("none");
+        restoredReadiness.HasActiveRepair.ShouldBeFalse();
+        restoredReadiness.PendingRecompute.ShouldBeFalse();
     }
 
     private async Task<HttpClient> CreateAuthenticatedClientAsync(WebApplicationFactory<Program>? factory = null)
@@ -618,6 +708,24 @@ public sealed class MarketDataApiTests : IClassFixture<WebApplicationFactory<Pro
             {
                 bars = bars.Where(bar => bar.BarTimeUtc != request.FromUtc.Value).ToArray();
             }
+
+            return Task.FromResult(HistoricalBarBatchResult.Success(request.Symbol, request.Interval, bars, "fake", "iex"));
+        }
+    }
+
+    private sealed class MateriallyCorrectedHistoricalBarProvider : IHistoricalBarProvider
+    {
+        public Task<HistoricalBarBatchResult> GetDailyBarsAsync(HistoricalBarRequest request, CancellationToken cancellationToken) =>
+            new DailyHistoryHistoricalBarProvider().GetDailyBarsAsync(request, cancellationToken);
+
+        public Task<HistoricalBarBatchResult> GetIntradayBarsAsync(IntradayBarRequest request, CancellationToken cancellationToken)
+        {
+            var correctedBarTimeUtc = Instant.FromUtc(2026, 3, 12, 15, 0);
+            var bars = BuildIntradayBars(request.Symbol, request.Interval)
+                .Select(bar => IsRepairRequest(request) && bar.BarTimeUtc == correctedBarTimeUtc
+                    ? bar with { Close = bar.Close + 5m, High = bar.High + 5m, RuntimeState = "reconciled", IsReconciled = true }
+                    : bar)
+                .ToArray();
 
             return Task.FromResult(HistoricalBarBatchResult.Success(request.Symbol, request.Interval, bars, "fake", "iex"));
         }

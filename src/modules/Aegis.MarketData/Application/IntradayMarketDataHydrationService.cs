@@ -45,62 +45,89 @@ public sealed class IntradayMarketDataHydrationService(
         var grouped = await LoadBarsBySymbolAsync(symbols, cancellationToken);
         var previousSnapshot = runtimeStore.GetSnapshot();
         var previousSymbolSnapshots = previousSnapshot.Symbols.ToDictionary(x => x.Symbol, StringComparer.OrdinalIgnoreCase);
-        var successfulRepairs = new Dictionary<string, SnapshotComputationOverride>(StringComparer.OrdinalIgnoreCase);
+        var completedRecomputes = new Dictionary<string, SnapshotComputationOverride>(StringComparer.OrdinalIgnoreCase);
         var failedRepairs = new Dictionary<string, SnapshotComputationOverride>(StringComparer.OrdinalIgnoreCase);
         var pendingRecompute = new Dictionary<string, SnapshotComputationOverride>(StringComparer.OrdinalIgnoreCase);
-        var initialRepairs = new Dictionary<string, IntradayRepairState>(StringComparer.OrdinalIgnoreCase);
+        var deferredRepairs = new Dictionary<string, SnapshotComputationOverride>(StringComparer.OrdinalIgnoreCase);
+        var repairCandidates = new List<RepairCandidate>();
 
         foreach (var symbol in symbols)
         {
             grouped.TryGetValue(symbol, out var existingBars);
             existingBars ??= [];
-            var repairAssessment = BuildRepairAssessment(symbol, FilterToCurrentAndPriorSession(existingBars), asOfUtc);
+            previousSymbolSnapshots.TryGetValue(symbol, out var priorSymbolSnapshot);
+            var repairAssessment = BuildRepairAssessment(symbol, FilterToCurrentAndPriorSession(existingBars), asOfUtc, priorSymbolSnapshot?.ActiveRepair);
             if (repairAssessment.ActiveRepair is null)
             {
                 continue;
             }
 
-            initialRepairs[symbol] = repairAssessment.ActiveRepair;
-            var repairResult = await ExecuteRepairAsync(
-                symbol,
-                existingBars,
-                repairAssessment.ActiveRepair,
-                previousSymbolSnapshots.TryGetValue(symbol, out var priorSymbolSnapshot) ? priorSymbolSnapshot : null,
-                asOfUtc,
-                cancellationToken);
+            repairCandidates.Add(new RepairCandidate(symbol, existingBars, priorSymbolSnapshot, repairAssessment.ActiveRepair));
+        }
+
+        var scheduledSymbols = SelectRepairExecutionSymbols(repairCandidates, asOfUtc);
+        var orderedCandidates = repairCandidates
+            .OrderByDescending(candidate => scheduledSymbols.Contains(candidate.Symbol))
+            .ThenByDescending(candidate => GetRepairPriorityRank(candidate.ActiveRepair.PriorityTier))
+            .ThenBy(candidate => candidate.ActiveRepair.EarliestAffectedBarUtc)
+            .ThenBy(candidate => candidate.Symbol, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        foreach (var candidate in orderedCandidates)
+        {
+            if (!scheduledSymbols.Contains(candidate.Symbol))
+            {
+                var deferredReasonCode = candidate.ActiveRepair.CanStartAttempt(asOfUtc)
+                    ? candidate.ActiveRepair.PrimaryReasonCode
+                    : candidate.PriorSnapshot?.ReasonCode ?? candidate.ActiveRepair.PrimaryReasonCode;
+                deferredRepairs[candidate.Symbol] = new SnapshotComputationOverride(
+                    candidate.ActiveRepair,
+                    deferredReasonCode,
+                    null,
+                    null);
+                continue;
+            }
+
+            var repairResult = candidate.ActiveRepair.PendingRecompute
+                ? ExecutePendingRecompute(candidate.ExistingBars, candidate.ActiveRepair, candidate.PriorSnapshot, asOfUtc)
+                : await ExecuteRepairAsync(
+                    candidate.Symbol,
+                    candidate.ExistingBars,
+                    candidate.ActiveRepair,
+                    asOfUtc,
+                    cancellationToken);
 
             if (repairResult.RepairedBars is not null)
             {
-                grouped[symbol] = repairResult.RepairedBars;
-                successfulRepairs[symbol] = new SnapshotComputationOverride(null, null, repairResult.RecomputedFromUtc, repairResult.RecomputedIndicatorState);
-
-                if (repairResult.RecomputedFromUtc.HasValue)
+                grouped[candidate.Symbol] = repairResult.RepairedBars;
+                if (repairResult.ActiveRepair is null)
                 {
-                    pendingRecompute[symbol] = new SnapshotComputationOverride(
-                        repairAssessment.ActiveRepair with { PendingRecompute = true },
+                    completedRecomputes[candidate.Symbol] = new SnapshotComputationOverride(null, null, repairResult.RecomputedFromUtc, repairResult.RecomputedIndicatorState);
+                }
+                else if (repairResult.RecomputedFromUtc.HasValue)
+                {
+                    pendingRecompute[candidate.Symbol] = new SnapshotComputationOverride(
+                        repairResult.ActiveRepair,
                         IntradayRepairState.AwaitingRecomputeReasonCode,
                         repairResult.RecomputedFromUtc,
                         null);
                 }
             }
 
-            if (repairResult.FailureReasonCode is not null && repairResult.ActiveRepair is not null)
+            if (repairResult.RepairedBars is null && repairResult.FailureReasonCode is not null && repairResult.ActiveRepair is not null)
             {
-                failedRepairs[symbol] = new SnapshotComputationOverride(repairResult.ActiveRepair, repairResult.FailureReasonCode, null, null);
+                failedRepairs[candidate.Symbol] = new SnapshotComputationOverride(repairResult.ActiveRepair, repairResult.FailureReasonCode, null, null);
             }
         }
 
-        if (pendingRecompute.Count > 0)
-        {
-            runtimeStore.SetSnapshot(BuildUniverseSnapshot(symbols, grouped, asOfUtc, null, null, pendingRecompute));
-        }
-
-        var finalOverrides = successfulRepairs
+        var finalOverrides = completedRecomputes
+            .Concat(pendingRecompute)
+            .Concat(deferredRepairs)
             .Concat(failedRepairs)
             .ToDictionary(x => x.Key, x => x.Value, StringComparer.OrdinalIgnoreCase);
         var snapshot = BuildUniverseSnapshot(symbols, grouped, asOfUtc, overrideReadinessState, overrideReasonCode, finalOverrides);
 
-        foreach (var symbol in successfulRepairs.Keys)
+        foreach (var symbol in completedRecomputes.Keys)
         {
             var repairedSnapshot = snapshot.Symbols.First(x => string.Equals(x.Symbol, symbol, StringComparison.OrdinalIgnoreCase));
             if (ValidateRepairedSequence(repairedSnapshot.Bars, asOfUtc))
@@ -109,9 +136,9 @@ public sealed class IntradayMarketDataHydrationService(
             }
 
             finalOverrides[symbol] = new SnapshotComputationOverride(
-                initialRepairs[symbol] with { PendingRecompute = false },
+                repairCandidates.Single(candidate => string.Equals(candidate.Symbol, symbol, StringComparison.OrdinalIgnoreCase)).ActiveRepair.MarkFailed(asOfUtc),
                 IntradayRepairState.RepairValidationFailedReasonCode,
-                successfulRepairs[symbol].RecomputedFromUtc,
+                completedRecomputes[symbol].RecomputedFromUtc,
                 null);
         }
 
@@ -153,25 +180,25 @@ public sealed class IntradayMarketDataHydrationService(
         string symbol,
         IReadOnlyList<DailyBarView> existingBars,
         IntradayRepairState repairState,
-        IntradaySymbolRuntimeSnapshot? priorSymbolSnapshot,
         Instant asOfUtc,
         CancellationToken cancellationToken)
     {
-        var request = BuildRepairRequest(repairState, asOfUtc);
+        var activeAttempt = repairState.MarkAttemptStarted(asOfUtc);
+        var request = BuildRepairRequest(activeAttempt, asOfUtc);
         var batch = await historicalBarProvider.GetIntradayBarsAsync(request, cancellationToken);
         if (!batch.Succeeded)
         {
-            return IntradayRepairExecutionResult.Failed(repairState, IntradayRepairState.RepairFetchFailedReasonCode);
+            return IntradayRepairExecutionResult.Failed(activeAttempt.MarkFailed(asOfUtc), IntradayRepairState.RepairFetchFailedReasonCode);
         }
 
-        if (ShouldTreatCorrectedRepairAsNoOp(repairState, existingBars, batch))
+        if (ShouldTreatCorrectedRepairAsNoOp(activeAttempt, existingBars, batch))
         {
             await NormalizeMatchingCorrectedBarsAsync(symbol, batch, asOfUtc, cancellationToken);
             var normalizedBars = await LoadBarsForSymbolAsync(symbol, cancellationToken);
             return IntradayRepairExecutionResult.Completed(normalizedBars, null, null);
         }
 
-        var recomputeFromUtc = DetermineRecomputeStart(repairState);
+        var recomputeFromUtc = DetermineRecomputeStart(activeAttempt);
 
         try
         {
@@ -180,18 +207,35 @@ public sealed class IntradayMarketDataHydrationService(
         }
         catch
         {
-            return IntradayRepairExecutionResult.Failed(repairState with { PendingRecompute = true }, IntradayRepairState.RepairPersistenceFailedReasonCode);
+            return IntradayRepairExecutionResult.Failed(activeAttempt.MarkFailed(asOfUtc), IntradayRepairState.RepairPersistenceFailedReasonCode);
         }
 
         try
         {
             var repairedBars = await LoadBarsForSymbolAsync(symbol, cancellationToken);
+            return IntradayRepairExecutionResult.AwaitingRecompute(repairedBars, activeAttempt.MarkAwaitingRecompute(asOfUtc), recomputeFromUtc);
+        }
+        catch
+        {
+            return IntradayRepairExecutionResult.Failed(activeAttempt.MarkFailed(asOfUtc), IntradayRepairState.RepairRecomputeFailedReasonCode);
+        }
+    }
+
+    private static IntradayRepairExecutionResult ExecutePendingRecompute(
+        IReadOnlyList<DailyBarView> repairedBars,
+        IntradayRepairState repairState,
+        IntradaySymbolRuntimeSnapshot? priorSymbolSnapshot,
+        Instant asOfUtc)
+    {
+        try
+        {
+            var recomputeFromUtc = DetermineRecomputeStart(repairState);
             var recomputedIndicatorState = RecomputeIndicatorState(repairedBars, recomputeFromUtc, priorSymbolSnapshot);
             return IntradayRepairExecutionResult.Completed(repairedBars, recomputeFromUtc, recomputedIndicatorState);
         }
         catch
         {
-            return IntradayRepairExecutionResult.Failed(repairState with { PendingRecompute = false }, IntradayRepairState.RepairRecomputeFailedReasonCode);
+            return IntradayRepairExecutionResult.Failed(repairState.MarkFailed(asOfUtc), IntradayRepairState.RepairRecomputeFailedReasonCode);
         }
     }
 
@@ -395,7 +439,7 @@ public sealed class IntradayMarketDataHydrationService(
     private static IntradaySymbolRuntimeSnapshot BuildSnapshot(string symbol, IReadOnlyList<DailyBarView> allBars, Instant asOfUtc, SnapshotComputationOverride? snapshotOverride = null)
     {
         var runtimeBars = FilterToCurrentAndPriorSession(allBars);
-        var repairAssessment = BuildRepairAssessment(symbol, runtimeBars, asOfUtc);
+        var repairAssessment = BuildRepairAssessment(symbol, runtimeBars, asOfUtc, snapshotOverride?.ActiveRepair);
         var activeRepair = snapshotOverride?.ActiveRepair ?? repairAssessment.ActiveRepair;
         var indicatorState = snapshotOverride?.IndicatorState ?? BuildIndicatorState(allBars, activeRepair is not null, snapshotOverride?.RecomputedFromUtc);
         var availableBarCount = runtimeBars.Count;
@@ -492,7 +536,11 @@ public sealed class IntradayMarketDataHydrationService(
             replayState);
     }
 
-    private static IntradayRepairAssessment BuildRepairAssessment(string symbol, IReadOnlyList<DailyBarView> runtimeBars, Instant asOfUtc)
+    private static IntradayRepairAssessment BuildRepairAssessment(
+        string symbol,
+        IReadOnlyList<DailyBarView> runtimeBars,
+        Instant asOfUtc,
+        IntradayRepairState? priorActiveRepair)
     {
         var gapState = BuildGapState(runtimeBars, asOfUtc);
 
@@ -526,9 +574,14 @@ public sealed class IntradayMarketDataHydrationService(
         }
 
         // A symbol/interval/profile has at most one active repair job; repeated detections widen the earliest affected bar instead of forking duplicate work.
-        return new IntradayRepairAssessment(
-            gapState,
-            IntradayRepairState.Create(symbol, IntradayInterval, IntradayCoreProfileKey, triggers, asOfUtc));
+        var detectedRepair = IntradayRepairState.Create(symbol, IntradayInterval, IntradayCoreProfileKey, triggers, asOfUtc);
+        var activeRepair = detectedRepair is null
+            ? priorActiveRepair?.PendingRecompute == true ? priorActiveRepair : null
+            : priorActiveRepair is null
+                ? detectedRepair
+                : priorActiveRepair.MergeDetectedRepair(detectedRepair, asOfUtc);
+
+        return new IntradayRepairAssessment(gapState, activeRepair);
     }
 
     private static bool ValidateRepairedSequence(IReadOnlyList<DailyBarView> runtimeBars, Instant asOfUtc)
@@ -961,6 +1014,34 @@ public sealed class IntradayMarketDataHydrationService(
         string? ReasonCode,
         Instant? RecomputedFromUtc,
         IntradayComputedIndicatorState? IndicatorState);
+
+    private sealed record RepairCandidate(
+        string Symbol,
+        IReadOnlyList<DailyBarView> ExistingBars,
+        IntradaySymbolRuntimeSnapshot? PriorSnapshot,
+        IntradayRepairState ActiveRepair);
+
+    private static HashSet<string> SelectRepairExecutionSymbols(IReadOnlyList<RepairCandidate> candidates, Instant asOfUtc)
+    {
+        if (candidates.Count == 0)
+        {
+            return [];
+        }
+
+        var maxConcurrentJobs = candidates.Min(candidate => candidate.ActiveRepair.MaxConcurrentJobs);
+
+        return candidates
+            .Where(candidate => candidate.ActiveRepair.CanStartAttempt(asOfUtc))
+            .OrderByDescending(candidate => GetRepairPriorityRank(candidate.ActiveRepair.PriorityTier))
+            .ThenBy(candidate => candidate.ActiveRepair.EarliestAffectedBarUtc)
+            .ThenBy(candidate => candidate.Symbol, StringComparer.OrdinalIgnoreCase)
+            .Take(maxConcurrentJobs)
+            .Select(candidate => candidate.Symbol)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static int GetRepairPriorityRank(string priorityTier) =>
+        string.Equals(priorityTier, IntradayRepairState.HighPriorityTier, StringComparison.OrdinalIgnoreCase) ? 1 : 0;
 
     private static int DetermineReplayStartIndex(IReadOnlyList<DailyBarView> runtimeBars, Instant recomputeFromUtc)
     {
