@@ -22,6 +22,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\src\Aegis.Backend\Aegis.Backend.csproj" />
     <ProjectReference Include="..\..\src\modules\Aegis.MarketData\Aegis.MarketData.csproj" />
     <ProjectReference Include="..\..\src\Aegis.Shared\Aegis.Shared.csproj" />
   </ItemGroup>

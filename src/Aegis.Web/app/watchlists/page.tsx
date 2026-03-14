@@ -13,6 +13,7 @@ import { WatchlistSidebar } from "@/components/watchlists/watchlist-sidebar";
 import { removeSymbolFromWatchlist } from "@/lib/api/universe";
 import { useSession } from "@/hooks/use-session";
 import { useExecutionRemovalBlockers } from "@/hooks/use-execution-removal-blockers";
+import { useWatchlistMarketDataRealtime } from "@/hooks/use-watchlist-market-data-realtime";
 import { useWatchlistSymbols } from "@/hooks/use-watchlist-symbols";
 import { useWatchlists } from "@/hooks/use-watchlists";
 import { WatchlistSummaryView } from "@/lib/types/universe";
@@ -28,7 +29,6 @@ export default function WatchlistsPage() {
   const [renameTarget, setRenameTarget] = useState<WatchlistSummaryView | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<WatchlistSummaryView | null>(null);
   const [addSymbolOpen, setAddSymbolOpen] = useState(false);
-  const { data, isLoading: symbolsLoading, refresh: refreshSymbols } = useWatchlistSymbols(selectedWatchlistId);
   const blockerState = useExecutionRemovalBlockers();
 
   const filteredWatchlists = useMemo(() => {
@@ -42,6 +42,12 @@ export default function WatchlistsPage() {
 
   // Keep a stable fallback selection so the detail pane still has a target after list refreshes or deletes.
   const effectiveWatchlistId = selectedWatchlistId ?? filteredWatchlists[0]?.watchlistId ?? watchlists[0]?.watchlistId ?? null;
+  const { data, isLoading: symbolsLoading, refresh: refreshSymbols } = useWatchlistSymbols(effectiveWatchlistId);
+  const watchlistRealtime = useWatchlistMarketDataRealtime({
+    watchlistId: effectiveWatchlistId,
+    enabled: !!session,
+    onAuthoritativeRefresh: refreshSymbols,
+  });
 
   const selectedWatchlist = useMemo(
     () => watchlists.find((item) => item.watchlistId === effectiveWatchlistId) ?? null,
@@ -87,12 +93,12 @@ export default function WatchlistsPage() {
   }
 
   async function handleRemoveSymbol(symbolId: string, _ticker: string, isExecution: boolean) {
-    if (!selectedWatchlistId) {
+    if (!effectiveWatchlistId) {
       return;
     }
 
     try {
-      await removeSymbolFromWatchlist(selectedWatchlistId, symbolId);
+      await removeSymbolFromWatchlist(effectiveWatchlistId, symbolId);
       await handleRefreshAll();
     } catch {
       // Execution removals fail closed, so only that path needs the extra blocker lookup on error.
@@ -121,6 +127,10 @@ export default function WatchlistsPage() {
           data={filteredData}
           isLoading={isLoading || symbolsLoading}
           search={symbolSearch}
+          realtimeConnectionState={watchlistRealtime.connectionState}
+          realtimeError={watchlistRealtime.error}
+          realtimeAsOfUtc={watchlistRealtime.asOfUtc}
+          marketDataBySymbol={watchlistRealtime.marketDataBySymbol}
           onSearchChange={setSymbolSearch}
           onAddSymbol={() => setAddSymbolOpen(true)}
           onRemoveSymbol={handleRemoveSymbol}

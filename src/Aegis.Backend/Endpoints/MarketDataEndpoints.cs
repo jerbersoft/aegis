@@ -1,4 +1,5 @@
 using Aegis.MarketData.Application;
+using Aegis.Backend.MarketData;
 using Aegis.Shared.Contracts.Common;
 
 namespace Aegis.Backend.Endpoints;
@@ -12,8 +13,12 @@ public static class MarketDataEndpoints
         group.MapGet("/bootstrap/status", async (MarketDataBootstrapService service, CancellationToken cancellationToken) =>
             Results.Ok(await service.GetStatusAsync(cancellationToken)));
 
-        group.MapPost("/bootstrap/run", async (MarketDataBootstrapService service, CancellationToken cancellationToken) =>
-            Results.Ok(await service.RunWarmupAsync(cancellationToken)));
+        group.MapPost("/bootstrap/run", async (MarketDataBootstrapService service, MarketDataRealtimeNotifier notifier, CancellationToken cancellationToken) =>
+        {
+            var result = await service.RunWarmupAsync(cancellationToken);
+            await notifier.PublishMarketDataRefreshAsync(cancellationToken);
+            return Results.Ok(result);
+        });
 
         group.MapGet("/daily/readiness", async (MarketDataBootstrapService service, CancellationToken cancellationToken) =>
             Results.Ok(await service.GetDailyReadinessAsync(cancellationToken)));

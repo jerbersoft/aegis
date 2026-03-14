@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { getWatchlistSymbols } from "@/lib/api/universe";
 import { WatchlistContentsView } from "@/lib/types/universe";
 
@@ -8,6 +8,7 @@ export function useWatchlistSymbols(watchlistId: string | null) {
   const [data, setData] = useState<WatchlistContentsView | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const latestRequestId = useRef(0);
 
   const refresh = useCallback(async () => {
     if (!watchlistId) {
@@ -15,14 +16,23 @@ export function useWatchlistSymbols(watchlistId: string | null) {
       return;
     }
 
+    const requestId = latestRequestId.current + 1;
+    latestRequestId.current = requestId;
     setIsLoading(true);
     setError(null);
     try {
-      setData(await getWatchlistSymbols(watchlistId));
+      const result = await getWatchlistSymbols(watchlistId);
+      if (latestRequestId.current === requestId) {
+        setData(result);
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to load symbols.");
+      if (latestRequestId.current === requestId) {
+        setError(err instanceof Error ? err.message : "Unable to load symbols.");
+      }
     } finally {
-      setIsLoading(false);
+      if (latestRequestId.current === requestId) {
+        setIsLoading(false);
+      }
     }
   }, [watchlistId]);
 

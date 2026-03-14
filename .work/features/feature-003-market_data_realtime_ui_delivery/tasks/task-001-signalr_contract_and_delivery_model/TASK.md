@@ -6,12 +6,12 @@ Feature Folder: feature-003-market_data_realtime_ui_delivery
 Task ID: task-001
 Task Folder: task-001-signalr_contract_and_delivery_model
 Title: Define SignalR contract, topology, and delivery semantics
-Status: draft
-Current Owner: architect
-Acceptance Status: not_covered
+Status: closed
+Current Owner: orchestrator
+Acceptance Status: covered_in_acceptance
 Acceptance Document: ../ACCEPTANCE.md
 Created Date: 2026-03-13
-Last Updated: 2026-03-13
+Last Updated: 2026-03-14
 
 Allowed Acceptance Status Values: `not_covered | covered_in_acceptance | not_applicable`
 Recommended Task Status Values: `draft | in_progress | ready | blocked | closed`
@@ -44,7 +44,11 @@ Status note:
 - Use `closed` only after the task is represented in feature-level `ACCEPTANCE.md`.
 
 ## Next Action
-Planner should prepare `developer_handoff.md` for this task as the first execution unit in the feature.
+Task is covered in feature acceptance and closed.
+
+## Rework Notes
+- Reviewer requested that emitted SignalR payload field names match the documented `snake_case` contract, with verification against raw serialized output.
+- Reviewer requested that Home throttling reliably coalesce in-window changes into a later refresh hint, or that the contract/docs be narrowed to the exact intended behavior with matching verification.
 
 ## Linked Artifacts
 - `developer_handoff.md`

@@ -3,10 +3,13 @@
 import { WidgetCard } from "./widget-card";
 import { Button } from "@/components/ui/button";
 import { useMarketDataBootstrap } from "@/hooks/use-market-data-bootstrap";
+import { useMarketDataHomeRealtime } from "@/hooks/use-market-data-home-realtime";
 import { describeIntradayRepair, formatUtc } from "./market-data-widget.helpers";
+import { RealtimeStatus } from "@/components/market-data/realtime-status";
 
 export function MarketDataWidget() {
-  const { status, dailyReadiness, intradayReadiness, isLoading, isRefreshing, error, runBootstrap } = useMarketDataBootstrap();
+  const { status, dailyReadiness, intradayReadiness, isLoading, isRefreshing, error, refresh, runBootstrap } = useMarketDataBootstrap();
+  const realtime = useMarketDataHomeRealtime({ onAuthoritativeRefresh: refresh });
   // Surface degraded symbols first so the top-level rollup and the visible detail rows stay easy to reconcile.
   const readinessSymbols = dailyReadiness
     ? [...dailyReadiness.symbols].sort((left, right) => {
@@ -88,6 +91,12 @@ export function MarketDataWidget() {
             <p className="text-sm text-slate-300">{status.demandSymbols.length > 0 ? status.demandSymbols.join(", ") : "No symbols currently require daily warmup."}</p>
           </div>
 
+          <RealtimeStatus
+            connectionState={realtime.connectionState}
+            connectedLabel={realtime.lastEventUtc ? `Home refresh hints active • last event ${formatUtc(realtime.lastEventUtc) ?? realtime.lastEventUtc}` : "Home refresh hints active"}
+            fallbackLabel="Authoritative pull remains active"
+          />
+
           {intradayReadiness && intradayReadiness.totalSymbolCount > 0 ? (
             <div>
               <p className="text-xs uppercase tracking-wide text-slate-500">Intraday Readiness</p>
@@ -157,6 +166,7 @@ export function MarketDataWidget() {
         <p className="text-sm text-slate-400">MarketData status is unavailable.</p>
       )}
 
+      {realtime.error ? <p className="mt-3 text-sm text-amber-300">{realtime.error}</p> : null}
       {error ? <p className="mt-3 text-sm text-red-400">{error}</p> : null}
     </WidgetCard>
   );
