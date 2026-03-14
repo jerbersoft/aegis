@@ -71,7 +71,9 @@ builder.Services.AddDbContext<MarketDataDbContext>(options =>
 var alpacaSymbolReferenceOptions = builder.Configuration.GetSection(AlpacaSymbolReferenceOptions.SectionName).Get<AlpacaSymbolReferenceOptions>()
                                    ?? new AlpacaSymbolReferenceOptions();
 var alpacaHistoricalDataOptions = builder.Configuration.GetSection(AlpacaHistoricalDataOptions.SectionName).Get<AlpacaHistoricalDataOptions>()
-                                 ?? new AlpacaHistoricalDataOptions();
+                                  ?? new AlpacaHistoricalDataOptions();
+var alpacaRealtimeOptions = builder.Configuration.GetSection(AlpacaRealtimeOptions.SectionName).Get<AlpacaRealtimeOptions>()
+                           ?? new AlpacaRealtimeOptions();
 
 var useFakeHistoricalProvider = builder.Configuration.GetValue<bool>("Alpaca:HistoricalData:UseFakeProvider");
 
@@ -88,9 +90,25 @@ if (string.IsNullOrWhiteSpace(alpacaHistoricalDataOptions.ApiKey) || string.IsNu
     };
 }
 
+if (string.IsNullOrWhiteSpace(alpacaRealtimeOptions.ApiKey) || string.IsNullOrWhiteSpace(alpacaRealtimeOptions.ApiSecret))
+{
+    alpacaRealtimeOptions = new AlpacaRealtimeOptions
+    {
+        ApiKey = alpacaSymbolReferenceOptions.ApiKey,
+        ApiSecret = alpacaSymbolReferenceOptions.ApiSecret,
+        Environment = alpacaRealtimeOptions.Environment,
+        Feed = alpacaRealtimeOptions.Feed,
+        ConnectTimeoutSeconds = alpacaRealtimeOptions.ConnectTimeoutSeconds,
+        EventBufferCapacity = alpacaRealtimeOptions.EventBufferCapacity,
+        ReconnectInitialDelaySeconds = alpacaRealtimeOptions.ReconnectInitialDelaySeconds,
+        ReconnectMaxDelaySeconds = alpacaRealtimeOptions.ReconnectMaxDelaySeconds
+    };
+}
+
 builder.Services.AddSingleton(alpacaSymbolReferenceOptions);
 builder.Services.AddSingleton(alpacaHistoricalDataOptions);
 builder.Services.AddSingleton<IClock>(SystemClock.Instance);
+builder.Services.AddMarketDataRealtimeProviderRuntime(alpacaRealtimeOptions);
 builder.Services.AddSingleton<MarketDataBootstrapStateStore>();
 builder.Services.AddSingleton<MarketDataDailyRuntimeStore>();
 builder.Services.AddSingleton<MarketDataIntradayRuntimeStore>();
