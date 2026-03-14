@@ -5,9 +5,9 @@ Feature ID: feature-004
 Feature Folder: feature-004-alpaca_realtime_marketdata_adapter
 Title: Alpaca realtime MarketData adapter
 Priority: high
-Status: closed
+Status: in_progress
 Current Active Task: none
-Current Owner: orchestrator
+Current Owner: owner
 Main Workspace Path: /Users/herbertsabanal/Projects/aegis
 Main Workspace Branch: master
 Main Workspace Branch Verified: yes
@@ -16,8 +16,8 @@ Recorded Worktree Branch: feature-004-alpaca_realtime_marketdata_adapter
 Recorded Worktree Path: /Users/herbertsabanal/Projects/.aegis-worktrees/feature-004-alpaca_realtime_marketdata_adapter-impl-01
 PR Status: not_requested
 PR URL: none
-Environment Status: prepared
-Last Prepared At: 2026-03-14
+Environment Status: prepared_for_owner_acceptance
+Last Prepared At: 2026-03-14 acceptance-environment prepared from recorded worktree
 Created Date: 2026-03-13
 Last Updated: 2026-03-14
 
@@ -44,8 +44,7 @@ Implement the real Alpaca-backed realtime `MarketData` adapter in `src/adapters/
 - none
 
 ## Started Processes
-- none
-- none
+- PID 34437 - `dotnet run --project src/Aegis.AppHost` - worktree `/Users/herbertsabanal/Projects/.aegis-worktrees/feature-004-alpaca_realtime_marketdata_adapter-impl-01` - log `/tmp/aegis-feature004-acceptance-apphost.log`
 
 ## Task Index
 - `task-001-alpaca_sdk_contract_alignment` - Define Alpaca SDK contract mapping and adapter boundaries - closed - depends on: none
@@ -58,7 +57,7 @@ Status note:
 - Keep task index statuses aligned with each task's `TASK.md` so `planner` does not re-select already approved work.
 
 ## Next Action
-Feature acceptance is prepared in `ACCEPTANCE.md`; no further workflow action is required until owner acceptance/publication decisions.
+Owner acceptance environment is running from the recorded worktree. Aspire dashboard is reachable at `https://localhost:17032` and the login link/token is recorded in `/tmp/aegis-feature004-acceptance-apphost.log`. Await `accept this feature` or `reject this feature` so the environment can be shut down before close-flow transitions.
 
 ## Recommended Execution Sequence
 1. Complete `task-001-alpaca_sdk_contract_alignment` first so the SDK package/version choice, shared contract mapping, and adapter-boundary rules are fixed before implementation spreads across the adapter.

@@ -36,6 +36,8 @@ Operating principles:
 - Follow the acceptance guide or explicit orchestration instructions rather than inventing runtime steps.
 - Treat the owner acceptance environment as distinct from any tester-created verification runtime used earlier in the task loop.
 - Start only the minimum local processes needed for the requested environment.
+- For any process started through package-managed tooling, first ensure required worktree-local dependencies are installed using the lockfile-backed install command for that project; do not assume dependencies are already present in the recorded worktree.
+- Treat missing local dependencies as part of environment preparation, not as an acceptable partially-ready state.
 - Prefer deterministic readiness checks over assumptions.
 - Track only processes started by this invocation or explicitly provided for shutdown.
 - During shutdown, stop only the tracked processes supplied by `Orchestrator`; never stop untracked processes.
@@ -45,7 +47,7 @@ Execution workflow:
 1. Read `docs/CONSTITUTION.md`, `docs/ARCHITECTURE.md`, and `docs/PROJECT.md`.
 2. Read the active feature docs and relevant acceptance guidance from the canonical main workspace.
 3. Use the assigned recorded worktree path and requested action (`prepare`, `status`, or `shutdown`).
-4. For `prepare`, start the required local processes, verify the expected owner entry path or endpoint when requested, and capture tracked process metadata.
+4. For `prepare`, install any required worktree-local dependencies first, then start the required local processes, verify the expected owner entry path or endpoint when requested, and capture tracked process metadata.
 5. For `status`, inspect only the provided tracked processes or requested endpoints and report their current state.
 6. For `shutdown`, stop only the provided tracked processes and confirm the resulting state.
 
@@ -63,7 +65,7 @@ Response contract:
   "agent_status": "complete | partial | blocked | failed",
   "artifact": "none",
   "result": "prepared | status_reported | stopped | blocked",
-  "reason_code": "missing_dependency | environment_blocked | apphost_start_failed | endpoint_unreachable | process_start_failed | process_stop_failed | artifact_missing | null"
+    "reason_code": "missing_dependency | environment_blocked | apphost_start_failed | endpoint_unreachable | process_start_failed | process_stop_failed | artifact_missing | null"
 }
 ```
 
