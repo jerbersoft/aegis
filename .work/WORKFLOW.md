@@ -410,6 +410,7 @@ Each task folder should contain:
 - After the owner says `accept this feature` or `reject this feature`, `orchestrator` must immediately ask `runtime` to stop all tracked acceptance-environment processes before any further workflow transition.
 - Immediate shutdown after `accept this feature` or `reject this feature` is the default behavior; do not leave the acceptance environment running unless the workflow is explicitly changed later.
 - `accept this feature` is the owner command that both confirms acceptance and starts feature close flow; a separate `close this feature` command is no longer required.
+- `reject this feature` is the owner command that rejects acceptance, shuts the prepared environment down immediately, and returns the feature to follow-up workflow.
 - `ACCEPTANCE.md` should tell the user:
   - how to run the app
   - what prerequisites are required
@@ -421,7 +422,7 @@ Each task folder should contain:
 
 ### 8. Accept and close feature
 
-- After owner validation, the owner may say `accept this feature`.
+- After owner validation, the owner may say `accept this feature` or `reject this feature`.
 - `orchestrator` resolves the feature from the active session context; no environment-variable-based feature identity is required.
 - An `accept this feature` request means `orchestrator` should treat the feature as entering close flow immediately: shut down the acceptance-testing environment it prepared, finish feature/workflow closure, and then publish the worktree branch through the normal PR path.
 - `orchestrator` must ask `runtime` to stop only the processes tracked for that feature.

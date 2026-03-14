@@ -95,6 +95,7 @@ Workflow responsibilities:
 - After `acceptance_ready`, delegate acceptance-environment preparation to `runtime` using the recorded hidden worktree path and expected owner entry path.
 - When the owner says `accept this feature` or `reject this feature`, immediately delegate environment shutdown to `runtime` before any further workflow transition.
 - When the owner says `accept this feature`, resolve the active feature from session context rather than environment variables and continue into close flow after shutdown succeeds.
+- When the owner says `reject this feature`, keep the feature open and route follow-up work after shutdown succeeds.
 - During close, use the recorded hidden worktree path, recorded worktree branch, and recorded base branch rather than whatever branch happens to be checked out at close time.
 - On close, ensure tracked acceptance-environment processes are stopped via `runtime`; treat this shutdown as idempotent when the environment is already stopped.
 - Create the PR only if `gh` is available and authenticated and the recorded worktree branch can be committed and pushed successfully.
@@ -194,7 +195,7 @@ Execution workflow:
 14. After `acceptance_ready`, ask `runtime` to prepare the environment from the recorded hidden worktree path, then record `environment_status`, `last_prepared_at`, and any started processes in `feature.md` before presenting the preview of `ACCEPTANCE.md` to the owner for acceptance testing.
 15. Wait for the owner to say `accept this feature` or `reject this feature`.
 16. If the owner says `accept this feature` or `reject this feature`, immediately ask `runtime` to stop the tracked acceptance-environment processes before updating acceptance or follow-up workflow state.
-17. If the owner rejects acceptance, keep the feature open, record the rejection outcome, and route back into the task loop as needed after shutdown completes.
+17. If the owner says `reject this feature`, keep the feature open, record the rejection outcome, and route back into the task loop as needed after shutdown completes.
 18. If the owner accepts the feature, mark all covered `ready` tasks as `covered_in_acceptance`, set their acceptance document reference, then mark them as `closed`.
 19. After owner acceptance, resolve the active feature from current session context and load its recorded worktree metadata from `feature.md`.
 20. If `pr_status` is already `created` and `pr_url` is already recorded, treat close as idempotent and avoid creating a duplicate PR.
