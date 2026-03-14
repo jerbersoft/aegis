@@ -121,6 +121,18 @@ Suggested `pr_status` values:
 - `blocked`
 - `created`
 
+Example feature metadata after successful close flow:
+
+```text
+Recorded Base Branch: master
+Recorded Worktree Branch: feature-012-market_data_gap_repair-impl-01
+Recorded Worktree Path: /Users/herbertsabanal/Projects/.aegis-worktrees/feature-012-market_data_gap_repair-impl-01
+PR Status: created
+PR URL: https://github.com/example/aegis/pull/123
+Environment Status: stopped
+Last Prepared At: 2026-03-14T15:22:00Z
+```
+
 Suggested `environment_status` values:
 
 - `not_prepared`
@@ -266,8 +278,9 @@ Each task folder should contain:
 - After each completed task cycle, asks `planner` whether another task is ready.
 - Repeats until there are no more required tasks ready to implement, or the feature is blocked.
 - When no more required tasks remain, asks `acceptance` to create or update `ACCEPTANCE.md`.
-- May commit and push the recorded worktree branch when publication is part of the approved close flow.
-- May create the PR during close flow and may merge only when the owner explicitly requests merge.
+- May commit on the recorded worktree branch and push the recorded worktree branch when publication is part of the approved close flow.
+- May create the PR during close flow.
+- Must not commit directly on a base branch, push directly to a base branch, or merge a PR.
 
 ### Planner
 
@@ -430,8 +443,8 @@ Each task folder should contain:
 - The currently checked-out branch in the main workspace at close time must not be used to infer PR source or target.
 - During close flow, `orchestrator` should commit eligible unpublished feature changes in the recorded worktree when needed, push the recorded worktree branch, and create the PR against the recorded base branch without requiring a second user prompt.
 - `orchestrator` closes the feature workflow as part of this same close flow after acceptance is complete and the publish steps succeed, unless a concrete publish blocker prevents PR creation.
-- `orchestrator` may merge only when the owner explicitly requests merge.
-- `orchestrator` must not force-push and must not merge directly to the base branch outside the PR flow.
+- PR review outcome remains with the owner; `orchestrator` does not merge.
+- `orchestrator` must not force-push, must not merge a PR, and must not commit or push directly to the base branch.
 - This publication authority is specific to `orchestrator`; subagents keep their existing no-commit, no-push, no-merge boundary.
 - `orchestrator` must verify these close prerequisites before attempting PR creation:
   - active feature context exists
@@ -441,7 +454,7 @@ Each task folder should contain:
   - `gh` is installed and authenticated
   - the recorded worktree can be safely committed without including unrelated changes
 - If any prerequisite fails, `orchestrator` must record a blocked close state and report the exact reason.
-- On success, `orchestrator` commits unpublished feature changes when needed, pushes recorded worktree branch to recorded remote, creates the PR from recorded worktree branch to recorded base branch, records `pr_status` and `pr_url` in `feature.md`, and then may mark the feature `closed` when no further workflow action is required.
+- On success, `orchestrator` commits unpublished feature changes when needed on the recorded worktree branch, pushes that recorded worktree branch to the recorded remote, creates the PR from recorded worktree branch to recorded base branch, records `pr_status` and `pr_url` in `feature.md`, and then may mark the feature `closed` when no further workflow action is required.
 
 Exact accepted-close-flow command and check sequence:
 
@@ -516,8 +529,29 @@ gh pr create --repo "<repo_slug>" --head "<recorded_worktree_branch>" --base "<r
 ```
 
 17. Record the returned PR URL in `feature.md`, set `pr_status` to `created`, update environment/process metadata to show the acceptance environment is stopped, and only then mark the feature `closed` if no further workflow action remains.
-18. If the owner explicitly requests merge, verify the PR is mergeable and merge it through the PR path rather than directly to the base branch, using squash merge by default unless the owner explicitly requests another supported merge strategy.
+18. Stop after PR creation and recorded close metadata; the owner decides whether to merge or reject the PR outside the orchestration flow.
 19. If any shell command or GitHub operation fails, record `pr_status` as `blocked`, preserve the feature state for retry, and report the exact failed check or command category.
+
+PR drafting conventions:
+
+- PR title should align with the accepted feature outcome and stay concise, usually starting with `feat:`, `fix:`, `refactor:`, `docs:`, or another repository-consistent prefix when appropriate.
+- PR body should be grounded in accepted feature and task artifacts rather than ad hoc shell summaries.
+- Preferred PR body format:
+
+```text
+## Summary
+- <why this change exists>
+- <key user-visible or system-visible outcome>
+
+## Verification
+- <command and result>
+- <command and result>
+
+## Notes
+- <known limitation, follow-up, or `none`>
+```
+
+- Keep the body focused on why, outcome, and verification rather than a file-by-file changelog.
 
 ## Machine-readable agent result contracts
 

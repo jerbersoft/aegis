@@ -28,6 +28,11 @@ This index is the entry point for repository documentation.
 - `docs/STATUS.md` is the canonical source for the current implemented inventory, verification history, and immediate next steps.
 - `lib/` remains third-party reference material and is not part of the first-party implementation.
 
+## Workflow documentation
+
+- `.work/WORKFLOW.md` — canonical agent workflow, worktree execution rules, close-flow publishing behavior, and feature/task artifact expectations
+- `.work/templates/feature.md` — canonical feature record template, including required worktree and PR metadata fields
+
 ## Reading paths by goal
 
 ### Understand the project quickly

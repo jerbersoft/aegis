@@ -32,6 +32,8 @@ This constitution defines the non-negotiable standards for implementation agents
 - Production code must not carry test-environment runtime paths such as in-memory-database modes or test-mode execution branches used to avoid proper dev/test infrastructure.
 - Temporary bootstrap stubs or fakes are allowed only when they preserve the intended final architecture boundaries, are clearly temporary, and have an expected replacement path.
 - Do not commit or push unless explicitly asked by the user.
+- `Orchestrator` may commit and push only on the recorded implementation worktree branch when feature publication is part of an explicitly user-approved workflow, and may open the resulting PR against the recorded base branch.
+- No agent may commit directly on a base branch, push directly to a base branch, or merge a PR unless the policy is explicitly changed again.
 
 ## 4) Approved Technology Stack (Allowlist)
 

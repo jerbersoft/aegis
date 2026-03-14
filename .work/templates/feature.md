@@ -70,4 +70,16 @@ Workflow status notes:
 - Keep environment metadata aligned with the currently prepared worktree state and only list processes started or tracked by `orchestrator`.
 - After `ACCEPTANCE.md` is created, `orchestrator` should ask `runtime` to proactively prepare the acceptance environment from the recorded worktree, record the resulting environment/process state here, and present an owner-facing preview of the acceptance guide.
 - When the owner says `accept this feature` or `reject this feature`, `orchestrator` should immediately ask `runtime` to stop the prepared acceptance environment before updating acceptance state or routing follow-up work.
-- When the owner says `accept this feature` or equivalent, `orchestrator` should treat that as the close-flow command: stop the prepared acceptance environment if needed via `runtime`, finalize feature closure bookkeeping, and then commit/push/create the PR from the recorded worktree branch to the recorded base branch unless blocked.
+- When the owner says `accept this feature` or equivalent, `orchestrator` should treat that as the close-flow command: stop the prepared acceptance environment if needed via `runtime`, finalize feature closure bookkeeping, and then commit/push/create the PR from the recorded worktree branch to the recorded base branch unless blocked; PR merge or rejection remains with the owner.
+
+Example close-flow metadata snapshot:
+
+```text
+Recorded Base Branch: master
+Recorded Worktree Branch: feature-012-market_data_gap_repair-impl-01
+Recorded Worktree Path: /Users/herbertsabanal/Projects/.aegis-worktrees/feature-012-market_data_gap_repair-impl-01
+PR Status: created
+PR URL: https://github.com/example/aegis/pull/123
+Environment Status: stopped
+Last Prepared At: 2026-03-14T15:22:00Z
+```
