@@ -70,7 +70,7 @@ Workflow status notes:
 - Keep environment metadata aligned with the currently prepared worktree state and only list processes started or tracked by `orchestrator`.
 - After `ACCEPTANCE.md` is created, `orchestrator` should ask `runtime` to proactively prepare the acceptance environment from the recorded worktree, record the resulting environment/process state here, and present an owner-facing preview of the acceptance guide.
 - When the owner says `accept this feature` or `reject this feature`, `orchestrator` should immediately ask `runtime` to stop the prepared acceptance environment before updating acceptance state or routing follow-up work.
-- When the owner says `accept this feature` or equivalent, `orchestrator` should treat that as the close-flow command and, per `docs/CONSTITUTION.md`, as the owner command that authorizes publication: stop the prepared acceptance environment if needed via `runtime`, finalize feature closure bookkeeping, and then commit/push/create the PR from the recorded worktree branch to the recorded base branch unless blocked; PR merge or rejection remains with the owner.
+- When the owner says `accept this feature` or equivalent, `orchestrator` should treat that as the close-flow command and, per `docs/CONSTITUTION.md`, as the owner command that authorizes publication: stop the prepared acceptance environment if needed via `runtime`, finalize feature closure bookkeeping in the canonical base-branch `.work/` docs, and then commit/push/create the PR from the recorded worktree branch to the recorded base branch unless blocked. `.work/` Markdown artifacts remain base-branch-only and must not be copied into the worktree branch; PR merge or rejection remains with the owner.
 
 Example close-flow metadata snapshot:
 

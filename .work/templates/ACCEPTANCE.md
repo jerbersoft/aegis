@@ -71,3 +71,7 @@ Run these steps from the recorded implementation worktree for this feature, not 
 - Browser coverage status: {{browser_coverage_complete_or_partial}}
 - Transient-state verification support: {{transient_state_verification_note_or_none}}
 - Browser cleanup confirmation: {{browser_cleanup_confirmation_or_none}}
+
+Workflow note:
+
+- This `ACCEPTANCE.md` is canonical only in the main workspace/base branch `.work/` tree and must not be copied into implementation worktree branches.

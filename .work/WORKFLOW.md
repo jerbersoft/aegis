@@ -42,6 +42,7 @@ This repository uses `.work/` as the source of truth for internal feature tracki
 - Each implementation worktree is a full checkout of the repository, not just `src/` and `tests/`.
 - `developer`, `tester`, and `reviewer` operate in an assigned implementation worktree.
 - Worktree-local copies of `.work/` are not authoritative and must not be treated as the source of truth for workflow state.
+- Worktree-local copies of `.work/` Markdown artifacts must not be created, updated, or synchronized during execution or close flow.
 
 ### Worktree branching model
 
@@ -78,6 +79,7 @@ Examples:
 - Code, tests, runtime verification, and review inspection happen in the assigned worktree.
 - Any delegated code-editing, build, lint, test, browser-verification, or code-inspection command that targets repository contents must use the assigned worktree path rather than the main workspace path.
 - Acceptance and final summaries are written in the main workspace.
+- Task and feature Markdown artifacts stay in the main workspace only; PR publication must exclude `.work/` Markdown updates.
 - `orchestrator` must record the full hidden worktree path in feature metadata so acceptance preparation, cleanup, and PR creation operate on the correct worktree.
 - `orchestrator` must also use the recorded worktree branch and recorded base branch from `feature.md` for close-flow PR creation rather than whatever branch happens to be checked out later.
 
@@ -280,6 +282,7 @@ Each task folder should contain:
 - When no more required tasks remain, asks `acceptance` to create or update `ACCEPTANCE.md`.
 - May commit on the recorded worktree branch and push the recorded worktree branch when publication is part of the owner-authorized close flow defined by `docs/CONSTITUTION.md`.
 - May create the PR during close flow.
+- Must keep `.work/` Markdown artifacts on the main workspace/base branch only and must not mirror them into the implementation worktree branch.
 - Must not commit directly on a base branch, push directly to a base branch, or merge a PR.
 
 ### Planner
@@ -287,6 +290,7 @@ Each task folder should contain:
 - Owns task selection and sequencing within a feature.
 - Decides which task is ready based on task status, dependencies, and blockers.
 - Creates or updates task-level `developer_handoff.md`.
+- Writes `developer_handoff.md` only in the canonical main-workspace `.work/` path.
 - Updates planning metadata as needed, but does not own execution-state transitions.
 - Does not create brand-new features or brand-new tasks.
 - Does not implement code, testing, or review.
@@ -297,6 +301,7 @@ Each task folder should contain:
 - Works on one task only.
 - Implements code and unit tests.
 - Writes task-level `implementation_summary.md`.
+- Writes `implementation_summary.md` only in the canonical main-workspace `.work/` path.
 - Reads canonical workflow documents from the main workspace and executes code changes in the assigned worktree.
 - Does not write integration tests or UI-automated tests.
 - Does not call other agents or subagents.
@@ -308,6 +313,7 @@ Each task folder should contain:
 - Writes and runs Playwright tests when UI automation is needed and practical.
 - May use manual UI verification only when automation is not yet practical.
 - Writes task-level `testing_results.md`.
+- Writes `testing_results.md` only in the canonical main-workspace `.work/` path.
 - Reads canonical workflow documents from the main workspace and executes testing in the assigned worktree.
 - Before declaring browser verification blocked, performs and documents a browser-verification capability check.
 - Distinguishes browser-confirmed evidence from semantics proven only by unit, integration, or API evidence.
@@ -320,6 +326,7 @@ Each task folder should contain:
 - Reviews implementation and testing activity.
 - Confirms constitution alignment, coding standards, and testing sufficiency.
 - Writes task-level `review_results.md`.
+- Writes `review_results.md` only in the canonical main-workspace `.work/` path.
 - Reads canonical workflow documents from the main workspace and reviews code/tests in the assigned worktree.
 - Does not call other agents or subagents.
 
@@ -338,6 +345,7 @@ Each task folder should contain:
 - Produces final user-facing acceptance guidance after the task loop is complete.
 - May also produce `FEATURE_SUMMARY.md` when `orchestrator` wants a concise final delivery summary or PR-style overview.
 - Writes acceptance guidance in the main workspace while describing how the owner should validate the feature in the assigned worktree.
+- Writes `ACCEPTANCE.md` and `FEATURE_SUMMARY.md` only in the canonical main-workspace `.work/` path.
 - Does not take over implementation, testing, or review execution.
 - Does not call other agents or subagents.
 
@@ -364,6 +372,7 @@ Each task folder should contain:
 - `orchestrator` asks `planner` for the next task to work on.
 - `planner` inspects `feature.md`, task statuses, task dependencies, and blockers.
 - `planner` must treat tasks already marked `ready` or `closed` as non-selectable unless `orchestrator` has explicitly reopened them.
+- `planner` writes `developer_handoff.md` only in the canonical main-workspace `.work/` path, never in a worktree copy.
 - `planner` either:
   - selects the next ready task and prepares its `developer_handoff.md`, or
   - reports that no more tasks are ready, or
@@ -376,6 +385,7 @@ Each task folder should contain:
 - `developer` reads canonical `TASK.md` and `developer_handoff.md` from the main workspace.
 - `developer` edits code and runs developer validation in the assigned worktree.
 - `developer` implements the task and writes `implementation_summary.md`.
+- `developer` must write `implementation_summary.md` only in the canonical main-workspace `.work/` path, never in the worktree copy.
 - `developer` must not edit or validate code in the main workspace checkout.
 
 ### 4. Testing
@@ -384,6 +394,7 @@ Each task folder should contain:
 - `tester` runs integration tests, browser verification, and manual validation in the assigned worktree.
 - `tester` performs required integration testing and UI verification.
 - `tester` writes `testing_results.md`.
+- `tester` must write `testing_results.md` only in the canonical main-workspace `.work/` path, never in the worktree copy.
 - `tester` must not run verification against the main workspace checkout.
 - If browser verification appears blocked, `tester` must first document which capability check step failed: AppHost startup, endpoint reachability, browser launch, login path, page access, or other concrete limitation.
 - If full browser observation of all states is impractical, `tester` should document the verification split between browser evidence and automated/API evidence rather than collapsing all remaining work into a generic blocker.
@@ -395,6 +406,7 @@ Each task folder should contain:
 - `reviewer` inspects code and tests in the assigned worktree.
 - `reviewer` assesses code quality, constitution alignment, and testing sufficiency.
 - `reviewer` writes `review_results.md`.
+- `reviewer` must write `review_results.md` only in the canonical main-workspace `.work/` path, never in the worktree copy.
 - `reviewer` must not inspect repository code from the main workspace as the implementation target.
 - `reviewer` should distinguish between a true approval blocker and a non-blocking evidence-depth improvement when transient browser-only states lack a deterministic fixture but semantics are otherwise proven by stronger lower-level evidence.
 
@@ -414,6 +426,7 @@ Each task folder should contain:
 - When `planner` reports that no more required tasks remain, `orchestrator` asks `acceptance` to create or update feature-level `ACCEPTANCE.md`.
 - `acceptance` does not need a separate user confirmation when this work is explicitly delegated by `Orchestrator` as part of the internal workflow.
 - `ACCEPTANCE.md` should explicitly cover the tasks that are being accepted so `Orchestrator` can close them.
+- `acceptance` must write `ACCEPTANCE.md` only in the canonical main-workspace `.work/` path, never in the worktree copy.
 - Immediately after `acceptance` returns `acceptance_ready`, `orchestrator` must proactively ask `runtime` to prepare the acceptance environment from the recorded hidden worktree path before waiting for another user prompt.
 - This preparation must follow the acceptance guide itself: if `ACCEPTANCE.md` requires `Aegis.AppHost` or other local runtime processes, `runtime` should start them from the recorded worktree, verify the expected owner entry path is reachable, and leave the environment ready for owner testing unless the acceptance guide explicitly says not to keep it running.
 - `orchestrator` must then present a concise preview of `ACCEPTANCE.md` in the owner-facing update so the owner can immediately see where to test, what to test, and what outcomes to expect without manually opening the file first.
@@ -441,7 +454,7 @@ Each task folder should contain:
 - `orchestrator` must ask `runtime` to stop only the processes tracked for that feature.
 - `orchestrator` must use the recorded `recorded_worktree_path`, `recorded_worktree_branch`, and `recorded_base_branch` from `feature.md`.
 - The currently checked-out branch in the main workspace at close time must not be used to infer PR source or target.
-- During close flow, `orchestrator` should commit eligible unpublished feature changes in the recorded worktree when needed, push the recorded worktree branch, and create the PR against the recorded base branch without requiring a second user prompt.
+- During close flow, `orchestrator` should commit only eligible unpublished implementation-branch changes from the recorded worktree when needed, explicitly excluding `.work/` Markdown workflow artifacts that remain base-branch-only, then push the recorded worktree branch and create the PR against the recorded base branch without requiring a second user prompt.
 - `orchestrator` closes the feature workflow as part of this same close flow after acceptance is complete and the publish steps succeed, unless a concrete publish blocker prevents PR creation.
 - PR review outcome remains with the owner; `orchestrator` does not merge.
 - `orchestrator` must not force-push, must not merge a PR, and must not commit or push directly to the base branch.
@@ -454,7 +467,7 @@ Each task folder should contain:
   - `gh` is installed and authenticated
   - the recorded worktree can be safely committed without including unrelated changes
 - If any prerequisite fails, `orchestrator` must record a blocked close state and report the exact reason.
-- On success, `orchestrator` commits unpublished feature changes when needed on the recorded worktree branch, pushes that recorded worktree branch to the recorded remote, creates the PR from recorded worktree branch to recorded base branch, records `pr_status` and `pr_url` in `feature.md`, and then may mark the feature `closed` when no further workflow action is required.
+- On success, `orchestrator` commits unpublished implementation changes when needed on the recorded worktree branch, pushes that recorded worktree branch to the recorded remote, creates the PR from recorded worktree branch to recorded base branch, records `pr_status` and `pr_url` in canonical `feature.md` in the main workspace, and then may mark the feature `closed` when no further workflow action is required.
 
 Exact accepted-close-flow command and check sequence:
 
@@ -495,14 +508,14 @@ git -C "<recorded_worktree_path>" remote get-url origin
 git ls-remote --heads origin "<recorded_base_branch>"
 ```
 
-11. Inspect the recorded worktree for unpublished changes and confirm they are eligible for commit as feature changes rather than unrelated workspace noise:
+11. Inspect the recorded worktree for unpublished changes and confirm they are eligible for commit as implementation-branch changes rather than unrelated workspace noise. Treat `.work/` Markdown changes as ineligible because they must stay on the base branch only:
 
 ```text
 git -C "<recorded_worktree_path>" status --short
 git -C "<recorded_worktree_path>" diff --stat
 ```
 
-12. If eligible unpublished feature changes remain, stage and commit them from the recorded worktree branch using a concise message focused on why the change exists:
+12. If eligible unpublished implementation changes remain, stage and commit them from the recorded worktree branch using a concise message focused on why the change exists. Do not stage `.work/` Markdown workflow files:
 
 ```text
 git -C "<recorded_worktree_path>" add <intended-paths>
@@ -528,7 +541,7 @@ gh pr list --repo "<repo_slug>" --head "<recorded_worktree_branch>" --base "<rec
 gh pr create --repo "<repo_slug>" --head "<recorded_worktree_branch>" --base "<recorded_base_branch>" --title "<title>" --body "<body>"
 ```
 
-17. Record the returned PR URL in `feature.md`, set `pr_status` to `created`, update environment/process metadata to show the acceptance environment is stopped, and only then mark the feature `closed` if no further workflow action remains.
+17. Record the returned PR URL in canonical `feature.md` in the main workspace, set `pr_status` to `created`, update environment/process metadata to show the acceptance environment is stopped, and only then mark the feature `closed` if no further workflow action remains.
 18. Stop after PR creation and recorded close metadata; the owner decides whether to merge or reject the PR outside the orchestration flow.
 19. If any shell command or GitHub operation fails, record `pr_status` as `blocked`, preserve the feature state for retry, and report the exact failed check or command category.
 
@@ -849,6 +862,7 @@ Should capture at least:
 - Use feature folders as containers and task folders as leaf-level execution units.
 - Keep one `ACCEPTANCE.md` per feature at the feature root.
 - Keep `.work/` authoritative in the main workspace, not in worktree copies.
+- Keep all `.work/` Markdown artifacts on the main workspace/base branch only; do not mirror them into implementation worktree branches.
 - Use sibling worktrees for implementation, testing, and review execution.
 - Run the execution loop per task.
 - Let `planner` choose the next task to work on.

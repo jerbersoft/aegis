@@ -49,3 +49,7 @@ Status note:
 
 ## Notes
 {{notes}}
+
+Workflow note:
+
+- This `TASK.md` and its linked Markdown artifacts are canonical only in the main workspace/base branch `.work/` tree and must not be mirrored into implementation worktree branches.
