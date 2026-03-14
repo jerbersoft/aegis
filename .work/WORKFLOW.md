@@ -278,7 +278,7 @@ Each task folder should contain:
 - After each completed task cycle, asks `planner` whether another task is ready.
 - Repeats until there are no more required tasks ready to implement, or the feature is blocked.
 - When no more required tasks remain, asks `acceptance` to create or update `ACCEPTANCE.md`.
-- May commit on the recorded worktree branch and push the recorded worktree branch when publication is part of the approved close flow.
+- May commit on the recorded worktree branch and push the recorded worktree branch when publication is part of the owner-authorized close flow defined by `docs/CONSTITUTION.md`.
 - May create the PR during close flow.
 - Must not commit directly on a base branch, push directly to a base branch, or merge a PR.
 
@@ -437,7 +437,7 @@ Each task folder should contain:
 
 - After owner validation, the owner may say `accept this feature` or `reject this feature`.
 - `orchestrator` resolves the feature from the active session context; no environment-variable-based feature identity is required.
-- An `accept this feature` request means `orchestrator` should treat the feature as entering close flow immediately: shut down the acceptance-testing environment it prepared, finish feature/workflow closure, and then publish the worktree branch through the normal PR path.
+- An `accept this feature` request means `orchestrator` should treat the feature as entering close flow immediately and, per `docs/CONSTITUTION.md`, as the owner command that authorizes publication: shut down the acceptance-testing environment it prepared, finish feature/workflow closure, and then publish the worktree branch through the normal PR path.
 - `orchestrator` must ask `runtime` to stop only the processes tracked for that feature.
 - `orchestrator` must use the recorded `recorded_worktree_path`, `recorded_worktree_branch`, and `recorded_base_branch` from `feature.md`.
 - The currently checked-out branch in the main workspace at close time must not be used to infer PR source or target.
