@@ -68,3 +68,5 @@ Workflow status notes:
 - If `Recorded Worktree Path` is missing or matches `Main Workspace Path`, treat the feature as blocked and do not delegate implementation.
 - Keep `PR Status` and `PR URL` aligned with the real close-flow outcome when the feature enters close handling.
 - Keep environment metadata aligned with the currently prepared worktree state and only list processes started or tracked by `orchestrator`.
+- After `ACCEPTANCE.md` is created, `orchestrator` should proactively prepare the acceptance environment from the recorded worktree, record the resulting environment/process state here, and present an owner-facing preview of the acceptance guide.
+- When the owner says `close this feature` or equivalent, `orchestrator` should stop the prepared acceptance environment, finalize feature closure bookkeeping, and then commit/push/create the PR from the recorded worktree branch to the recorded base branch unless blocked.

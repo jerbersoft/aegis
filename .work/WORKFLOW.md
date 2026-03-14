@@ -401,8 +401,11 @@ Each task folder should contain:
 - When `planner` reports that no more required tasks remain, `orchestrator` asks `acceptance` to create or update feature-level `ACCEPTANCE.md`.
 - `acceptance` does not need a separate user confirmation when this work is explicitly delegated by `Orchestrator` as part of the internal workflow.
 - `ACCEPTANCE.md` should explicitly cover the tasks that are being accepted so `Orchestrator` can close them.
-- `orchestrator` prepares the environment from the recorded hidden worktree path and shows the preview of `ACCEPTANCE.md` so the owner does not need to manually navigate into the worktree directory.
+- Immediately after `acceptance` returns `acceptance_ready`, `orchestrator` must proactively prepare the acceptance environment from the recorded hidden worktree path before waiting for another user prompt.
+- This preparation must follow the acceptance guide itself: if `ACCEPTANCE.md` requires `Aegis.AppHost` or other local runtime processes, `orchestrator` should start them from the recorded worktree, verify the expected owner entry path is reachable, and leave the environment ready for owner testing unless the acceptance guide explicitly says not to keep it running.
+- `orchestrator` must then present a concise preview of `ACCEPTANCE.md` in the owner-facing update so the owner can immediately see where to test, what to test, and what outcomes to expect without manually opening the file first.
 - `orchestrator` should record the prepared environment status, preparation timestamp, and any started processes before presenting the acceptance preview.
+- The owner-facing acceptance handoff should explicitly state whether the environment is now running or stopped, which worktree path is active, which URL or entry command to use, and any cleanup expectation after testing.
 - The owner validates the accepted feature against the prepared implementation worktree state; merge or PR is not required before local acceptance testing.
 - `ACCEPTANCE.md` should tell the user:
   - how to run the app
@@ -417,10 +420,13 @@ Each task folder should contain:
 
 - After owner validation, the owner may later say `close this feature`.
 - `orchestrator` resolves the feature from the active session context; no environment-variable-based feature identity is required.
+- A `close this feature` request means `orchestrator` should treat the feature as entering close flow immediately: shut down the acceptance-testing environment it prepared, finish feature/workflow closure, and then publish the worktree branch through the normal PR path.
 - `orchestrator` must stop only the processes it started or explicitly tracked for that feature.
 - `orchestrator` must use the recorded `recorded_worktree_path`, `recorded_worktree_branch`, and `recorded_base_branch` from `feature.md`.
 - The currently checked-out branch in the main workspace at close time must not be used to infer PR source or target.
-- `orchestrator` may commit eligible changes in the recorded worktree, push the recorded worktree branch, create the PR, and merge only when the owner explicitly requests merge.
+- During close flow, `orchestrator` should commit eligible unpublished feature changes in the recorded worktree when needed, push the recorded worktree branch, and create the PR against the recorded base branch without requiring a second user prompt.
+- `orchestrator` closes the feature workflow as part of this same close flow after acceptance is complete and the publish steps succeed, unless a concrete publish blocker prevents PR creation.
+- `orchestrator` may merge only when the owner explicitly requests merge.
 - `orchestrator` must not force-push and must not merge directly to the base branch outside the PR flow.
 - This publication authority is specific to `orchestrator`; subagents keep their existing no-commit, no-push, no-merge boundary.
 - `orchestrator` must verify these close prerequisites before attempting PR creation:
@@ -444,7 +450,7 @@ Exact close-flow command and check sequence:
    - recorded worktree branch is non-empty
    - recorded base branch is non-empty
 5. Confirm the recorded worktree path exists on disk.
-6. Stop only tracked processes recorded in `started_processes`; never stop untracked processes.
+6. Stop only tracked processes recorded in `started_processes`; never stop untracked processes. This is the required first operational step of close flow so the acceptance environment is shut down before publication begins.
 7. Check GitHub CLI availability:
 
 ```text
@@ -505,7 +511,7 @@ gh pr list --repo "<repo_slug>" --head "<recorded_worktree_branch>" --base "<rec
 gh pr create --repo "<repo_slug>" --head "<recorded_worktree_branch>" --base "<recorded_base_branch>" --title "<title>" --body "<body>"
 ```
 
-17. Record the returned PR URL in `feature.md`, set `pr_status` to `created`, and only then mark the feature `closed` if no further workflow action remains.
+17. Record the returned PR URL in `feature.md`, set `pr_status` to `created`, update environment/process metadata to show the acceptance environment is stopped, and only then mark the feature `closed` if no further workflow action remains.
 18. If the owner explicitly requests merge, verify the PR is mergeable and merge it through the PR path rather than directly to the base branch, using squash merge by default unless the owner explicitly requests another supported merge strategy.
 19. If any shell command or GitHub operation fails, record `pr_status` as `blocked`, preserve the feature state for retry, and report the exact failed check or command category.
 
